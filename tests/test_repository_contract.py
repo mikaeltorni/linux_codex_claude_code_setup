@@ -85,9 +85,23 @@ def test_acc_delegates_before_installing_its_own_components() -> None:
     assert "linux_codex_claude_code_setup.git" in installer
     assert '"codex_cli|' not in components
     assert '"claude_code|' not in components
+    assert '"codex_notify_hook|' not in components
     assert "install_codex_cli()" not in qwen
     assert "install_claude_code()" not in tracker
+    assert "install_codex_notify_hook()" not in qwen
     assert "sync_programming_plugin" not in tracker
+
+
+def test_setup_owns_generated_marketplaces_and_codex_wrapper() -> None:
+    """Marketplace catalogs and the tracking wrapper belong to this installer."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
+    wrapper = (ROOT / "lib" / "codex_wrapper.sh").read_text(encoding="utf-8")
+    assert "generate_marketplaces.py" in installer
+    assert "PROGRAMMING_PROMPTS_MARKETPLACE_DIR" in installer
+    assert "install_codex_wrapper" in cli
+    assert '"\\$real_codex" "\\$@"' in wrapper
+    assert '"\\$real_codex" --yolo' not in wrapper
 
 
 def test_master_installs_standalone_repo_before_acc() -> None:
