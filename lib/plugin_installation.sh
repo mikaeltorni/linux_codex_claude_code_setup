@@ -5,6 +5,14 @@ PROMPTS_READY=0
 CODEX_MARKETPLACE_READY=0
 CLAUDE_MARKETPLACE_READY=0
 
+generate_programming_prompts_marketplace() {
+  run_as_target rm -rf "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+  run_as_target python3 "$SCRIPT_DIR/scripts/generate_marketplaces.py" \
+    --defaults "$SCRIPT_DIR/default.json" \
+    --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
+    --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+}
+
 resolve_target_binary() {
   local command_name="$1"
   run_as_target bash -c 'command -v "$1" || printf "%s" "$HOME/.local/bin/$1"' bash "$command_name"
@@ -19,6 +27,7 @@ ensure_programming_prompts() {
   fi
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" validate "$PROGRAMMING_PROMPTS_DIR"
+  generate_programming_prompts_marketplace
   PROMPTS_READY=1
 }
 
@@ -27,18 +36,21 @@ prepare_codex_marketplace() {
   local codex_bin
   codex_bin="$(resolve_target_binary codex)"
   [[ -x "$codex_bin" ]] || { msg "Codex is unavailable; skipping Codex plugin installation"; return 1; }
-  if ! run_as_target "$codex_bin" plugin marketplace list |
-       grep -q "Marketplace \`${PROGRAMMING_PROMPTS_MARKETPLACE}\`"; then
-    run_as_target "$codex_bin" plugin marketplace add "$PROGRAMMING_PROMPTS_DIR"
-  else
-    run_as_target "$codex_bin" plugin marketplace upgrade "$PROGRAMMING_PROMPTS_MARKETPLACE"
+  local registered_root
+  registered_root="$(run_as_target "$codex_bin" plugin marketplace list --json |
+    python3 -c 'import json,sys; name=sys.argv[1]; print(next((x.get("root", "") for x in json.load(sys.stdin).get("marketplaces", []) if x.get("name") == name), ""))' "$PROGRAMMING_PROMPTS_MARKETPLACE")"
+  if [[ -n "$registered_root" && "$registered_root" != "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" ]]; then
+    run_as_target "$codex_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
+  fi
+  if [[ "$registered_root" != "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" ]]; then
+    run_as_target "$codex_bin" plugin marketplace add "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
   fi
   CODEX_MARKETPLACE_READY=1
 }
 
 claude_marketplace_matches_checkout() {
   run_as_target python3 - "$TARGET_HOME/.claude/plugins/known_marketplaces.json" \
-    "$PROGRAMMING_PROMPTS_MARKETPLACE" "$PROGRAMMING_PROMPTS_DIR" <<'PY'
+    "$PROGRAMMING_PROMPTS_MARKETPLACE" "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" <<'PY'
 import json
 import pathlib
 import sys
@@ -64,7 +76,7 @@ prepare_claude_marketplace() {
        python3 -c 'import json,sys; n=sys.argv[1]; raise SystemExit(not any(x.get("name")==n for x in json.load(sys.stdin)))' "$PROGRAMMING_PROMPTS_MARKETPLACE"; then
       run_as_target "$claude_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
     fi
-    run_as_target "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_DIR"
+    run_as_target "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
   fi
   CLAUDE_MARKETPLACE_READY=1
 }
@@ -119,11 +131,12 @@ install_prompt_plugin() {
     else
       run_as_target "$claude_bin" plugin install --scope user "$selector"
     fi
-    # The local checkout permits installing uncommitted marketplace content.
-    # Restore the committed GitHub source afterward for normal auto-updates.
+    # Keep Claude pointed at the installer-owned generated marketplace. The
+    # source content remains programming_prompts; only the catalog is generated.
     run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
       --defaults "$SCRIPT_DIR/default.json" merge-claude \
-      "$TARGET_HOME/.claude/settings.json" "$plugin_name"
+      "$TARGET_HOME/.claude/settings.json" \
+      --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
   install_plugin_global_instructions "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"

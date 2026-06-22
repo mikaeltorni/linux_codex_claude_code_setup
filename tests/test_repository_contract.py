@@ -49,13 +49,12 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
 
 
 def test_programming_prompts_is_content_only() -> None:
-    """Prompt content may include marketplaces but no installation implementation."""
+    """Prompt content has per-plugin manifests but no generated marketplaces."""
     assert not (PROMPTS / "install.sh").exists()
     assert not (PROMPTS / "installer").exists()
     assert not (PROMPTS / "lib" / "plugin_installer.sh").exists()
     assert not (PROMPTS / "scripts" / "sync_plugin_marketplaces.py").exists()
-    assert (PROMPTS / ".claude-plugin" / "marketplace.json").is_file()
-    assert (PROMPTS / ".agents" / "plugins" / "marketplace.json").is_file()
+    assert not list(PROMPTS.rglob("marketplace.json"))
     assert not (PROMPTS / "skills" / "refactoring" / "SKILL.md").exists()
     assert (
         PROMPTS / "plugins" / "refactoring" / "skills" / "refactoring" / "SKILL.md"

@@ -43,6 +43,19 @@ def test_merge_claude_settings_preserves_unrelated_values(tmp_path: Path) -> Non
     assert settings.stat().st_mode & 0o777 == 0o600
 
 
+def test_merge_claude_settings_can_pin_generated_marketplace(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    marketplace = tmp_path / "generated-marketplace"
+    plugin_defaults.merge_claude_settings(
+        settings, defaults(), ["refactoring"], marketplace
+    )
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged["extraKnownMarketplaces"]["programming-prompts"]["source"] == {
+        "source": "directory",
+        "path": str(marketplace),
+    }
+
+
 def test_managed_instruction_merge_is_idempotent(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     body = tmp_path / "instructions.md"

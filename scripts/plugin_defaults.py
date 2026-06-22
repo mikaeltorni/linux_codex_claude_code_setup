@@ -58,14 +58,24 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
             raise ValueError(f"missing configured skill: {skill}")
 
 
-def merge_claude_settings(settings_path: Path, defaults: dict, enabled: list[str]) -> None:
+def merge_claude_settings(
+    settings_path: Path,
+    defaults: dict,
+    enabled: list[str],
+    marketplace_dir: Path | None = None,
+) -> None:
     if settings_path.exists():
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
     else:
         settings = {}
     marketplace = defaults["marketplace"]
+    source = (
+        {"source": "directory", "path": str(marketplace_dir)}
+        if marketplace_dir is not None
+        else {"source": "github", "repo": marketplace["repository"]}
+    )
     settings.setdefault("extraKnownMarketplaces", {})[marketplace["name"]] = {
-        "source": {"source": "github", "repo": marketplace["repository"]},
+        "source": source,
         "autoUpdate": bool(marketplace.get("auto_update", True)),
     }
     enabled_plugins = settings.setdefault("enabledPlugins", {})
@@ -142,6 +152,7 @@ def main() -> None:
     validate.add_argument("prompts_root", type=Path)
     merge = subparsers.add_parser("merge-claude")
     merge.add_argument("settings", type=Path)
+    merge.add_argument("--marketplace-dir", type=Path)
     merge.add_argument("plugins", nargs="+")
     instructions = subparsers.add_parser("merge-instructions")
     instructions.add_argument("target", type=Path)
@@ -163,7 +174,9 @@ def main() -> None:
     elif args.command == "validate":
         validate_sources(defaults, args.prompts_root)
     elif args.command == "merge-claude":
-        merge_claude_settings(args.settings, defaults, args.plugins)
+        merge_claude_settings(
+            args.settings, defaults, args.plugins, args.marketplace_dir
+        )
     elif args.command == "merge-instructions":
         merge_instructions(args.target, args.plugin_name, args.body)
     else:

@@ -1,0 +1,49 @@
+"""Behavior tests for the setup-owned Codex wrapper."""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_wrapper_forwards_yolo_exactly_once(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    raw = tmp_path / "raw-codex"
+    args_file = tmp_path / "args"
+    raw.write_text(
+        f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {args_file!s}\n",
+        encoding="utf-8",
+    )
+    raw.chmod(0o755)
+    install = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "\n".join(
+                [
+                    "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
+                    f"TARGET_HOME={str(home)!r}",
+                    "run_as_target() { \"$@\"; }",
+                    f"install_codex_wrapper {str(raw)!r}",
+                ]
+            ),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert install.returncode == 0, install.stderr
+
+    run = subprocess.run(
+        [str(home / ".local" / "bin" / "codex"), "--yolo", "hello"],
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    assert args_file.read_text(encoding="utf-8").splitlines() == ["--yolo", "hello"]

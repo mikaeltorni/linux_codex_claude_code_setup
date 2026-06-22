@@ -13,6 +13,8 @@ USER_BUS="unix:path=${RUNTIME_DIR}/bus"
 PROGRAMMING_PROMPTS_DIR="${PROGRAMMING_PROMPTS_DIR:-$TARGET_HOME/projects/programming_prompts}"
 PROGRAMMING_PROMPTS_REPOSITORY="${PROGRAMMING_PROMPTS_REPOSITORY:-mikaeltorni/programming_prompts}"
 PROGRAMMING_PROMPTS_MARKETPLACE="programming-prompts"
+PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace}"
+CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 
 for loader in \
   "$SCRIPT_DIR/../linux_installation_scripts_functions/component_loader.sh" \
@@ -24,6 +26,7 @@ declare -F isc_activate_components >/dev/null 2>&1 || \
 isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/cli_installation.sh"
+source "$SCRIPT_DIR/lib/codex_wrapper.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 

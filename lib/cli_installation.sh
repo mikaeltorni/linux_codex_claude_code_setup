@@ -6,11 +6,11 @@ install_codex_cli() {
   if ! need_cmd npm; then
     apt_install nodejs npm
   fi
-  if is_root; then
-    NPM_CONFIG_PREFIX=/usr/local npm install -g @openai/codex
-  else
-    run_as_target npm install -g --prefix "$TARGET_HOME/.local" @openai/codex
-  fi
+  run_as_target mkdir -p "$CODEX_NPM_PREFIX"
+  run_as_target npm install -g --prefix "$CODEX_NPM_PREFIX" @openai/codex
+  local raw_codex="$CODEX_NPM_PREFIX/bin/codex"
+  [[ -x "$raw_codex" ]] || { echo "Codex installation failed: $raw_codex" >&2; return 1; }
+  install_codex_wrapper "$raw_codex"
 }
 
 install_claude_code() {

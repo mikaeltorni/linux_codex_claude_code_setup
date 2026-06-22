@@ -17,8 +17,15 @@ bash install.sh --select codex_cli,claude_code,plugin-refactoring
 ```
 
 The installer is sudo-free by default. It clones `programming_prompts` when a
-sibling checkout is unavailable, preserves unrelated Claude settings, and uses
-the committed Codex and Claude marketplaces from that repository.
+sibling checkout is unavailable, preserves unrelated Claude settings, and
+generates Codex and Claude marketplace catalogs under the target user's local
+share directory. `programming_prompts` remains content-only and carries one
+Codex manifest, one Claude manifest, and one skill per plugin.
+
+This repository also owns the tracking-aware `~/.local/bin/codex` wrapper. The
+wrapper delegates to an isolated npm installation and integrates with Agent
+Command Center when its tracker is available. Permission bypass remains a `ca`
+launcher concern, so `--yolo` is forwarded exactly once.
 
 ## Tests
 
