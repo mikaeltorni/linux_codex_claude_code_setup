@@ -1,0 +1,16 @@
+{
+  "marketplace": {
+    "name": "programming-prompts",
+    "repository": "mikaeltorni/programming_prompts",
+    "checkout": "projects/programming_prompts",
+    "auto_update": true
+  },
+  "plugins": [
+    {"plugin": "commit-guidelines", "skill": "commit", "label": "Commit Guidelines", "default": true},
+    {"plugin": "general-programming-guidelines", "skill": "programming-guidelines", "label": "General Programming Guidelines", "default": true},
+    {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": true},
+    {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": true},
+    {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": true},
+    {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": true}
+  ]
+}

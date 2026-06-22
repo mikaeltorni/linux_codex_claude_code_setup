@@ -1,0 +1,84 @@
+"""Unit tests for committed defaults and non-destructive settings merges."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "plugin_defaults", ROOT / "scripts" / "plugin_defaults.py"
+)
+assert SPEC and SPEC.loader
+plugin_defaults = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(plugin_defaults)
+
+
+def defaults() -> dict:
+    return plugin_defaults.load_defaults(ROOT / "default.json")
+
+
+def test_merge_claude_settings_preserves_unrelated_values(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps({"theme": "dark", "enabledPlugins": {"other@market": False}}),
+        encoding="utf-8",
+    )
+    plugin_defaults.merge_claude_settings(
+        settings, defaults(), ["commit-guidelines", "refactoring"]
+    )
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged["theme"] == "dark"
+    assert merged["enabledPlugins"]["other@market"] is False
+    assert merged["enabledPlugins"]["commit-guidelines@programming-prompts"] is True
+    marketplace = merged["extraKnownMarketplaces"]["programming-prompts"]
+    assert marketplace["source"] == {
+        "source": "github",
+        "repo": "mikaeltorni/programming_prompts",
+    }
+    assert marketplace["autoUpdate"] is True
+    assert settings.stat().st_mode & 0o777 == 0o600
+
+
+def test_managed_instruction_merge_is_idempotent(tmp_path: Path) -> None:
+    target = tmp_path / "AGENTS.md"
+    body = tmp_path / "instructions.md"
+    target.write_text("# Existing\n", encoding="utf-8")
+    body.write_text("Use the setup skill.\n", encoding="utf-8")
+    plugin_defaults.merge_instructions(target, "setup-repository-guidelines", body)
+    plugin_defaults.merge_instructions(target, "setup-repository-guidelines", body)
+    content = target.read_text(encoding="utf-8")
+    assert content.startswith("# Existing")
+    assert content.count("programming-prompts:setup-repository-guidelines:start") == 1
+
+
+def test_cleanup_legacy_plugin_files_removes_only_matching_prompt_assets(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    skill_source = prompts / "plugins" / "refactoring" / "skills" / "refactoring"
+    skill_source.mkdir(parents=True)
+    (skill_source / "SKILL.md").write_text("# Refactoring\n", encoding="utf-8")
+
+    codex_skills = home / ".codex" / "skills"
+    codex_skills.mkdir(parents=True)
+    os.symlink(skill_source, codex_skills / "refactoring")
+    unrelated_target = tmp_path / "user-skill"
+    unrelated_target.mkdir()
+    os.symlink(unrelated_target, codex_skills / "unrelated")
+
+    claude_plugin = home / ".claude" / "skills" / "refactoring"
+    claude_plugin.mkdir(parents=True)
+    (claude_plugin / "SKILL.md").write_text("# Refactoring\n", encoding="utf-8")
+
+    plugin_defaults.cleanup_legacy_plugin_files(
+        home, prompts, "refactoring", "refactoring"
+    )
+
+    assert not (codex_skills / "refactoring").exists()
+    assert (codex_skills / "unrelated").is_symlink()
+    assert not claude_plugin.exists()
