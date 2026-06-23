@@ -34,6 +34,9 @@ def generate(defaults_path: Path, prompts_root: Path, output: Path) -> None:
     claude_plugins = []
     codex_plugins = []
     for entry in defaults["plugins"]:
+        if entry.get("kind", "plugin") != "plugin":
+            LOGGER.info("Skipping direct skill outside plugin marketplace: %s", entry["skill"])
+            continue
         name = entry["plugin"]
         plugin = (prompts_root / "plugins" / name).resolve()
         for manifest in (
