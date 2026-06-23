@@ -6,15 +6,27 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
+from logging_utils import get_logger, log_call
+
+
+LOGGER = get_logger("generate_marketplaces", "generate_marketplaces.log")
+
+
+@log_call(LOGGER)
 def write_json(path: Path, data: dict) -> None:
     """Write deterministic JSON, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+@log_call(LOGGER)
 def generate(defaults_path: Path, prompts_root: Path, output: Path) -> None:
     """Generate both product catalogs from committed defaults and plugin manifests."""
     defaults = json.loads(defaults_path.read_text(encoding="utf-8"))
@@ -29,6 +41,7 @@ def generate(defaults_path: Path, prompts_root: Path, output: Path) -> None:
             plugin / ".claude-plugin" / "plugin.json",
         ):
             if not manifest.is_file():
+                LOGGER.error("Missing plugin manifest: %s", manifest)
                 raise ValueError(f"missing plugin manifest: {manifest}")
         marketplace_plugin = output / "plugins" / name
         marketplace_plugin.parent.mkdir(parents=True, exist_ok=True)
@@ -67,9 +80,11 @@ def generate(defaults_path: Path, prompts_root: Path, output: Path) -> None:
             "plugins": codex_plugins,
         },
     )
+    LOGGER.info("Generated marketplaces for %d plugins", len(codex_plugins))
 
 
 def main() -> None:
+    """Run the marketplace generation command-line helper."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--defaults", type=Path, required=True)
     parser.add_argument("--prompts-root", type=Path, required=True)

@@ -8,13 +8,33 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from logging_utils import get_logger, log_call
 
 
 NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+LOGGER = get_logger("plugin_defaults", "plugin_defaults.log")
 
 
+@log_call(LOGGER)
 def load_defaults(path: Path) -> dict:
+    """Load and validate the committed plugin defaults.
+
+    Args:
+        path: JSON file containing marketplace metadata and plugin defaults.
+
+    Returns:
+        Parsed defaults dictionary.
+
+    Raises:
+        ValueError: If marketplace or plugin metadata is invalid.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
     marketplace = data.get("marketplace", {})
     if not NAME.fullmatch(marketplace.get("name", "")):
@@ -31,10 +51,18 @@ def load_defaults(path: Path) -> dict:
         if not isinstance(entry.get("default"), bool):
             raise ValueError(f"default must be Boolean for plugin {plugin!r}")
         seen.add(plugin)
+    LOGGER.info("Loaded %d plugin defaults", len(seen))
     return data
 
 
+@log_call(LOGGER)
 def atomic_json(path: Path, data: dict) -> None:
+    """Atomically write private JSON settings.
+
+    Args:
+        path: Destination JSON file.
+        data: JSON-serializable dictionary to write.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -42,7 +70,17 @@ def atomic_json(path: Path, data: dict) -> None:
     temporary.replace(path)
 
 
+@log_call(LOGGER)
 def validate_sources(defaults: dict, prompts_root: Path) -> None:
+    """Validate that defaults match the programming_prompts checkout.
+
+    Args:
+        defaults: Parsed committed defaults.
+        prompts_root: Root of the programming_prompts checkout.
+
+    Raises:
+        ValueError: If defaults and discovered plugins drift.
+    """
     configured = {entry["plugin"] for entry in defaults["plugins"]}
     discovered = {
         path.parent.parent.name
@@ -56,14 +94,24 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
         skill = prompts_root / "plugins" / entry["plugin"] / "skills" / entry["skill"] / "SKILL.md"
         if not skill.is_file():
             raise ValueError(f"missing configured skill: {skill}")
+    LOGGER.info("Validated %d programming prompt plugins", len(configured))
 
 
+@log_call(LOGGER)
 def merge_claude_settings(
     settings_path: Path,
     defaults: dict,
     enabled: list[str],
     marketplace_dir: Path | None = None,
 ) -> None:
+    """Merge Claude marketplace and plugin defaults into user settings.
+
+    Args:
+        settings_path: Claude settings JSON path.
+        defaults: Parsed committed defaults.
+        enabled: Plugin names to enable.
+        marketplace_dir: Optional generated local marketplace directory.
+    """
     if settings_path.exists():
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
     else:
@@ -82,9 +130,18 @@ def merge_claude_settings(
     for plugin in enabled:
         enabled_plugins[f"{plugin}@{marketplace['name']}"] = True
     atomic_json(settings_path, settings)
+    LOGGER.info("Merged Claude settings for %d plugins", len(enabled))
 
 
+@log_call(LOGGER)
 def merge_instructions(target: Path, plugin_name: str, body_path: Path) -> None:
+    """Insert or replace a managed global-instructions block.
+
+    Args:
+        target: AGENTS.md or CLAUDE.md file to update.
+        plugin_name: Plugin identifier used in block markers.
+        body_path: Markdown body to place between the markers.
+    """
     start = f"<!-- programming-prompts:{plugin_name}:start -->"
     end = f"<!-- programming-prompts:{plugin_name}:end -->"
     body = body_path.read_text(encoding="utf-8").strip()
@@ -98,8 +155,10 @@ def merge_instructions(target: Path, plugin_name: str, body_path: Path) -> None:
         updated = f"{current.rstrip()}\n\n{block}\n" if current.strip() else f"{block}\n"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(updated, encoding="utf-8")
+    LOGGER.info("Merged managed instructions for %s into %s", plugin_name, target)
 
 
+@log_call(LOGGER)
 def cleanup_legacy_plugin_files(
     home: Path,
     prompts_root: Path,
@@ -131,6 +190,7 @@ def cleanup_legacy_plugin_files(
             continue
         target = (path.parent / os.readlink(path)).resolve()
         if target.is_relative_to(prompts_resolved):
+            LOGGER.info("Removing legacy Codex skill link %s", path)
             path.unlink()
 
     claude_copy = home / ".claude" / "skills" / plugin_name
@@ -153,10 +213,12 @@ def cleanup_legacy_plugin_files(
         and direct_skill.read_bytes() == source_skill.joinpath("SKILL.md").read_bytes()
     )
     if copied_plugin or copied_single_skill:
+        LOGGER.info("Removing legacy Claude plugin copy %s", claude_copy)
         shutil.rmtree(claude_copy)
 
 
 def main() -> None:
+    """Run the plugin-defaults command-line helper."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--defaults", type=Path, default=Path("default.json"))
     subparsers = parser.add_subparsers(dest="command", required=True)

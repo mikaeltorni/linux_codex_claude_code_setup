@@ -29,6 +29,7 @@ declare -F isc_activate_components >/dev/null 2>&1 || \
   source <(curl -fsSL "https://raw.githubusercontent.com/mikaeltorni/linux_installation_scripts_functions/master/component_loader.sh")
 isc_load_helpers
 isc_activate_components
+source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
 source "$SCRIPT_DIR/lib/codex_wrapper.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
@@ -39,12 +40,7 @@ agent_cli_preflight() {
 }
 
 run_installer() {
-  local timestamp log_dir log_file
-  timestamp="$(date +%Y%m%d-%H%M%S)"
-  log_dir="$SCRIPT_DIR/.log"
-  mkdir -p "$log_dir"
-  log_file="$log_dir/linux_codex_claude_code_setup-$timestamp.log"
-  component_main "$@" 2>&1 | tee "$log_file"
+  run_with_installer_log component_main "$@"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
