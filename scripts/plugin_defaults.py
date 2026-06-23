@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate plugin defaults and merge product settings without losing user data."""
+"""Validate prompt defaults and merge product settings without losing user data."""
 
 from __future__ import annotations
 
@@ -50,6 +50,8 @@ def load_defaults(path: Path) -> dict:
             raise ValueError(f"invalid skill name for plugin {plugin!r}")
         if not isinstance(entry.get("default"), bool):
             raise ValueError(f"default must be Boolean for plugin {plugin!r}")
+        if entry.get("kind", "plugin") not in {"plugin", "skill"}:
+            raise ValueError(f"invalid prompt kind for {plugin!r}")
         seen.add(plugin)
     LOGGER.info("Loaded %d plugin defaults", len(seen))
     return data
@@ -81,7 +83,9 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
     Raises:
         ValueError: If defaults and discovered plugins drift.
     """
-    configured = {entry["plugin"] for entry in defaults["plugins"]}
+    plugin_entries = [entry for entry in defaults["plugins"] if entry.get("kind", "plugin") == "plugin"]
+    skill_entries = [entry for entry in defaults["plugins"] if entry.get("kind") == "skill"]
+    configured = {entry["plugin"] for entry in plugin_entries}
     discovered = {
         path.parent.parent.name
         for path in prompts_root.glob("plugins/*/.codex-plugin/plugin.json")
@@ -90,11 +94,19 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
         missing = sorted(discovered - configured)
         stale = sorted(configured - discovered)
         raise ValueError(f"default/plugin mismatch; missing={missing}, stale={stale}")
-    for entry in defaults["plugins"]:
+    for entry in plugin_entries:
         skill = prompts_root / "plugins" / entry["plugin"] / "skills" / entry["skill"] / "SKILL.md"
         if not skill.is_file():
             raise ValueError(f"missing configured skill: {skill}")
-    LOGGER.info("Validated %d programming prompt plugins", len(configured))
+    for entry in skill_entries:
+        skill = prompts_root / "skills" / entry["skill"] / "SKILL.md"
+        if not skill.is_file():
+            raise ValueError(f"missing configured direct skill: {skill}")
+    LOGGER.info(
+        "Validated %d programming prompt plugins and %d direct skills",
+        len(configured),
+        len(skill_entries),
+    )
 
 
 @log_call(LOGGER)
@@ -134,16 +146,16 @@ def merge_claude_settings(
 
 
 @log_call(LOGGER)
-def merge_instructions(target: Path, plugin_name: str, body_path: Path) -> None:
+def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     """Insert or replace a managed global-instructions block.
 
     Args:
         target: AGENTS.md or CLAUDE.md file to update.
-        plugin_name: Plugin identifier used in block markers.
+        prompt_name: Prompt identifier used in block markers.
         body_path: Markdown body to place between the markers.
     """
-    start = f"<!-- programming-prompts:{plugin_name}:start -->"
-    end = f"<!-- programming-prompts:{plugin_name}:end -->"
+    start = f"<!-- programming-prompts:{prompt_name}:start -->"
+    end = f"<!-- programming-prompts:{prompt_name}:end -->"
     body = body_path.read_text(encoding="utf-8").strip()
     block = f"{start}\n{body}\n{end}"
     current = target.read_text(encoding="utf-8") if target.exists() else ""
@@ -155,7 +167,7 @@ def merge_instructions(target: Path, plugin_name: str, body_path: Path) -> None:
         updated = f"{current.rstrip()}\n\n{block}\n" if current.strip() else f"{block}\n"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(updated, encoding="utf-8")
-    LOGGER.info("Merged managed instructions for %s into %s", plugin_name, target)
+    LOGGER.info("Merged managed instructions for %s into %s", prompt_name, target)
 
 
 @log_call(LOGGER)
@@ -217,6 +229,52 @@ def cleanup_legacy_plugin_files(
         shutil.rmtree(claude_copy)
 
 
+@log_call(LOGGER)
+def install_direct_skill(
+    home: Path,
+    prompts_root: Path,
+    prompt_name: str,
+    skill_name: str,
+    codex_home: Path | None = None,
+) -> None:
+    """Install a prompt as a direct skill without plugin marketplace metadata.
+
+    Args:
+        home: Target user's home directory.
+        prompts_root: Root of the programming_prompts checkout.
+        prompt_name: Prompt identifier from defaults.
+        skill_name: Skill directory name to install.
+        codex_home: Codex config directory to update. Defaults to ``home/.codex``.
+    """
+    if codex_home is None:
+        codex_home = home / ".codex"
+    source_skill = prompts_root / "skills" / skill_name
+    if not source_skill.joinpath("SKILL.md").is_file():
+        raise ValueError(f"missing direct skill source: {source_skill}")
+
+    codex_skills = codex_home / "skills"
+    codex_skills.mkdir(parents=True, exist_ok=True)
+    codex_link = codex_skills / skill_name
+    if codex_link.is_symlink() or codex_link.exists():
+        if codex_link.is_symlink() and (codex_link.parent / os.readlink(codex_link)).resolve() == source_skill.resolve():
+            pass
+        elif codex_link.is_dir() and not codex_link.is_symlink():
+            shutil.rmtree(codex_link)
+        else:
+            codex_link.unlink()
+    if not codex_link.exists():
+        os.symlink(source_skill, codex_link, target_is_directory=True)
+
+    claude_skill = home / ".claude" / "skills" / skill_name
+    if claude_skill.is_symlink() or claude_skill.exists():
+        if claude_skill.is_dir() and not claude_skill.is_symlink():
+            shutil.rmtree(claude_skill)
+        else:
+            claude_skill.unlink()
+    shutil.copytree(source_skill, claude_skill)
+    LOGGER.info("Installed direct skill %s from prompt %s", skill_name, prompt_name)
+
+
 def main() -> None:
     """Run the plugin-defaults command-line helper."""
     parser = argparse.ArgumentParser()
@@ -239,13 +297,19 @@ def main() -> None:
     cleanup.add_argument("plugin_name")
     cleanup.add_argument("skill_name")
     cleanup.add_argument("--codex-home", type=Path, default=None)
+    direct_skill = subparsers.add_parser("install-direct-skill")
+    direct_skill.add_argument("home", type=Path)
+    direct_skill.add_argument("prompts_root", type=Path)
+    direct_skill.add_argument("plugin_name")
+    direct_skill.add_argument("skill_name")
+    direct_skill.add_argument("--codex-home", type=Path, default=None)
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
         for entry in defaults["plugins"]:
             state = "on" if entry["default"] else "off"
             print(
-                f"{entry['plugin']}\t{entry['skill']}\t{entry['label']}\t{state}"
+                f"{entry['plugin']}\t{entry['skill']}\t{entry['label']}\t{state}\t{entry.get('kind', 'plugin')}"
             )
     elif args.command == "validate":
         validate_sources(defaults, args.prompts_root)
@@ -255,8 +319,16 @@ def main() -> None:
         )
     elif args.command == "merge-instructions":
         merge_instructions(args.target, args.plugin_name, args.body)
-    else:
+    elif args.command == "cleanup-legacy":
         cleanup_legacy_plugin_files(
+            args.home,
+            args.prompts_root,
+            args.plugin_name,
+            args.skill_name,
+            args.codex_home,
+        )
+    else:
+        install_direct_skill(
             args.home,
             args.prompts_root,
             args.plugin_name,
