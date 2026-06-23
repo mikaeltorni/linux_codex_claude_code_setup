@@ -1,5 +1,7 @@
 # Linux Codex and Claude Code Setup
 
+> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code** and **Codex** CLIs plus their marketplace plugins for a productivity-focused desktop. Tested on Ubuntu 24.04.4 LTS; the CLI tooling is largely OS-portable (Windows/macOS install paths untested).
+
 Installs the Codex and Claude Code CLIs and registers every configured
 `programming_prompts` skill as an independently selectable plugin.
 
