@@ -92,8 +92,8 @@ prepare_claude_marketplace() {
 }
 
 install_plugin_global_instructions() {
-  local plugin_name="$1" plugin_dir="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
-  local instructions="$plugin_dir/install/global-instructions.md"
+  local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
+  [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
   [[ -f "$instructions" ]] || return 0
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
@@ -101,6 +101,19 @@ install_plugin_global_instructions() {
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"
+}
+
+remove_marketplace_plugin_installations() {
+  local plugin_name="$1" codex_bin selector codex_home
+  codex_bin="$(resolve_target_binary codex)"
+  selector="$plugin_name@$PROGRAMMING_PROMPTS_MARKETPLACE"
+  for codex_home in $(target_codex_homes); do
+    if [[ -x "$codex_bin" ]] &&
+       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin list --json |
+         python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("pluginId")==s for x in json.load(sys.stdin).get("installed", [])))' "$selector"; then
+      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
+    fi
+  done
 }
 
 remove_legacy_plugin_installations() {
@@ -155,4 +168,18 @@ install_prompt_plugin() {
   fi
   install_plugin_global_instructions "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
+}
+
+install_prompt_skill() {
+  local plugin_name="$1" skill_name="$2" codex_home
+  ensure_programming_prompts
+  remove_marketplace_plugin_installations "$plugin_name"
+  remove_legacy_plugin_installations "$plugin_name" "$skill_name"
+  for codex_home in $(target_codex_homes); do
+    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+      --defaults "$SCRIPT_DIR/default.json" install-direct-skill \
+      "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
+      --codex-home "$codex_home"
+  done
+  install_plugin_global_instructions "$plugin_name"
 }
