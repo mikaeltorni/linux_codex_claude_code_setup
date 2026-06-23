@@ -15,6 +15,17 @@ register_plugin_component() {
   ISC_COMPONENTS+=("plugin-$plugin|$label|$state|$function_name")
 }
 
-while IFS=$'\t' read -r plugin skill label state; do
-  [[ -n "$plugin" ]] && register_plugin_component "$plugin" "$skill" "$label" "$state"
+register_skill_component() {
+  local plugin="$1" skill="$2" label="$3" state="$4" function_name="install_skill_${2//-/_}"
+  eval "$function_name() { install_prompt_skill '$plugin' '$skill'; }"
+  ISC_COMPONENTS+=("skill-$skill|$label|$state|$function_name")
+}
+
+while IFS=$'\t' read -r plugin skill label state kind; do
+  [[ -z "$plugin" ]] && continue
+  if [[ "$kind" == "skill" ]]; then
+    register_skill_component "$plugin" "$skill" "$label" "$state"
+  else
+    register_plugin_component "$plugin" "$skill" "$label" "$state"
+  fi
 done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list)
