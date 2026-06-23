@@ -22,6 +22,11 @@ def test_generated_catalogs_cover_defaults_with_local_plugin_sources(tmp_path: P
     prompts = tmp_path / "programming_prompts"
     defaults = json.loads((ROOT / "default.json").read_text(encoding="utf-8"))
     for entry in defaults["plugins"]:
+        if entry.get("kind") == "skill":
+            skill = prompts / "skills" / entry["skill"]
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
+            continue
         plugin = prompts / "plugins" / entry["plugin"]
         (plugin / ".codex-plugin").mkdir(parents=True)
         (plugin / ".claude-plugin").mkdir(parents=True)
@@ -34,7 +39,11 @@ def test_generated_catalogs_cover_defaults_with_local_plugin_sources(tmp_path: P
 
     claude = json.loads((output / ".claude-plugin" / "marketplace.json").read_text())
     codex = json.loads((output / ".agents" / "plugins" / "marketplace.json").read_text())
-    expected = {entry["plugin"] for entry in defaults["plugins"]}
+    expected = {
+        entry["plugin"]
+        for entry in defaults["plugins"]
+        if entry.get("kind", "plugin") == "plugin"
+    }
     assert {entry["name"] for entry in claude["plugins"]} == expected
     assert {entry["name"] for entry in codex["plugins"]} == expected
     assert all(entry["source"].startswith("./plugins/") for entry in claude["plugins"])
