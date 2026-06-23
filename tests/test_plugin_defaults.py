@@ -95,3 +95,33 @@ def test_cleanup_legacy_plugin_files_removes_only_matching_prompt_assets(
     assert not (codex_skills / "refactoring").exists()
     assert (codex_skills / "unrelated").is_symlink()
     assert not claude_plugin.exists()
+
+
+def test_cleanup_legacy_honors_alternate_codex_home_and_broken_links(
+    tmp_path: Path,
+) -> None:
+    """Legacy links in .codex-api/.codex-qwen, including stale ones, are removed."""
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    skill_source = prompts / "plugins" / "refactoring" / "skills" / "refactoring"
+    skill_source.mkdir(parents=True)
+    (skill_source / "SKILL.md").write_text("# Refactoring\n", encoding="utf-8")
+
+    qwen_skills = home / ".codex-qwen" / "skills"
+    qwen_skills.mkdir(parents=True)
+    # A stale link pointing at the old pre-plugin path that no longer exists.
+    os.symlink(prompts / "skills" / "refactoring", qwen_skills / "refactoring")
+    assert qwen_skills.joinpath("refactoring").is_symlink()
+    assert not qwen_skills.joinpath("refactoring").exists()  # broken target
+
+    plugin_defaults.cleanup_legacy_plugin_files(
+        home,
+        prompts,
+        "refactoring",
+        "refactoring",
+        codex_home=home / ".codex-qwen",
+    )
+
+    assert not qwen_skills.joinpath("refactoring").is_symlink()
+    # The default .codex home must be untouched when an alternate home is given.
+    assert not (home / ".codex").exists()

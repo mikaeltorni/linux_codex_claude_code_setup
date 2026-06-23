@@ -105,15 +105,28 @@ def cleanup_legacy_plugin_files(
     prompts_root: Path,
     plugin_name: str,
     skill_name: str,
+    codex_home: Path | None = None,
 ) -> None:
-    """Remove only old skill links/copies that match programming_prompts."""
+    """Remove only old skill links/copies that match programming_prompts.
+
+    Args:
+        home: Target user's home directory.
+        prompts_root: Root of the programming_prompts checkout.
+        plugin_name: Plugin identifier to clean.
+        skill_name: Skill directory name owned by the plugin.
+        codex_home: Codex config directory whose ``skills/`` holds legacy links.
+            Defaults to ``home/.codex``; pass alternate homes (``.codex-api``,
+            ``.codex-qwen``) to clean every instance the plugins now reach.
+    """
+    if codex_home is None:
+        codex_home = home / ".codex"
     source_skill = prompts_root / "plugins" / plugin_name / "skills" / skill_name
     link_names = [skill_name]
     if skill_name == "programming-guidelines":
         link_names.append("programming_guidelines")
     prompts_resolved = prompts_root.resolve()
     for name in link_names:
-        path = home / ".codex" / "skills" / name
+        path = codex_home / "skills" / name
         if not path.is_symlink():
             continue
         target = (path.parent / os.readlink(path)).resolve()
@@ -163,6 +176,7 @@ def main() -> None:
     cleanup.add_argument("prompts_root", type=Path)
     cleanup.add_argument("plugin_name")
     cleanup.add_argument("skill_name")
+    cleanup.add_argument("--codex-home", type=Path, default=None)
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
@@ -181,7 +195,11 @@ def main() -> None:
         merge_instructions(args.target, args.plugin_name, args.body)
     else:
         cleanup_legacy_plugin_files(
-            args.home, args.prompts_root, args.plugin_name, args.skill_name
+            args.home,
+            args.prompts_root,
+            args.plugin_name,
+            args.skill_name,
+            args.codex_home,
         )
 
 

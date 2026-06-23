@@ -104,6 +104,18 @@ def test_setup_owns_generated_marketplaces_and_codex_wrapper() -> None:
     assert '"\\$real_codex" --yolo' not in wrapper
 
 
+def test_plugins_install_into_every_configured_codex_home() -> None:
+    """The plugin install iterates CODEX_HOMES so every Codex instance is covered."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    main = (ROOT / "install.sh").read_text(encoding="utf-8")
+    assert "target_codex_homes" in installer
+    assert 'env CODEX_HOME="$codex_home"' in installer
+    assert "CODEX_HOMES" in main
+    entrypoint = ROOT / "scripts" / "install_programming_plugins.sh"
+    assert entrypoint.is_file()
+    assert "install_prompt_plugin" in entrypoint.read_text(encoding="utf-8")
+
+
 def test_master_installs_standalone_repo_before_acc() -> None:
     """Clean setup should clone and run the standalone repository before ACC."""
     name = "linux_codex_claude_code_setup"

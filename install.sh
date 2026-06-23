@@ -14,6 +14,10 @@ PROGRAMMING_PROMPTS_DIR="${PROGRAMMING_PROMPTS_DIR:-$TARGET_HOME/projects/progra
 PROGRAMMING_PROMPTS_REPOSITORY="${PROGRAMMING_PROMPTS_REPOSITORY:-mikaeltorni/programming_prompts}"
 PROGRAMMING_PROMPTS_MARKETPLACE="programming-prompts"
 PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace}"
+# Space-separated list of Codex config homes that receive the programming_prompts
+# plugins. Defaults to the single default home. agent_command_center exports the
+# full set (.codex .codex-api .codex-qwen) so every Codex instance gets them.
+CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 
 for loader in \
