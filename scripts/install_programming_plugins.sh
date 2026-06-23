@@ -35,14 +35,19 @@ declare -F isc_load_helpers >/dev/null 2>&1 || \
 isc_load_helpers
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 
-# Install every committed default plugin into the configured Codex homes/Claude.
+# Install every committed default prompt into the configured Codex homes/Claude.
 install_all_programming_plugins() {
   ensure_programming_prompts
-  while IFS=$'\t' read -r plugin skill _label _state; do
+  while IFS=$'\t' read -r plugin skill _label _state kind; do
     [[ -z "$plugin" ]] && continue
-    # Best-effort per plugin: one failure must not abort the rest.
-    install_prompt_plugin "$plugin" "$skill" || \
-      msg "Plugin $plugin installation reported an error (continuing)"
+    # Best-effort per prompt: one failure must not abort the rest.
+    if [[ "$kind" == "skill" ]]; then
+      install_prompt_skill "$plugin" "$skill" || \
+        msg "Skill $skill installation reported an error (continuing)"
+    else
+      install_prompt_plugin "$plugin" "$skill" || \
+        msg "Plugin $plugin installation reported an error (continuing)"
+    fi
   done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" list)
 }
