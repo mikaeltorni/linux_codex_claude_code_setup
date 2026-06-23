@@ -25,6 +25,13 @@ def plugin_names() -> set[str]:
     }
 
 
+def direct_skill_names() -> set[str]:
+    return {
+        path.parent.name
+        for path in PROMPTS.glob("skills/*/SKILL.md")
+    }
+
+
 def manifest_array(name: str) -> list[str]:
     result = run(
         "bash",
@@ -37,14 +44,21 @@ def manifest_array(name: str) -> list[str]:
 
 
 def test_committed_defaults_cover_every_prompt_plugin() -> None:
-    """default.json should point at programming_prompts and list every plugin."""
+    """default.json should point at programming_prompts and list every prompt."""
     defaults_path = ROOT / "default.json"
     assert defaults_path.is_file()
     assert "default.json" not in (ROOT / ".gitignore").read_text(encoding="utf-8")
     defaults = json.loads(defaults_path.read_text(encoding="utf-8"))
     assert defaults["marketplace"]["repository"] == "mikaeltorni/programming_prompts"
-    configured = {entry["plugin"] for entry in defaults["plugins"]}
-    assert configured == plugin_names()
+    plugin_defaults = {
+        entry["plugin"] for entry in defaults["plugins"] if entry.get("kind") == "plugin"
+    }
+    skill_defaults = {
+        entry["skill"] for entry in defaults["plugins"] if entry.get("kind") == "skill"
+    }
+    assert plugin_defaults == plugin_names()
+    assert skill_defaults == direct_skill_names()
+    assert skill_defaults == {"commit", "setup-repository-guidelines"}
     assert all(entry["default"] is True and entry["skill"] for entry in defaults["plugins"])
 
 
@@ -55,7 +69,8 @@ def test_programming_prompts_is_content_only() -> None:
     assert not (PROMPTS / "lib" / "plugin_installer.sh").exists()
     assert not (PROMPTS / "scripts" / "sync_plugin_marketplaces.py").exists()
     assert not list(PROMPTS.rglob("marketplace.json"))
-    assert not (PROMPTS / "skills" / "refactoring" / "SKILL.md").exists()
+    assert (PROMPTS / "skills" / "commit" / "SKILL.md").is_file()
+    assert (PROMPTS / "skills" / "setup-repository-guidelines" / "SKILL.md").is_file()
     assert (
         PROMPTS / "plugins" / "refactoring" / "skills" / "refactoring" / "SKILL.md"
     ).is_file()
@@ -68,6 +83,7 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     ids = {line.split("\t", 1)[0] for line in result.stdout.splitlines()}
     assert {"codex_cli", "claude_code"} <= ids
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
+    assert {"skill-commit", "skill-setup-repository-guidelines"} <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
         encoding="utf-8"
     )
@@ -136,6 +152,7 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     entrypoint = ROOT / "scripts" / "install_programming_plugins.sh"
     assert entrypoint.is_file()
     assert "install_prompt_plugin" in entrypoint.read_text(encoding="utf-8")
+    assert "install_prompt_skill" in entrypoint.read_text(encoding="utf-8")
 
 
 def test_master_installs_standalone_repo_before_acc() -> None:
