@@ -24,7 +24,9 @@ install_claude_code() {
     claude_bin="$(command -v claude || true)"
     [[ -x "$claude_bin" ]] || claude_bin="$HOME/.local/bin/claude"
     [[ -x "$claude_bin" ]] || { echo "Claude Code installation failed" >&2; exit 1; }
-    "$claude_bin" install latest || true
-    "$claude_bin" update || true
+    "$claude_bin" install latest ||
+      printf "%s\n" "Claude Code install latest failed; continuing with the installed binary" >&2
+    "$claude_bin" update ||
+      printf "%s\n" "Claude Code update failed; continuing with the installed binary" >&2
   '
 }

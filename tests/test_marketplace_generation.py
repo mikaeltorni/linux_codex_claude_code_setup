@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location(
     "generate_marketplaces", ROOT / "scripts" / "generate_marketplaces.py"
 )
@@ -41,3 +43,7 @@ def test_generated_catalogs_cover_defaults_with_local_plugin_sources(tmp_path: P
         link = output / "plugins" / name
         assert link.is_symlink()
         assert link.resolve() == (prompts / "plugins" / name).resolve()
+
+    log_path = ROOT / ".log" / "generate_marketplaces.log"
+    assert log_path.is_file()
+    assert "Generated marketplaces for" in log_path.read_text(encoding="utf-8")

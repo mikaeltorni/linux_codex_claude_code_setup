@@ -74,6 +74,28 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert "plugin uninstall" not in plugin_installer
 
 
+def test_installer_logging_contract_is_explicit() -> None:
+    """Installer runs should log to .log without making listing commands noisy."""
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
+    cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
+    shell_logging = (ROOT / "lib" / "logging.sh").read_text(encoding="utf-8")
+    python_logging = (ROOT / "scripts" / "logging_utils.py").read_text(
+        encoding="utf-8"
+    )
+    assert ".log/" in gitignore
+    assert 'source "$SCRIPT_DIR/lib/logging.sh"' in installer
+    assert "run_with_installer_log component_main" in installer
+    assert 'log_dir="$SCRIPT_DIR/.log"' in shell_logging
+    assert 'tee "$log_file"' in shell_logging
+    assert "--list-components|--help|-h) component_main" in installer
+    assert "def get_logger(" in python_logging
+    assert "def log_call(" in python_logging
+    assert "configure_logger" not in python_logging
+    assert "Claude Code install latest failed" in cli
+    assert "Claude Code update failed" in cli
+
+
 def test_acc_delegates_before_installing_its_own_components() -> None:
     """ACC should clone/install the standalone dependency in its preflight."""
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
