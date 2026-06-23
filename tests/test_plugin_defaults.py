@@ -56,13 +56,11 @@ def test_merge_claude_settings_preserves_unrelated_values(tmp_path: Path) -> Non
         json.dumps({"theme": "dark", "enabledPlugins": {"other@market": False}}),
         encoding="utf-8",
     )
-    plugin_defaults.merge_claude_settings(
-        settings, defaults(), ["commit-guidelines", "refactoring"]
-    )
+    plugin_defaults.merge_claude_settings(settings, defaults(), ["refactoring"])
     merged = json.loads(settings.read_text(encoding="utf-8"))
     assert merged["theme"] == "dark"
     assert merged["enabledPlugins"]["other@market"] is False
-    assert merged["enabledPlugins"]["commit-guidelines@programming-prompts"] is True
+    assert "commit-guidelines@programming-prompts" not in merged["enabledPlugins"]
     marketplace = merged["extraKnownMarketplaces"]["programming-prompts"]
     assert marketplace["source"] == {
         "source": "github",
@@ -95,6 +93,29 @@ def test_managed_instruction_merge_is_idempotent(tmp_path: Path) -> None:
     content = target.read_text(encoding="utf-8")
     assert content.startswith("# Existing")
     assert content.count("programming-prompts:setup-repository-guidelines:start") == 1
+
+
+def test_install_direct_skill_links_codex_and_copies_claude(tmp_path: Path) -> None:
+    """Direct skills should install without plugin marketplace metadata."""
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    skill_source = prompts / "skills" / "commit"
+    skill_source.mkdir(parents=True)
+    (skill_source / "SKILL.md").write_text("# Commit\n", encoding="utf-8")
+
+    plugin_defaults.install_direct_skill(
+        home,
+        prompts,
+        "commit-guidelines",
+        "commit",
+        codex_home=home / ".codex-qwen",
+    )
+
+    codex_skill = home / ".codex-qwen" / "skills" / "commit"
+    claude_skill = home / ".claude" / "skills" / "commit"
+    assert codex_skill.is_symlink()
+    assert codex_skill.resolve() == skill_source.resolve()
+    assert claude_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == "# Commit\n"
 
 
 def test_cleanup_legacy_plugin_files_removes_only_matching_prompt_assets(
