@@ -47,3 +47,49 @@ def test_wrapper_forwards_yolo_exactly_once(tmp_path: Path) -> None:
     )
     assert run.returncode == 0, run.stderr
     assert args_file.read_text(encoding="utf-8").splitlines() == ["--yolo", "hello"]
+
+
+def test_wrapper_replaces_plain_launcher_without_overwriting_raw_binary(
+    tmp_path: Path,
+) -> None:
+    """Installing the wrapper after the plain launcher must not follow the symlink."""
+    home = tmp_path / "home"
+    raw = tmp_path / "raw-codex"
+    raw_content = "#!/usr/bin/env bash\nprintf 'raw:%s\\n' \"$1\"\n"
+    raw.write_text(raw_content, encoding="utf-8")
+    raw.chmod(0o755)
+
+    install = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "\n".join(
+                [
+                    "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
+                    f"TARGET_HOME={str(home)!r}",
+                    "run_as_target() { \"$@\"; }",
+                    "mkdir -p \"$TARGET_HOME/.local/bin\"",
+                    f"ln -sf {str(raw)!r} \"$TARGET_HOME/.local/bin/codex\"",
+                    f"install_codex_wrapper {str(raw)!r}",
+                ]
+            ),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert install.returncode == 0, install.stderr
+    assert raw.read_text(encoding="utf-8") == raw_content
+
+    launcher = home / ".local" / "bin" / "codex"
+    assert not launcher.is_symlink()
+    run = subprocess.run(
+        [str(launcher), "ok"],
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stdout == "raw:ok\n"

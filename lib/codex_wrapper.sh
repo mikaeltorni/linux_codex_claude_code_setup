@@ -5,6 +5,9 @@ install_codex_wrapper() {
   local raw_codex="$1"
   local bin_dir="$TARGET_HOME/.local/bin"
   run_as_target mkdir -p "$bin_dir"
+  # The plain launcher may be a symlink to the raw npm binary. Remove it before
+  # writing the wrapper so tee creates a new file instead of following the link.
+  run_as_target rm -f "$bin_dir/codex"
   run_as_target tee "$bin_dir/codex" >/dev/null <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
