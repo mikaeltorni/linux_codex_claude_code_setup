@@ -90,6 +90,53 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert "plugin uninstall" not in plugin_installer
 
 
+def list_components() -> list[tuple[str, str]]:
+    """Return (id, default-state) pairs from the installer component listing."""
+    result = run("bash", "install.sh", "--list-components")
+    assert result.returncode == 0, result.stderr
+    pairs: list[tuple[str, str]] = []
+    for line in result.stdout.splitlines():
+        fields = line.split("\t")
+        pairs.append((fields[0], fields[2]))
+    return pairs
+
+
+def test_every_feature_is_an_independently_selectable_module() -> None:
+    """The wrapper and global instructions are their own default-on components."""
+    pairs = list_components()
+    states = dict(pairs)
+    # The tracking wrapper and global-instruction merge are no longer bundled
+    # into another component; each is independently selectable and default-on.
+    assert states.get("codex_wrapper") == "on"
+    assert states.get("global_instructions") == "on"
+    # Every component (CLIs, wrapper, instructions, and each plugin) defaults on
+    # so the no-argument/`--default` install reproduces the full feature set.
+    assert all(state == "on" for _id, state in pairs)
+    # Global instructions must run last so its run-scoped merge sees every
+    # plugin/skill installed before it.
+    assert pairs[-1][0] == "global_instructions"
+
+
+def test_core_clis_do_not_bundle_optional_modules() -> None:
+    """Selecting only a CLI must not drag in the wrapper or instruction merge."""
+    cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
+    components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
+    plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
+        encoding="utf-8"
+    )
+    # codex_cli installs the plain launcher; the tracking wrapper is only invoked
+    # by the dedicated codex_wrapper component function.
+    assert "install_codex_plain_launcher" in cli
+    assert "install_codex_wrapper_component" in cli
+    assert "codex_wrapper|" in components
+    assert "global_instructions|" in components
+    # Plugin/skill installs only record themselves; the merge is a separate
+    # component, so plugins can be installed without writing AGENTS.md/CLAUDE.md.
+    assert "record_prompt_plugin" in plugin_installer
+    assert "install_global_instructions_component" in plugin_installer
+    assert plugin_installer.count("install_plugin_global_instructions") >= 1
+
+
 def test_installer_logging_contract_is_explicit() -> None:
     """Installer runs should log to .log without making listing commands noisy."""
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()

@@ -18,16 +18,32 @@ bash install.sh --default
 bash install.sh --select codex_cli,claude_code,plugin-refactoring
 ```
 
+Every feature is an independently selectable, default-on component, so the
+no-argument or `--default` run reproduces the full setup while `--select` takes
+exactly what you want. The core is intentionally minimal — either CLI installs
+and runs on its own — and everything else is optional:
+
+- `codex_cli` / `claude_code` — install each CLI. Selecting just one is enough;
+  `codex_cli` puts a plain `codex` launcher on `PATH`.
+- `codex_wrapper` — the tracking-aware `~/.local/bin/codex` wrapper that
+  integrates with Agent Command Center. Skip it to keep the raw Codex binary.
+- `plugin-*` / `skill-*` — one component per `programming_prompts` skill.
+- `global_instructions` — merges each installed plugin's global instructions
+  into `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`. Skip it to install plugins
+  without touching the agent instruction files. It runs last so it sees every
+  plugin selected in the same run.
+
 The installer is sudo-free by default. It clones `programming_prompts` when a
 sibling checkout is unavailable, preserves unrelated Claude settings, and
 generates Codex and Claude marketplace catalogs under the target user's local
 share directory. `programming_prompts` remains content-only and carries one
 Codex manifest, one Claude manifest, and one skill per plugin.
 
-This repository also owns the tracking-aware `~/.local/bin/codex` wrapper. The
-wrapper delegates to an isolated npm installation and integrates with Agent
-Command Center when its tracker is available. Permission bypass remains a `ca`
-launcher concern, so `--yolo` is forwarded exactly once.
+This repository also owns the tracking-aware `~/.local/bin/codex` wrapper
+installed by the `codex_wrapper` component. The wrapper delegates to an isolated
+npm installation and integrates with Agent Command Center when its tracker is
+available. Permission bypass remains a `ca` launcher concern, so `--yolo` is
+forwarded exactly once.
 
 ## Tests
 
