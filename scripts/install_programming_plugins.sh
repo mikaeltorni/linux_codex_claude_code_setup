@@ -50,6 +50,9 @@ install_all_programming_plugins() {
     fi
   done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" list)
+  # Merge AGENTS.md/CLAUDE.md global instructions for everything installed above.
+  # This entrypoint always installs the full default set, so it always merges.
+  install_global_instructions_component
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

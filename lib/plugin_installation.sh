@@ -4,6 +4,10 @@
 PROMPTS_READY=0
 CODEX_MARKETPLACE_READY_HOMES=""
 CLAUDE_MARKETPLACE_READY=0
+# Plugins/skills installed in this run, consumed by the optional
+# global_instructions component so AGENTS.md/CLAUDE.md merging can be toggled
+# independently of plugin selection.
+INSTALLED_PROMPT_PLUGINS=()
 
 # Space-separated list of Codex config homes that receive the plugins. Defaults
 # to the single default home; callers (e.g. agent_command_center) export extra
@@ -91,6 +95,29 @@ prepare_claude_marketplace() {
   CLAUDE_MARKETPLACE_READY=1
 }
 
+# Record a plugin/skill installed this run so the global_instructions component
+# can merge its global instructions later. Deduplicates.
+record_prompt_plugin() {
+  local plugin_name="$1" existing
+  for existing in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
+    [[ "$existing" == "$plugin_name" ]] && return 0
+  done
+  INSTALLED_PROMPT_PLUGINS+=("$plugin_name")
+}
+
+# Optional global_instructions component: merge AGENTS.md/CLAUDE.md global
+# instructions for every plugin/skill installed in this run. Selecting plugins
+# without this component installs them without touching the agent instruction
+# files; selecting this with no plugins this run is a harmless no-op.
+install_global_instructions_component() {
+  local plugin_name
+  (( ${#INSTALLED_PROMPT_PLUGINS[@]} == 0 )) && return 0
+  msg "Merging global agent instructions (AGENTS.md/CLAUDE.md)"
+  for plugin_name in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
+    install_plugin_global_instructions "$plugin_name"
+  done
+}
+
 install_plugin_global_instructions() {
   local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
   [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
@@ -166,7 +193,7 @@ install_prompt_plugin() {
       "$TARGET_HOME/.claude/settings.json" \
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
-  install_plugin_global_instructions "$plugin_name"
+  record_prompt_plugin "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
 
@@ -181,5 +208,5 @@ install_prompt_skill() {
       "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
       --codex-home "$codex_home"
   done
-  install_plugin_global_instructions "$plugin_name"
+  record_prompt_plugin "$plugin_name"
 }
