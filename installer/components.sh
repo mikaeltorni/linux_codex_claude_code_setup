@@ -5,9 +5,9 @@ ISC_REPO_NAME="linux_codex_claude_code_setup"
 ISC_REPO_LABEL="Codex and Claude Code setup"
 ISC_PREFLIGHT="agent_cli_preflight"
 ISC_COMPONENTS=(
-  "codex_cli|Codex CLI|on|install_codex_cli"
-  "codex_wrapper|Tracking-aware Codex wrapper|on|install_codex_wrapper_component"
-  "claude_code|Claude Code CLI|on|install_claude_code"
+  "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli"
+  "codex_wrapper|Tracking-aware Codex wrapper|on|install_codex_wrapper_component|detect_codex_wrapper|uninstall_codex_wrapper"
+  "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code"
 )
 
 register_plugin_component() {

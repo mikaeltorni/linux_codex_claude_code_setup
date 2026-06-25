@@ -189,6 +189,15 @@ def test_setup_owns_generated_marketplaces_and_codex_wrapper() -> None:
     assert '"\\$real_codex" --yolo' not in wrapper
 
 
+def test_programming_prompts_checkout_uses_shared_auth_gate() -> None:
+    """Private prompt repository clone/update should use the shared helper."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+
+    assert "ensure_linked_repository" in installer
+    assert '"programming_prompts" \\' in installer
+    assert "run_as_target git clone" not in installer
+
+
 def test_plugins_install_into_every_configured_codex_home() -> None:
     """The plugin install iterates CODEX_HOMES so every Codex instance is covered."""
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")

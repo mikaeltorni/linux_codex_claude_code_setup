@@ -33,11 +33,10 @@ resolve_target_binary() {
 
 ensure_programming_prompts() {
   (( PROMPTS_READY == 1 )) && return 0
-  if [[ ! -d "$PROGRAMMING_PROMPTS_DIR/.git" ]]; then
-    msg "Cloning programming_prompts"
-    run_as_target mkdir -p "$(dirname "$PROGRAMMING_PROMPTS_DIR")"
-    run_as_target git clone "https://github.com/${PROGRAMMING_PROMPTS_REPOSITORY}.git" "$PROGRAMMING_PROMPTS_DIR"
-  fi
+  ensure_linked_repository \
+    "programming_prompts" \
+    "$PROGRAMMING_PROMPTS_DIR" \
+    "https://github.com/${PROGRAMMING_PROMPTS_REPOSITORY}.git"
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" validate "$PROGRAMMING_PROMPTS_DIR"
   generate_programming_prompts_marketplace

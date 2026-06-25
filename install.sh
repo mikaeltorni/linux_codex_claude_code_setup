@@ -33,6 +33,7 @@ source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
 source "$SCRIPT_DIR/lib/codex_wrapper.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
+source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 
 agent_cli_preflight() {
@@ -45,7 +46,7 @@ run_installer() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-}" in
-    --list-components|--help|-h) component_main "$@" ;;
+    --list-components|--detect|--help|-h) component_main "$@" ;;
     *) run_installer "$@" ;;
   esac
 fi
