@@ -23,7 +23,10 @@ ensure_codex_binary() {
     apt_install nodejs npm 1>&2
   fi
   run_as_target mkdir -p "$CODEX_NPM_PREFIX" 1>&2
-  run_as_target npm install -g --prefix "$CODEX_NPM_PREFIX" @openai/codex 1>&2
+  # Time-box and detach stdin so a stalled download or an unexpected npm prompt
+  # cannot hang the child install.sh — and with it the whole master run, which
+  # would leave every repository after this one uninstalled.
+  run_as_target timeout 900 npm install -g --prefix "$CODEX_NPM_PREFIX" @openai/codex </dev/null 1>&2
   local raw_codex="$CODEX_NPM_PREFIX/bin/codex"
   [[ -x "$raw_codex" ]] || { echo "Codex installation failed: $raw_codex" >&2; return 1; }
   printf '%s' "$raw_codex"
@@ -53,18 +56,22 @@ install_codex_wrapper_component() {
 
 install_claude_code() {
   msg "Installing Claude Code"
+  # stdin is detached (</dev/null) and every network/CLI step is time-boxed so a
+  # prompt or stalled connection can never hang the child install.sh — a hang
+  # here blocks the whole master run and leaves every later repository
+  # uninstalled. curl caps its own transfer time; timeout bounds the rest.
   run_as_target bash -c '
     set -euo pipefail
     export PATH="$HOME/.local/bin:$PATH"
     if ! command -v claude >/dev/null 2>&1; then
-      curl -fsSL https://claude.ai/install.sh | bash
+      curl -fsSL --max-time 300 https://claude.ai/install.sh | bash
     fi
     claude_bin="$(command -v claude || true)"
     [[ -x "$claude_bin" ]] || claude_bin="$HOME/.local/bin/claude"
     [[ -x "$claude_bin" ]] || { echo "Claude Code installation failed" >&2; exit 1; }
-    "$claude_bin" install latest ||
+    timeout 300 "$claude_bin" install latest ||
       printf "%s\n" "Claude Code install latest failed; continuing with the installed binary" >&2
-    "$claude_bin" update ||
+    timeout 300 "$claude_bin" update ||
       printf "%s\n" "Claude Code update failed; continuing with the installed binary" >&2
-  '
+  ' </dev/null
 }
