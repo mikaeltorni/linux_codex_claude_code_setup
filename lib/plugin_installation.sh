@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install programming_prompts plugins into Codex and Claude Code.
+# Install programming_prompts plugins/skills into Codex, Claude Code, and Cline.
 
 PROMPTS_READY=0
 CODEX_MARKETPLACE_READY_HOMES=""
@@ -104,6 +104,18 @@ record_prompt_plugin() {
   INSTALLED_PROMPT_PLUGINS+=("$plugin_name")
 }
 
+# Install the selected skill into Cline's documented ~/.cline/skills directory.
+# The Python writer links the authoritative programming_prompts source and
+# refuses to overwrite an unrelated user-authored skill with the same name.
+install_cline_prompt_skill() {
+  local plugin_name="$1" skill_name="$2" source_skill
+  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
+  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-cline-skill \
+    "$TARGET_HOME" "$source_skill" "$skill_name"
+}
+
 # Optional global_instructions component: merge AGENTS.md/CLAUDE.md global
 # instructions for every plugin/skill installed in this run. Selecting plugins
 # without this component installs them without touching the agent instruction
@@ -192,6 +204,7 @@ install_prompt_plugin() {
       "$TARGET_HOME/.claude/settings.json" \
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
+  install_cline_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
@@ -207,5 +220,6 @@ install_prompt_skill() {
       "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
       --codex-home "$codex_home"
   done
+  install_cline_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
 }

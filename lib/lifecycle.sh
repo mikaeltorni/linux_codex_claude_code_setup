@@ -23,6 +23,12 @@ detect_claude_code() {
   [ -x "$TARGET_HOME/.local/bin/claude" ] || run_as_target bash -lc 'command -v claude >/dev/null 2>&1'
 }
 
+# detect_cline_cli - true when either the managed isolated Cline binary or a
+# system/user Cline command is available for the target user.
+detect_cline_cli() {
+  [ -x "$CLINE_NPM_PREFIX/bin/cline" ] || run_as_target bash -lc 'command -v cline >/dev/null 2>&1'
+}
+
 # uninstall_codex_cli - remove the codex launcher and the isolated npm install.
 uninstall_codex_cli() {
   msg "Removing Codex CLI launcher and isolated npm package"
@@ -53,4 +59,16 @@ uninstall_claude_code() {
       --defaults "$SCRIPT_DIR/default.json" claude-hide-account --disable \
       "$TARGET_HOME/.claude/settings.json" || true
   fi
+}
+
+
+# uninstall_cline_cli - Remove only this repository's isolated Cline install.
+# A separately installed system-wide /usr/bin/cline is deliberately preserved.
+uninstall_cline_cli() {
+  msg "Removing isolated Cline CLI (preserving any system-wide installation)"
+  local launcher="$TARGET_HOME/.local/bin/cline" raw="$CLINE_NPM_PREFIX/bin/cline"
+  if [ -L "$launcher" ] && [ "$(readlink -f "$launcher" 2>/dev/null || true)" = "$(readlink -f "$raw" 2>/dev/null || true)" ]; then
+    run_as_target rm -f "$launcher"
+  fi
+  run_as_target rm -rf "$CLINE_NPM_PREFIX"
 }

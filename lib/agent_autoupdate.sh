@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agent_autoupdate.sh - Optional component: a systemd user timer that updates
-# Codex and Claude Code to the newest stable release published at least
+# Codex, Claude Code, and Cline to the newest stable release published at least
 # AGENT_AUTOUPDATE_DELAY_HOURS (default 24h) ago.
 #
 # Neither npm nor `claude install/update` exposes a native publish-delay flag, so
@@ -19,7 +19,7 @@ AGENT_AUTOUPDATE_DELAY_HOURS="${AGENT_AUTOUPDATE_DELAY_HOURS:-24}"
 # user service+timer, then enable the timer. Best-effort systemctl calls so a
 # headless or session-less install still records the units for the next login.
 install_agent_autoupdate() {
-  msg "Installing delayed agent auto-update (Codex + Claude Code, ${AGENT_AUTOUPDATE_DELAY_HOURS}h delay)"
+  msg "Installing delayed agent auto-update (Codex + Claude Code + Cline, ${AGENT_AUTOUPDATE_DELAY_HOURS}h delay)"
 
   run_as_target mkdir -p "$AGENT_AUTOUPDATE_SHARE_DIR" "$AGENT_AUTOUPDATE_CONFIG_DIR" "$AGENT_AUTOUPDATE_SYSTEMD_DIR"
   run_as_target cp "$SCRIPT_DIR/assets/agent-autoupdate.sh" "$AGENT_AUTOUPDATE_SCRIPT"
@@ -31,11 +31,12 @@ install_agent_autoupdate() {
 # published (possibly compromised) version is never taken on its release day.
 AGENT_AUTOUPDATE_DELAY_HOURS=$AGENT_AUTOUPDATE_DELAY_HOURS
 CODEX_NPM_PREFIX=$CODEX_NPM_PREFIX
+CLINE_NPM_PREFIX=$CLINE_NPM_PREFIX
 EOF
 
   run_as_target tee "$AGENT_AUTOUPDATE_SYSTEMD_DIR/$AGENT_AUTOUPDATE_SERVICE" >/dev/null <<EOF
 [Unit]
-Description=Delayed auto-update for Codex and Claude Code
+Description=Delayed auto-update for Codex, Claude Code, and Cline
 After=default.target
 [Service]
 Type=oneshot
@@ -44,7 +45,7 @@ EOF
 
   run_as_target tee "$AGENT_AUTOUPDATE_SYSTEMD_DIR/$AGENT_AUTOUPDATE_TIMER" >/dev/null <<EOF
 [Unit]
-Description=Run delayed Codex/Claude Code auto-update at login and daily
+Description=Run delayed Codex/Claude Code/Cline auto-update at login and daily
 [Timer]
 # Fire shortly after the user session starts (system startup) and once a day.
 # Persistent catches up a missed daily run after the machine was off.

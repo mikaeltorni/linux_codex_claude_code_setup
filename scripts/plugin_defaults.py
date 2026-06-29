@@ -319,6 +319,37 @@ def install_direct_skill(
     LOGGER.info("Installed direct skill %s from prompt %s", skill_name, prompt_name)
 
 
+@log_call(LOGGER)
+def install_cline_skill(home: Path, source_skill: Path, skill_name: str) -> None:
+    """Link one selected programming skill into Cline's global skill directory.
+
+    Args:
+        home: Target user's home directory.
+        source_skill: Skill directory containing the authoritative ``SKILL.md``.
+        skill_name: Cline skill directory name.
+
+    Raises:
+        ValueError: If the source is invalid or the target contains unmanaged
+            user content. The installer never overwrites an unrelated skill.
+    """
+    if not NAME.fullmatch(skill_name):
+        raise ValueError(f"invalid Cline skill name: {skill_name!r}")
+    source_skill = source_skill.resolve()
+    if not source_skill.joinpath("SKILL.md").is_file():
+        raise ValueError(f"missing Cline skill source: {source_skill}")
+    target = home / ".cline" / "skills" / skill_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_skill:
+            LOGGER.info("Cline skill %s already linked", skill_name)
+            return
+        raise ValueError(f"refusing to replace unmanaged Cline skill link: {target}")
+    if target.exists():
+        raise ValueError(f"refusing to replace unmanaged Cline skill: {target}")
+    os.symlink(source_skill, target, target_is_directory=True)
+    LOGGER.info("Installed Cline skill %s from %s", skill_name, source_skill)
+
+
 def main() -> None:
     """Run the plugin-defaults command-line helper."""
     parser = argparse.ArgumentParser()
@@ -350,6 +381,10 @@ def main() -> None:
     direct_skill.add_argument("plugin_name")
     direct_skill.add_argument("skill_name")
     direct_skill.add_argument("--codex-home", type=Path, default=None)
+    cline_skill = subparsers.add_parser("install-cline-skill")
+    cline_skill.add_argument("home", type=Path)
+    cline_skill.add_argument("source_skill", type=Path)
+    cline_skill.add_argument("skill_name")
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
@@ -376,7 +411,7 @@ def main() -> None:
             args.skill_name,
             args.codex_home,
         )
-    else:
+    elif args.command == "install-direct-skill":
         install_direct_skill(
             args.home,
             args.prompts_root,
@@ -384,6 +419,8 @@ def main() -> None:
             args.skill_name,
             args.codex_home,
         )
+    else:
+        install_cline_skill(args.home, args.source_skill, args.skill_name)
 
 
 if __name__ == "__main__":

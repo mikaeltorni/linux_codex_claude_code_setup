@@ -1,4 +1,4 @@
-"""Cross-repository contracts for standalone Codex/Claude installation."""
+"""Cross-repository contracts for standalone Codex/Claude/Cline installation."""
 
 from __future__ import annotations
 
@@ -77,11 +77,11 @@ def test_programming_prompts_is_content_only() -> None:
 
 
 def test_installer_exposes_clis_and_each_plugin() -> None:
-    """The standalone installer should expose both CLIs and per-plugin selection."""
+    """The standalone installer exposes all CLIs and per-plugin selection."""
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     ids = {line.split("\t", 1)[0] for line in result.stdout.splitlines()}
-    assert {"codex_cli", "claude_code"} <= ids
+    assert {"codex_cli", "claude_code", "cline_cli"} <= ids
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
     assert {"skill-commit", "skill-setup-repository-guidelines"} <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
@@ -172,6 +172,14 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert "record_prompt_plugin" in plugin_installer
     assert "install_global_instructions_component" in plugin_installer
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
+
+
+def test_codex_requires_nodejs_22_and_uses_nodesource_fallback() -> None:
+    """A standalone Codex install must not accept Ubuntu's Node.js 18."""
+    cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
+    assert "ensure_nodejs_22" in cli
+    assert "https://deb.nodesource.com/setup_22.x" in cli
+    assert "apt_install nodejs npm" not in cli
 
 
 def test_installer_logging_contract_is_explicit() -> None:

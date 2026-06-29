@@ -1,4 +1,4 @@
-"""Contract tests for the delayed Codex/Claude auto-update component."""
+"""Contract tests for the delayed Codex/Claude/Cline auto-update component."""
 
 from __future__ import annotations
 
@@ -50,6 +50,7 @@ def test_updater_script_enforces_publication_delay() -> None:
     # Resolves the target from npm publish timestamps for both packages.
     assert "@openai/codex" in body
     assert "@anthropic-ai/claude-code" in body
+    assert 'resolve_delayed_version "cline"' in body
     assert "npm view" in body and "time --json" in body
     # Default 24h delay and a forward-only / no-downgrade guard.
     assert "AGENT_AUTOUPDATE_DELAY_HOURS:-24" in body
