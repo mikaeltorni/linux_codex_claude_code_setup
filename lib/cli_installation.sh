@@ -74,4 +74,11 @@ install_claude_code() {
     timeout 300 "$claude_bin" update ||
       printf "%s\n" "Claude Code update failed; continuing with the installed binary" >&2
   ' </dev/null
+  # Demo mode: hide the signed-in account email/org from the Claude Code UI via
+  # its native, documented CLAUDE_CODE_HIDE_ACCOUNT_INFO=1 env var, merged into
+  # settings.json without disturbing other user settings. Codex has no equivalent
+  # mechanism, so it is intentionally left unwired.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" claude-hide-account \
+    "$TARGET_HOME/.claude/settings.json"
 }

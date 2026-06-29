@@ -83,6 +83,63 @@ def test_merge_claude_settings_can_pin_generated_marketplace(tmp_path: Path) -> 
     }
 
 
+def test_hide_account_sets_env_and_preserves_settings(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps({"model": "opus", "env": {"FOO": "bar"}}),
+        encoding="utf-8",
+    )
+    plugin_defaults.set_claude_hide_account(settings, True)
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged["model"] == "opus"
+    assert merged["env"]["FOO"] == "bar"
+    assert merged["env"]["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
+    assert settings.stat().st_mode & 0o777 == 0o600
+
+
+def test_hide_account_creates_settings_when_absent(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    plugin_defaults.set_claude_hide_account(settings, True)
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged == {"env": {"CLAUDE_CODE_HIDE_ACCOUNT_INFO": "1"}}
+
+
+def test_hide_account_enable_is_idempotent(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    plugin_defaults.set_claude_hide_account(settings, True)
+    plugin_defaults.set_claude_hide_account(settings, True)
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged["env"] == {"CLAUDE_CODE_HIDE_ACCOUNT_INFO": "1"}
+
+
+def test_hide_account_disable_removes_only_managed_key(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps(
+            {
+                "model": "opus",
+                "env": {"FOO": "bar", "CLAUDE_CODE_HIDE_ACCOUNT_INFO": "1"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    plugin_defaults.set_claude_hide_account(settings, False)
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged["model"] == "opus"
+    assert merged["env"] == {"FOO": "bar"}
+
+
+def test_hide_account_disable_drops_emptied_env_block(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps({"model": "opus", "env": {"CLAUDE_CODE_HIDE_ACCOUNT_INFO": "1"}}),
+        encoding="utf-8",
+    )
+    plugin_defaults.set_claude_hide_account(settings, False)
+    merged = json.loads(settings.read_text(encoding="utf-8"))
+    assert merged == {"model": "opus"}
+
+
 def test_managed_instruction_merge_is_idempotent(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     body = tmp_path / "instructions.md"

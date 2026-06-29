@@ -43,8 +43,14 @@ uninstall_codex_wrapper() {
 }
 
 # uninstall_claude_code - remove the user-local claude binary. Leaves ~/.claude
-# user configuration untouched.
+# user configuration intact apart from clearing the installer-managed
+# hide-account-info demo setting (best effort).
 uninstall_claude_code() {
   msg "Removing Claude Code binary (leaving ~/.claude config intact)"
   run_as_target rm -f "$TARGET_HOME/.local/bin/claude"
+  if [ -f "$TARGET_HOME/.claude/settings.json" ]; then
+    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+      --defaults "$SCRIPT_DIR/default.json" claude-hide-account --disable \
+      "$TARGET_HOME/.claude/settings.json" || true
+  fi
 }

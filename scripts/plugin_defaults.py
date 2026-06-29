@@ -145,6 +145,50 @@ def merge_claude_settings(
     LOGGER.info("Merged Claude settings for %d plugins", len(enabled))
 
 
+#: Claude Code reads this env var on startup; "1" hides the signed-in account
+#: email and organization name from the UI. It is the only supported mechanism
+#: for this (Codex has no equivalent), so demo mode wires it always-on here.
+HIDE_ACCOUNT_ENV = "CLAUDE_CODE_HIDE_ACCOUNT_INFO"
+
+
+@log_call(LOGGER)
+def set_claude_hide_account(settings_path: Path, hide: bool) -> None:
+    """Set or clear the Claude Code hide-account-info env var in user settings.
+
+    Merges only the managed ``env`` key so every other user setting (model,
+    permissions, hooks, plugins) is preserved. Idempotent: enabling twice is a
+    no-op, and disabling removes the key (and an emptied ``env`` block) without
+    touching anything else.
+
+    Args:
+        settings_path: Claude settings JSON path (``~/.claude/settings.json``).
+        hide: True to hide account info, False to remove the managed key.
+    """
+    if settings_path.exists():
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    else:
+        settings = {}
+    env = settings.get("env")
+    if not isinstance(env, dict):
+        env = {}
+    if hide:
+        env[HIDE_ACCOUNT_ENV] = "1"
+        settings["env"] = env
+    else:
+        env.pop(HIDE_ACCOUNT_ENV, None)
+        if env:
+            settings["env"] = env
+        else:
+            settings.pop("env", None)
+    atomic_json(settings_path, settings)
+    LOGGER.info(
+        "%s %s in %s",
+        "Set" if hide else "Cleared",
+        HIDE_ACCOUNT_ENV,
+        settings_path,
+    )
+
+
 @log_call(LOGGER)
 def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     """Insert or replace a managed global-instructions block.
@@ -287,6 +331,9 @@ def main() -> None:
     merge.add_argument("settings", type=Path)
     merge.add_argument("--marketplace-dir", type=Path)
     merge.add_argument("plugins", nargs="+")
+    hide_account = subparsers.add_parser("claude-hide-account")
+    hide_account.add_argument("settings", type=Path)
+    hide_account.add_argument("--disable", action="store_true")
     instructions = subparsers.add_parser("merge-instructions")
     instructions.add_argument("target", type=Path)
     instructions.add_argument("plugin_name")
@@ -317,6 +364,8 @@ def main() -> None:
         merge_claude_settings(
             args.settings, defaults, args.plugins, args.marketplace_dir
         )
+    elif args.command == "claude-hide-account":
+        set_claude_hide_account(args.settings, not args.disable)
     elif args.command == "merge-instructions":
         merge_instructions(args.target, args.plugin_name, args.body)
     elif args.command == "cleanup-legacy":

@@ -48,6 +48,16 @@ generates Codex and Claude marketplace catalogs under the target user's local
 share directory. `programming_prompts` remains content-only and carries one
 Codex manifest, one Claude manifest, and one skill per plugin.
 
+For screen sharing and demos, the `claude_code` component hides the signed-in
+account email and organization from the Claude Code UI by merging
+`CLAUDE_CODE_HIDE_ACCOUNT_INFO=1` into the `env` block of
+`~/.claude/settings.json` (its native, documented privacy switch). Only that one
+key is managed; every other user setting is preserved, and the `claude_code`
+uninstall clears it again. Codex has no equivalent: as of codex-cli 0.142 there
+is no config key, env var, or `tui.status_line` item that hides the account
+email (it surfaces in the welcome view and `/status`), so nothing is wired for
+Codex rather than relying on a fragile output-redaction hack.
+
 This repository also owns the tracking-aware `~/.local/bin/codex` wrapper
 installed by the `codex_wrapper` component. The wrapper delegates to an isolated
 npm installation and integrates with Agent Command Center when its tracker is
