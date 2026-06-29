@@ -77,19 +77,33 @@ raise SystemExit(0 if source.get("source") == "directory" and source.get("path")
 PY
 }
 
+# run_target_claude_plugin — run a Claude Code CLI plugin command with a
+# non-interactive (non-TTY) stdout. claude is an Ink TUI: when its stdout is a
+# terminal it switches the terminal to raw mode via tcsetattr. Under the master
+# installer these commands run in a background process group, so that tcsetattr
+# raises SIGTTOU and stops the whole install — it hangs right after a marketplace
+# update or while installing a plugin. Routing stdout/stderr through a pipe makes
+# Claude Code detect a non-interactive environment and skip the raw-mode setup,
+# while `cat` still surfaces the output and the original exit code is preserved.
+# (The `| python3` reader calls above are already safe: their stdout is a pipe.)
+run_target_claude_plugin() {
+  run_as_target "$@" </dev/null 2>&1 | cat
+  return "${PIPESTATUS[0]}"
+}
+
 prepare_claude_marketplace() {
   (( CLAUDE_MARKETPLACE_READY == 1 )) && return 0
   local claude_bin
   claude_bin="$(resolve_target_binary claude)"
   [[ -x "$claude_bin" ]] || { msg "Claude Code is unavailable; skipping Claude plugin installation"; return 1; }
   if claude_marketplace_matches_checkout; then
-    run_as_target "$claude_bin" plugin marketplace update "$PROGRAMMING_PROMPTS_MARKETPLACE"
+    run_target_claude_plugin "$claude_bin" plugin marketplace update "$PROGRAMMING_PROMPTS_MARKETPLACE"
   else
     if run_as_target "$claude_bin" plugin marketplace list --json |
        python3 -c 'import json,sys; n=sys.argv[1]; raise SystemExit(not any(x.get("name")==n for x in json.load(sys.stdin)))' "$PROGRAMMING_PROMPTS_MARKETPLACE"; then
-      run_as_target "$claude_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
+      run_target_claude_plugin "$claude_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
     fi
-    run_as_target "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+    run_target_claude_plugin "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
   fi
   CLAUDE_MARKETPLACE_READY=1
 }
@@ -193,9 +207,9 @@ install_prompt_plugin() {
     prepare_claude_marketplace
     if run_as_target "$claude_bin" plugin list --json |
        python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("id")==s for x in json.load(sys.stdin)))' "$selector"; then
-      run_as_target "$claude_bin" plugin update --scope user "$selector"
+      run_target_claude_plugin "$claude_bin" plugin update --scope user "$selector"
     else
-      run_as_target "$claude_bin" plugin install --scope user "$selector"
+      run_target_claude_plugin "$claude_bin" plugin install --scope user "$selector"
     fi
     # Keep Claude pointed at the installer-owned generated marketplace. The
     # source content remains programming_prompts; only the catalog is generated.

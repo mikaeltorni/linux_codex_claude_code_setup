@@ -256,6 +256,33 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     assert "install_prompt_skill" in entrypoint.read_text(encoding="utf-8")
 
 
+def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:
+    """Claude Code plugin commands must run with a non-TTY stdout.
+
+    `claude` is an Ink TUI that switches the terminal to raw mode (tcsetattr)
+    when stdout is a terminal. Under the master installer the plugin install runs
+    in a background process group, so that tcsetattr raises SIGTTOU and stops the
+    whole install (it hangs after a marketplace update). Non-piped invocations
+    must therefore go through run_target_claude_plugin, which detaches stdin and
+    pipes stdout so Claude Code stays non-interactive. The `| python3` readers are
+    already safe because their stdout is a pipe."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+
+    assert "run_target_claude_plugin()" in installer
+    body = installer.split("run_target_claude_plugin()", 1)[1].split("\n}", 1)[0]
+    assert "</dev/null" in body and "| cat" in body
+    assert "PIPESTATUS" in body
+
+    # Every raw `run_as_target "$claude_bin" plugin ...` must be a piped reader
+    # (ends with `--json |`); anything else must use run_target_claude_plugin.
+    for line in installer.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('run_as_target "$claude_bin" plugin'):
+            assert stripped.endswith("--json |"), (
+                f"non-piped claude plugin command must use run_target_claude_plugin: {stripped}"
+            )
+
+
 def test_master_installs_standalone_repo_before_acc() -> None:
     """Clean setup should clone and run the standalone repository before ACC."""
     name = "linux_codex_claude_code_setup"
