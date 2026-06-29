@@ -90,6 +90,30 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert "plugin uninstall" not in plugin_installer
 
 
+def test_model_components_run_last_and_owned_by_setup() -> None:
+    """Heavy LM Studio model downloads belong at the END of this setup run.
+
+    The Ornstein GGUF is multi-GB; running it before the agent tools meant a slow
+    or interrupted download blocked codex_cli/claude_code/plugins (and downstream,
+    agent_command_center's preflight) entirely. They are appended last so the
+    lightweight components finish first and a failed model download no longer
+    cascades. Ownership stays here (not in agent_command_center)."""
+    components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
+    assert "install_ornstein_model" in components
+    assert 'source "$SCRIPT_DIR/lib/model_setup.sh"' in (
+        ROOT / "install.sh"
+    ).read_text(encoding="utf-8")
+    acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
+    assert "ornstein_model|" not in acc_components
+
+    # The two model rows must be the final entries in install order, after the
+    # agent tools, plugins, and the global-instructions merge.
+    ids = [component_id for component_id, _ in list_components()]
+    assert ids[-2:] == ["ornstein_model", "custom_coding_model"]
+    for tool in ("codex_cli", "claude_code", "global_instructions"):
+        assert ids.index(tool) < ids.index("ornstein_model")
+
+
 def list_components() -> list[tuple[str, str]]:
     """Return (id, default-state) pairs from the installer component listing."""
     result = run("bash", "install.sh", "--list-components")
@@ -109,12 +133,25 @@ def test_every_feature_is_an_independently_selectable_module() -> None:
     # into another component; each is independently selectable and default-on.
     assert states.get("codex_wrapper") == "on"
     assert states.get("global_instructions") == "on"
-    # Every component (CLIs, wrapper, instructions, and each plugin) defaults on
-    # so the no-argument/`--default` install reproduces the full feature set.
-    assert all(state == "on" for _id, state in pairs)
-    # Global instructions must run last so its run-scoped merge sees every
-    # plugin/skill installed before it.
-    assert pairs[-1][0] == "global_instructions"
+    # Every reproducible component defaults on. The custom model row is an
+    # explicit prompt and therefore remains opt-in.
+    assert states["custom_coding_model"] == "off"
+    assert all(
+        state == "on" for component_id, state in pairs
+        if component_id != "custom_coding_model"
+    )
+    # Global instructions must run after every plugin/skill so its run-scoped
+    # merge sees them all. The heavy model downloads are appended after it (they
+    # add no plugins), so global_instructions is the last non-model component.
+    ids = [component_id for component_id, _ in pairs]
+    plugin_skill_ids = [
+        cid for cid in ids if cid.startswith(("plugin-", "skill-"))
+    ]
+    assert plugin_skill_ids, "expected plugin/skill components in the listing"
+    assert max(ids.index(cid) for cid in plugin_skill_ids) < ids.index(
+        "global_instructions"
+    )
+    assert ids[-2:] == ["ornstein_model", "custom_coding_model"]
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
