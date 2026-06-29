@@ -8,6 +8,7 @@ ISC_COMPONENTS=(
   "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli"
   "codex_wrapper|Tracking-aware Codex wrapper|on|install_codex_wrapper_component|detect_codex_wrapper|uninstall_codex_wrapper"
   "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code"
+  "agent_autoupdate|Delayed Codex/Claude auto-update timer (24h)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate"
 )
 
 register_plugin_component() {

@@ -33,6 +33,7 @@ source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
 source "$SCRIPT_DIR/lib/codex_wrapper.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
+source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 
