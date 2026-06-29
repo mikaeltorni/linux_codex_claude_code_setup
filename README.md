@@ -27,6 +27,15 @@ and runs on its own — and everything else is optional:
   `codex_cli` puts a plain `codex` launcher on `PATH`.
 - `codex_wrapper` — the tracking-aware `~/.local/bin/codex` wrapper that
   integrates with Agent Command Center. Skip it to keep the raw Codex binary.
+- `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
+  and once a day, updates Codex and Claude Code to the newest *stable* release
+  published at least 24 hours ago. Neither npm nor `claude install/update`
+  exposes a native publish-delay flag, so the installed updater resolves the
+  target from each package's npm publish timestamps and pins to it. The delay
+  means a freshly published (and possibly compromised) release is never taken on
+  the day it ships, and it never downgrades a manually newer install. Tune the
+  window via `AGENT_AUTOUPDATE_DELAY_HOURS` in
+  `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `plugin-*` / `skill-*` — one component per `programming_prompts` skill.
 - `global_instructions` — merges each installed plugin's global instructions
   into `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`. Skip it to install plugins
