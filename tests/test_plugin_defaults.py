@@ -145,11 +145,11 @@ def test_managed_instruction_merge_is_idempotent(tmp_path: Path) -> None:
     body = tmp_path / "instructions.md"
     target.write_text("# Existing\n", encoding="utf-8")
     body.write_text("Use the setup skill.\n", encoding="utf-8")
-    plugin_defaults.merge_instructions(target, "setup-repository-guidelines", body)
-    plugin_defaults.merge_instructions(target, "setup-repository-guidelines", body)
+    plugin_defaults.merge_instructions(target, "sample-plugin", body)
+    plugin_defaults.merge_instructions(target, "sample-plugin", body)
     content = target.read_text(encoding="utf-8")
     assert content.startswith("# Existing")
-    assert content.count("programming-prompts:setup-repository-guidelines:start") == 1
+    assert content.count("programming-prompts:sample-plugin:start") == 1
 
 
 def test_install_direct_skill_links_codex_and_copies_claude(tmp_path: Path) -> None:
