@@ -29,6 +29,49 @@ detect_cline_cli() {
   [ -x "$CLINE_NPM_PREFIX/bin/cline" ] || run_as_target bash -lc 'command -v cline >/dev/null 2>&1'
 }
 
+# detect_codex_status_bar - true when Codex config contains tui.status_line.
+detect_codex_status_bar() {
+  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
+    detect "$TARGET_HOME/.codex/config.toml"
+}
+
+# detect_claude_status_bar - true when Claude settings wire the delegated bar.
+detect_claude_status_bar() {
+  local settings="$TARGET_HOME/.claude/settings.json"
+  [ -f "$settings" ] && grep -q '"statusLine"' "$settings" 2>/dev/null
+}
+
+# detect_cline_tui_status_bar - true when the launcher and Pass helper exist.
+detect_cline_tui_status_bar() {
+  local launcher="$TARGET_HOME/.local/bin/cline-tui"
+  local helper="$TARGET_HOME/.local/share/linux_codex_claude_code_setup/status/cline_pass_status.py"
+  [ -x "$launcher" ] && [ -x "$helper" ] \
+    && grep -q -- 'cline_pass_status.py' "$launcher" 2>/dev/null
+}
+
+# uninstall_codex_status_bar - remove only the installer-managed TUI key.
+uninstall_codex_status_bar() {
+  msg "Removing Codex TUI status-bar configuration"
+  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
+    remove "$TARGET_HOME/.codex/config.toml"
+}
+
+# uninstall_claude_status_bar - remove wiring while preserving Claude settings.
+uninstall_claude_status_bar() {
+  msg "Removing Claude Code status-line wiring"
+  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
+    remove-claude "$TARGET_HOME/.claude/settings.json"
+}
+
+# uninstall_cline_tui_status_bar - remove the launcher and its private helpers.
+uninstall_cline_tui_status_bar() {
+  local status_dir="$TARGET_HOME/.local/share/linux_codex_claude_code_setup/status"
+  msg "Removing Cline TUI status launcher and Cline Pass helper"
+  run_as_target rm -f "$TARGET_HOME/.local/bin/cline-tui" \
+    "$status_dir/cline_pass_status.py" "$status_dir/logging_utils.py"
+  run_as_target rmdir "$status_dir" 2>/dev/null || true
+}
+
 # uninstall_codex_cli - remove the codex launcher and the isolated npm install.
 uninstall_codex_cli() {
   msg "Removing Codex CLI launcher and isolated npm package"

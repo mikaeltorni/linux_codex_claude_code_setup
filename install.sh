@@ -34,6 +34,7 @@ isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
+source "$SCRIPT_DIR/lib/status_bar_setup.sh"
 source "$SCRIPT_DIR/lib/codex_wrapper.sh"
 source "$SCRIPT_DIR/lib/model_setup.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"

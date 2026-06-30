@@ -15,7 +15,7 @@ plugin explicitly, and drives the component menu for both products.
 ```bash
 bash install.sh --list-components
 bash install.sh --default
-bash install.sh --select codex_cli,claude_code,plugin-refactoring
+bash install.sh --select codex_cli,codex_status_bar,claude_code,claude_status_bar
 ```
 
 The component menu starts with a **Models** section:
@@ -41,6 +41,24 @@ and everything else is optional:
   `codex_cli` puts a plain `codex` launcher on `PATH`.
 - `codex_wrapper` — the tracking-aware `~/.local/bin/codex` wrapper that
   integrates with Agent Command Center. Skip it to keep the raw Codex binary.
+- `codex_status_bar` — configures Codex's native TUI footer with model and
+  reasoning, project/path/branch, context used and remaining, 5-hour and weekly
+  limits, token totals, fast mode, task progress, version, and thread id.
+- `claude_status_bar` — delegates to the standalone `claude_code_status_bar`
+  renderer, which provides model/reasoning, project, context usage, 5-hour and
+  weekly limits, diff size, and session cost.
+- `cline_tui_status_bar` — installs `cline-tui`, retaining Cline's native bar
+  (model/reasoning, context, tokens/cost, mode, workspace, branch, diff, and
+  auto-approve) and adding a persistent row beneath it for authenticated Cline
+  Pass usage. The companion row reads Cline's account API and shows rolling
+  5-hour, 7-day, and 30-day spend/cap, percentage, and next usage release. It
+  uses a private tmux server so the general-purpose `cline` command and other
+  tmux sessions are unaffected; without tmux it safely falls back to the native
+  Cline footer.
+
+Each status component requires its corresponding CLI component. In the menu it
+is selectable when that CLI is selected in the current run or autodetected as
+already installed, so modification runs do not require reinstalling a CLI.
 - `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
   and once a day, updates Codex, Claude Code, and Cline to the newest *stable* release
   published at least 24 hours ago. Neither npm nor `claude install/update`
