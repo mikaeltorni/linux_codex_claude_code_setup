@@ -1,4 +1,4 @@
-"""Contracts for Codex, Claude Code, and Cline TUI status-bar integration."""
+"""Contracts for Codex and Claude Code status-bar integration."""
 
 from __future__ import annotations
 
@@ -37,12 +37,11 @@ def listed_components() -> dict[str, list[str]]:
 
 
 def test_status_bar_components_require_their_corresponding_clis() -> None:
-    """All three status integrations should be default-on dependent rows."""
+    """Both status integrations should be default-on dependent rows."""
     rows = listed_components()
     expected = {
         "codex_status_bar": "codex_cli",
         "claude_status_bar": "claude_code",
-        "cline_tui_status_bar": "cline_cli",
     }
     for component, requirement in expected.items():
         assert rows[component][2] == "on"
@@ -109,17 +108,6 @@ def test_codex_status_config_uses_centralized_call_logging(tmp_path: Path) -> No
 
     assert "ENTER status_bar_config.py:configure_codex_status_line" in log_text
     assert "EXIT status_bar_config.py:configure_codex_status_line -> None" in log_text
-
-
-def test_cline_tui_launcher_forces_native_tui_without_replacing_cline() -> None:
-    """The launcher should retain native TUI mode and add the Pass usage row."""
-    source = (ROOT / "scripts" / "cline_tui_launcher.sh").read_text(
-        encoding="utf-8"
-    )
-    assert '"$cline_bin" --tui' in source
-    assert "cline_pass_status.py" in source
-    assert "status-position bottom" in source
-    assert "status-interval 30" in source
 
 
 def test_claude_status_bar_is_delegated_from_the_cli_owner() -> None:

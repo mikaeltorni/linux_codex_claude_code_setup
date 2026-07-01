@@ -47,14 +47,6 @@ and everything else is optional:
 - `claude_status_bar` — delegates to the standalone `claude_code_status_bar`
   renderer, which provides model/reasoning, project, context usage, 5-hour and
   weekly limits, diff size, and session cost.
-- `cline_tui_status_bar` — installs `cline-tui`, retaining Cline's native bar
-  (model/reasoning, context, tokens/cost, mode, workspace, branch, diff, and
-  auto-approve) and adding a persistent row beneath it for authenticated Cline
-  Pass usage. The companion row reads Cline's account API and shows rolling
-  5-hour, 7-day, and 30-day spend/cap, percentage, and next usage release. It
-  uses a private tmux server so the general-purpose `cline` command and other
-  tmux sessions are unaffected; without tmux it safely falls back to the native
-  Cline footer.
 
 Each status component requires its corresponding CLI component. In the menu it
 is selectable when that CLI is selected in the current run or autodetected as

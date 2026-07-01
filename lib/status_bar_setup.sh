@@ -23,21 +23,3 @@ configure_claude_status_bar() {
   isc_log_info "Delegating Claude status bar installation to $installer"
   TARGET_USER="$TARGET_USER" TARGET_HOME="$TARGET_HOME" bash "$installer" --default
 }
-
-# configure_cline_tui_status_bar - Add Cline's native TUI launcher plus a
-# companion row for authenticated Cline Pass 5h/7d/30d rolling limits.
-configure_cline_tui_status_bar() {
-  local launcher="$TARGET_HOME/.local/bin/cline-tui"
-  local status_dir="$TARGET_HOME/.local/share/linux_codex_claude_code_setup/status"
-  msg "Installing Cline TUI and Cline Pass rolling-limit status row"
-  run_as_target mkdir -p "$TARGET_HOME/.local/bin" "$status_dir"
-  run_as_target install -m 0755 "$SCRIPT_DIR/scripts/cline_tui_launcher.sh" "$launcher"
-  run_as_target install -m 0755 "$SCRIPT_DIR/scripts/cline_pass_status.py" \
-    "$status_dir/cline_pass_status.py"
-  run_as_target install -m 0644 "$SCRIPT_DIR/scripts/logging_utils.py" \
-    "$status_dir/logging_utils.py"
-  if ! command -v tmux >/dev/null 2>&1; then
-    isc_log_warn "tmux unavailable; cline-tui will retain the native footer without the Pass row"
-    msg "tmux is not installed; the Cline Pass row will activate after tmux is installed"
-  fi
-}
