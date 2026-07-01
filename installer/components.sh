@@ -40,12 +40,3 @@ done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DI
 # AGENTS.md/CLAUDE.md.
 ISC_COMPONENTS+=("global_instructions|Global agent instructions (AGENTS.md/CLAUDE.md)|on|install_global_instructions_component|||Configuration")
 
-# Local coding-model downloads are appended LAST. The Ornstein GGUF is multi-GB,
-# so running it before the agent tools meant a slow or interrupted download
-# blocked codex_cli/claude_code/plugins (and, downstream, agent_command_center's
-# preflight) entirely. Ordering it after the lightweight components lets them
-# finish first; run_selected continues past a failed/interrupted model download,
-# so the rest of the setup still converges. custom_coding_model stays default-off
-# (it prompts for a GGUF URL).
-ISC_COMPONENTS+=("ornstein_model|Ornstein LM Studio coding-agent model|on|install_ornstein_model|detect_lmstudio_ornstein_model||Models")
-ISC_COMPONENTS+=("custom_coding_model|Custom LM Studio coding model (enter GGUF URL + switch env)|off|install_custom_codex_model|||Models")

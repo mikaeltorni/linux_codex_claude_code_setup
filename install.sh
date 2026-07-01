@@ -20,8 +20,6 @@ PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TAR
 CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/cline-npm}"
-LMSTUDIO_LOCAL_AGENTS_DIR="${LMSTUDIO_LOCAL_AGENTS_DIR:-$TARGET_HOME/projects/linux_lmstudio_local_agents}"
-LMSTUDIO_LOCAL_AGENTS_REPO_URL="${LMSTUDIO_LOCAL_AGENTS_REPO_URL:-https://github.com/mikaeltorni/linux_lmstudio_local_agents.git}"
 
 for loader in \
   "$SCRIPT_DIR/../linux_installation_scripts_functions/component_loader.sh" \
@@ -35,7 +33,6 @@ isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
 source "$SCRIPT_DIR/lib/status_bar_setup.sh"
-source "$SCRIPT_DIR/lib/model_setup.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
