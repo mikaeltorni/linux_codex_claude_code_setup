@@ -135,3 +135,9 @@ install_cline_cli() {
   ensure_local_bin_on_path
   msg "Installed Cline $($raw_cline --version 2>/dev/null || printf unknown)"
 }
+# install_codex_plain_launcher - expose the isolated npm binary as plain codex.
+install_codex_plain_launcher() {
+  local raw_codex="$1" bin_dir="$TARGET_HOME/.local/bin"
+  run_as_target mkdir -p "$bin_dir"
+  run_as_target ln -sf "$raw_codex" "$bin_dir/codex"
+}
