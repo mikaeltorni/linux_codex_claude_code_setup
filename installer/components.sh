@@ -5,12 +5,12 @@ ISC_REPO_NAME="linux_codex_claude_code_setup"
 ISC_REPO_LABEL="Codex, Claude Code, and Cline setup"
 ISC_PREFLIGHT="agent_cli_preflight"
 ISC_COMPONENTS=(
-  "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli|Agent tools"
+  "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli|CLIs"
   "codex_wrapper|Tracking-aware Codex wrapper|on|install_codex_wrapper_component|detect_codex_wrapper|uninstall_codex_wrapper|Agent tools"
   "codex_status_bar|Codex rich TUI status bar|on|configure_codex_status_bar|detect_codex_status_bar|uninstall_codex_status_bar|Agent tools|codex_cli"
-  "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code|Agent tools"
+  "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code|CLIs"
   "claude_status_bar|Claude Code rich status bar|on|configure_claude_status_bar|detect_claude_status_bar|uninstall_claude_status_bar|Agent tools|claude_code"
-  "cline_cli|Cline CLI|on|install_cline_cli|detect_cline_cli|uninstall_cline_cli|Agent tools"
+  "cline_cli|Cline CLI|on|install_cline_cli|detect_cline_cli|uninstall_cline_cli|CLIs"
   "agent_autoupdate|Delayed Codex/Claude/Cline auto-update timer (24h)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate|Agent tools"
 )
 
