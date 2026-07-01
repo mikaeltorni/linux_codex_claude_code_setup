@@ -58,3 +58,9 @@ def test_updater_script_enforces_publication_delay() -> None:
     assert subprocess.run(
         ["bash", "-n", str(script)], capture_output=True
     ).returncode == 0
+
+
+def test_codex_version_probe_does_not_create_a_tracked_agent_run() -> None:
+    """The login update probe must not trigger Codex lifecycle/TTS events."""
+    body = (ROOT / "assets" / "agent-autoupdate.sh").read_text(encoding="utf-8")
+    assert 'CODEX_AGENT_SKIP_TRACKER=1 codex --version' in body

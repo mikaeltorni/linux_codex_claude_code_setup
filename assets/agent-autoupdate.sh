@@ -78,7 +78,9 @@ PY
 update_codex() {
   command -v npm >/dev/null 2>&1 || { log "npm missing; skipping Codex"; return 0; }
   local installed="" target
-  installed="$(codex --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  # `codex` may be the tracking-aware launcher. A version probe is updater
+  # bookkeeping, not an agent session, so suppress tracker lifecycle/TTS events.
+  installed="$(CODEX_AGENT_SKIP_TRACKER=1 codex --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
   target="$(resolve_delayed_version "@openai/codex" "$installed")"
   if [ -z "$target" ]; then
     log "Codex already at the newest stable >=${DELAY_HOURS}h old (${installed:-none}); no change"
