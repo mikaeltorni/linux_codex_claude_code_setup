@@ -31,10 +31,3 @@ while IFS=$'\t' read -r plugin skill label state kind; do
     register_plugin_component "$plugin" "$skill" "$label" "$state"
   fi
 done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list)
-
-# Global agent instructions are appended after the plugins so the run-scoped
-# merge sees every plugin/skill installed before it. Keeping it a distinct,
-# default-on component lets users install plugins without writing to
-# AGENTS.md/CLAUDE.md.
-ISC_COMPONENTS+=("global_instructions|Global agent instructions (AGENTS.md/CLAUDE.md)|on|install_global_instructions_component|||Configuration")
-

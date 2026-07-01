@@ -3,7 +3,7 @@
 > Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, and **Cline** CLIs plus their marketplace plugins for a productivity-focused desktop. Tested on Ubuntu 24.04.4 LTS; the CLI tooling is largely OS-portable (Windows/macOS install paths untested).
 
 Installs the Codex, Claude Code, and Cline CLIs and registers every configured
-`programming_prompts` skill as an independently selectable plugin.
+`programming_prompts` plugin or direct skill as an independently selectable component.
 
 `default.json` is the committed source of truth for the programming-prompts
 marketplace and per-skill default selections. It points Claude Code at
@@ -15,22 +15,12 @@ plugin explicitly, and drives the component menu for both products.
 ```bash
 bash install.sh --list-components
 bash install.sh --default
-bash install.sh --select codex_cli,codex_status_bar,claude_code,claude_status_bar
+bash install.sh --select codex_cli,claude_code,cline_cli
 ```
 
-The component menu starts with a **Models** section:
-
-- `ornstein_model` installs the default Ornstein local coding model by
-  delegating to `linux_lmstudio_local_agents`, which remains the sole owner of
-  the model registry, download, and serving service.
-- `custom_coding_model` is default-off. Selecting it prompts for a GGUF URL,
-  `lms` model key, and switch environment variable. Automation can instead set
-  `CODEX_LOCAL_MODEL_NAME`, `CODEX_LOCAL_MODEL_KEY`,
-  `CODEX_LOCAL_MODEL_URL`, optional `CODEX_LOCAL_MODEL_SHA256`, and
-  `CODEX_LOCAL_MODEL_SWITCH_ENV_VAR`.
-
-Every reproducible feature is an independently selectable, default-on
-component; the input-requiring custom model row is the only default-off entry.
+The menu starts with a **CLIs** section containing Codex, Claude Code, and
+Cline. Local models and tracking-aware launchers belong to Agent Command Center,
+not this CLI installer.
 The core is intentionally minimal — each CLI installs and runs on its own —
 and everything else is optional:
 
@@ -39,18 +29,6 @@ and everything else is optional:
   linked as `~/.local/bin/cline`, matching its official `npm install -g cline`
   package without requiring sudo.
   `codex_cli` puts a plain `codex` launcher on `PATH`.
-- `codex_wrapper` — the tracking-aware `~/.local/bin/codex` wrapper that
-  integrates with Agent Command Center. Skip it to keep the raw Codex binary.
-- `codex_status_bar` — configures Codex's native TUI footer with model and
-  reasoning, project/path/branch, context used and remaining, 5-hour and weekly
-  limits, token totals, fast mode, task progress, version, and thread id.
-- `claude_status_bar` — delegates to the standalone `claude_code_status_bar`
-  renderer, which provides model/reasoning, project, context usage, 5-hour and
-  weekly limits, diff size, and session cost.
-
-Each status component requires its corresponding CLI component. In the menu it
-is selectable when that CLI is selected in the current run or autodetected as
-already installed, so modification runs do not require reinstalling a CLI.
 - `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
   and once a day, updates Codex, Claude Code, and Cline to the newest *stable* release
   published at least 24 hours ago. Neither npm nor `claude install/update`
@@ -64,10 +42,9 @@ already installed, so modification runs do not require reinstalling a CLI.
   Each selected skill is also linked into Cline's documented global
   `~/.cline/skills/` directory; an unrelated user-authored skill is never
   overwritten.
-- `global_instructions` — merges each installed plugin's global instructions
-  into `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`. Skip it to install plugins
-  without touching the agent instruction files. It runs last so it sees every
-  plugin selected in the same run.
+Agent Command Center's Claude integration loads project `AGENTS.md` files at
+session start. This installer deliberately does not create or merge global
+`AGENTS.md`/`CLAUDE.md` instruction files.
 
 The installer is sudo-free by default. It clones `programming_prompts` when a
 sibling checkout is unavailable, preserves unrelated Claude settings, and
@@ -85,11 +62,9 @@ is no config key, env var, or `tui.status_line` item that hides the account
 email (it surfaces in the welcome view and `/status`), so nothing is wired for
 Codex rather than relying on a fragile output-redaction hack.
 
-This repository also owns the tracking-aware `~/.local/bin/codex` wrapper
-installed by the `codex_wrapper` component. The wrapper delegates to an isolated
-npm installation and integrates with Agent Command Center when its tracker is
-available. Permission bypass remains a `ca` launcher concern, so `--yolo` is
-forwarded exactly once.
+Rich Codex, Claude Code, and Cline display integration belongs in the sibling
+`claude_code_status_bar` repository. Cline already supplies its rich native TUI;
+there is no unsupported settings rewrite here.
 
 ## Tests
 

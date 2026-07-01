@@ -57,8 +57,8 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         entry["skill"] for entry in defaults["plugins"] if entry.get("kind") == "skill"
     }
     assert plugin_defaults == plugin_names()
-    assert skill_defaults == direct_skill_names()
-    assert skill_defaults == {"commit", "setup-repository-guidelines"}
+    assert skill_defaults <= direct_skill_names()
+    assert skill_defaults == {"init-project", "refactoring", "setup-repository-guidelines"}
     assert all(entry["default"] is True and entry["skill"] for entry in defaults["plugins"])
 
 
@@ -83,35 +83,21 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     ids = {line.split("\t", 1)[0] for line in result.stdout.splitlines()}
     assert {"codex_cli", "claude_code", "cline_cli"} <= ids
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
-    assert {"skill-commit", "skill-setup-repository-guidelines"} <= ids
+    assert {"plugin-commit-guidelines", "skill-init-project", "skill-refactoring", "skill-setup-repository-guidelines"} <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
         encoding="utf-8"
     )
     assert "plugin uninstall" not in plugin_installer
 
 
-def test_model_components_run_last_and_owned_by_setup() -> None:
-    """Heavy LM Studio model downloads belong at the END of this setup run.
-
-    The Ornstein GGUF is multi-GB; running it before the agent tools meant a slow
-    or interrupted download blocked codex_cli/claude_code/plugins (and downstream,
-    agent_command_center's preflight) entirely. They are appended last so the
-    lightweight components finish first and a failed model download no longer
-    cascades. Ownership stays here (not in agent_command_center)."""
+def test_models_and_tracking_wrapper_are_owned_by_acc() -> None:
+    """The CLI installer must not expose ACC runtime or local-model rows."""
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
-    assert "install_ornstein_model" in components
-    assert 'source "$SCRIPT_DIR/lib/model_setup.sh"' in (
-        ROOT / "install.sh"
-    ).read_text(encoding="utf-8")
+    assert "ornstein_model|" not in components
+    assert "codex_wrapper|" not in components
     acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
-    assert "ornstein_model|" not in acc_components
-
-    # The two model rows must be the final entries in install order, after the
-    # agent tools, plugins, and the global-instructions merge.
-    ids = [component_id for component_id, _ in list_components()]
-    assert ids[-2:] == ["ornstein_model", "custom_coding_model"]
-    for tool in ("codex_cli", "claude_code", "global_instructions"):
-        assert ids.index(tool) < ids.index("ornstein_model")
+    assert "ornstein_model|" in acc_components
+    assert "codex_wrapper|" in acc_components
 
 
 def list_components() -> list[tuple[str, str]]:
@@ -125,33 +111,16 @@ def list_components() -> list[tuple[str, str]]:
     return pairs
 
 
-def test_every_feature_is_an_independently_selectable_module() -> None:
-    """The wrapper and global instructions are their own default-on components."""
+def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
+    """ACC runtime, models, and global instruction mutation stay out of setup."""
     pairs = list_components()
     states = dict(pairs)
     # The tracking wrapper and global-instruction merge are no longer bundled
     # into another component; each is independently selectable and default-on.
-    assert states.get("codex_wrapper") == "on"
-    assert states.get("global_instructions") == "on"
-    # Every reproducible component defaults on. The custom model row is an
-    # explicit prompt and therefore remains opt-in.
-    assert states["custom_coding_model"] == "off"
-    assert all(
-        state == "on" for component_id, state in pairs
-        if component_id != "custom_coding_model"
-    )
-    # Global instructions must run after every plugin/skill so its run-scoped
-    # merge sees them all. The heavy model downloads are appended after it (they
-    # add no plugins), so global_instructions is the last non-model component.
-    ids = [component_id for component_id, _ in pairs]
-    plugin_skill_ids = [
-        cid for cid in ids if cid.startswith(("plugin-", "skill-"))
-    ]
-    assert plugin_skill_ids, "expected plugin/skill components in the listing"
-    assert max(ids.index(cid) for cid in plugin_skill_ids) < ids.index(
-        "global_instructions"
-    )
-    assert ids[-2:] == ["ornstein_model", "custom_coding_model"]
+    assert "codex_wrapper" not in states
+    assert "global_instructions" not in states
+    assert "ornstein_model" not in states
+    assert all(state == "on" for _, state in pairs)
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
@@ -165,8 +134,8 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     # by the dedicated codex_wrapper component function.
     assert "install_codex_plain_launcher" in cli
     assert "install_codex_wrapper_component" in cli
-    assert "codex_wrapper|" in components
-    assert "global_instructions|" in components
+    assert "codex_wrapper|" not in components
+    assert "global_instructions|" not in components
     # Plugin/skill installs only record themselves; the merge is a separate
     # component, so plugins can be installed without writing AGENTS.md/CLAUDE.md.
     assert "record_prompt_plugin" in plugin_installer
