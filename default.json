@@ -6,11 +6,11 @@
     "auto_update": true
   },
   "plugins": [
-    {"plugin": "commit-guidelines", "skill": "commit", "label": "Commit Guidelines", "default": true, "kind": "skill"},
+    {"plugin": "commit-guidelines", "skill": "commit", "label": "Commit Guidelines", "default": true, "kind": "plugin"},
     {"plugin": "general-programming-guidelines", "skill": "programming-guidelines", "label": "General Programming Guidelines", "default": true, "kind": "plugin"},
-    {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": true, "kind": "plugin"},
+    {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": true, "kind": "skill"},
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": true, "kind": "plugin"},
-    {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": true, "kind": "plugin"},
+    {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": true, "kind": "skill"},
     {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": true, "kind": "skill"}
   ]
 }

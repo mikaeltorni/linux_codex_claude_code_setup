@@ -232,3 +232,22 @@ def test_cleanup_legacy_honors_alternate_codex_home_and_broken_links(
     assert not qwen_skills.joinpath("refactoring").is_symlink()
     # The default .codex home must be untouched when an alternate home is given.
     assert not (home / ".codex").exists()
+
+
+def test_cline_skill_migrates_links_within_programming_prompts(tmp_path: Path) -> None:
+    """Changing a prompt from direct skill to plugin may retarget its managed link."""
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    old = prompts / "skills" / "commit"
+    new = prompts / "plugins" / "commit-guidelines" / "skills" / "commit"
+    old.mkdir(parents=True)
+    new.mkdir(parents=True)
+    (old / "SKILL.md").write_text("old", encoding="utf-8")
+    (new / "SKILL.md").write_text("new", encoding="utf-8")
+    target = home / ".cline" / "skills" / "commit"
+    target.parent.mkdir(parents=True)
+    os.symlink(old, target)
+
+    plugin_defaults.install_cline_skill(home, new, "commit")
+
+    assert target.resolve() == new.resolve()

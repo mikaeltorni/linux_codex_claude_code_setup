@@ -343,6 +343,14 @@ def install_cline_skill(home: Path, source_skill: Path, skill_name: str) -> None
         if (target.parent / os.readlink(target)).resolve() == source_skill:
             LOGGER.info("Cline skill %s already linked", skill_name)
             return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        old_roots = [parent for parent in old_source.parents if parent.name == "programming_prompts"]
+        new_roots = [parent for parent in source_skill.parents if parent.name == "programming_prompts"]
+        if old_roots and new_roots and old_roots[0] == new_roots[0]:
+            LOGGER.info("Migrating managed Cline skill %s to %s", skill_name, source_skill)
+            target.unlink()
+            os.symlink(source_skill, target, target_is_directory=True)
+            return
         raise ValueError(f"refusing to replace unmanaged Cline skill link: {target}")
     if target.exists():
         raise ValueError(f"refusing to replace unmanaged Cline skill: {target}")
