@@ -90,6 +90,23 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert "plugin uninstall" not in plugin_installer
 
 
+def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
+    """The standalone and aggregate menus must visibly separate install types."""
+    result = run("bash", "install.sh", "--list-components")
+    assert result.returncode == 0, result.stderr
+    rows = {fields[0]: fields for line in result.stdout.splitlines() if (fields := line.split("\t"))}
+    assert rows["plugin-commit-guidelines"][3] == "Plugins"
+    assert rows["plugin-general-programming-guidelines"][3] == "Plugins"
+    assert rows["plugin-linux-desktop-configuration"][3] == "Plugins"
+    assert rows["skill-init-project"][3] == "Skills"
+    assert rows["skill-refactoring"][3] == "Skills"
+    assert rows["skill-setup-repository-guidelines"][3] == "Skills"
+    ids = list(rows)
+    plugin_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("plugin-")]
+    skill_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("skill-")]
+    assert max(plugin_positions) < min(skill_positions)
+
+
 def test_models_and_tracking_wrapper_are_owned_by_acc() -> None:
     """The CLI installer must not expose ACC runtime or local-model rows."""
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")

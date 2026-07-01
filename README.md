@@ -38,7 +38,8 @@ and everything else is optional:
   the day it ships, and it never downgrades a manually newer install. Tune the
   window via `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
-- `plugin-*` / `skill-*` — one component per `programming_prompts` skill.
+- `plugin-*` and `skill-*` — separate **Plugins** and **Skills** menu sections,
+  with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global
   `~/.cline/skills/` directory; an unrelated user-authored skill is never
   overwritten.

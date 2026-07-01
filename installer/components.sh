@@ -20,14 +20,22 @@ register_plugin_component() {
 register_skill_component() {
   local plugin="$1" skill="$2" label="$3" state="$4" function_name="install_skill_${2//-/_}"
   eval "$function_name() { install_prompt_skill '$plugin' '$skill'; }"
-  ISC_COMPONENTS+=("skill-$skill|$label|$state|$function_name|||Plugins")
+  ISC_COMPONENTS+=("skill-$skill|$label|$state|$function_name|||Skills")
 }
 
-while IFS=$'\t' read -r plugin skill label state kind; do
-  [[ -z "$plugin" ]] && continue
-  if [[ "$kind" == "skill" ]]; then
-    register_skill_component "$plugin" "$skill" "$label" "$state"
-  else
-    register_plugin_component "$plugin" "$skill" "$label" "$state"
-  fi
-done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list)
+# Group component rows by install type so each menu heading is rendered once.
+# Preserve default.json ordering within each group.
+mapfile -t PROMPT_COMPONENT_ROWS < <(
+  python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list
+)
+for desired_kind in plugin skill; do
+  for row in "${PROMPT_COMPONENT_ROWS[@]}"; do
+    IFS=$'\t' read -r plugin skill label state kind <<<"$row"
+    [[ -z "$plugin" || "$kind" != "$desired_kind" ]] && continue
+    if [[ "$kind" == "skill" ]]; then
+      register_skill_component "$plugin" "$skill" "$label" "$state"
+    else
+      register_plugin_component "$plugin" "$skill" "$label" "$state"
+    fi
+  done
+done
