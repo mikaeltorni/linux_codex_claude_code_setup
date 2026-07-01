@@ -36,16 +36,11 @@ def listed_components() -> dict[str, list[str]]:
     }
 
 
-def test_status_bar_components_require_their_corresponding_clis() -> None:
-    """Both status integrations should be default-on dependent rows."""
+def test_status_bar_components_are_delegated_to_status_bar_repository() -> None:
+    """This CLI installer must not own product display components."""
     rows = listed_components()
-    expected = {
-        "codex_status_bar": "codex_cli",
-        "claude_status_bar": "claude_code",
-    }
-    for component, requirement in expected.items():
-        assert rows[component][2] == "on"
-        assert rows[component][4] == requirement
+    assert "codex_status_bar" not in rows
+    assert "claude_status_bar" not in rows
 
 
 def test_codex_status_line_preserves_unrelated_tui_and_root_settings(tmp_path: Path) -> None:

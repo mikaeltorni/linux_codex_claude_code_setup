@@ -32,7 +32,6 @@ isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
-source "$SCRIPT_DIR/lib/status_bar_setup.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
