@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Standalone Codex/Claude/Cline CLI and programming_prompts plugin installer.
+# Standalone Codex/Claude/Cline/Grok CLI and programming_prompts plugin installer.
 
 set -euo pipefail
 
@@ -20,6 +20,13 @@ PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TAR
 CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/cline-npm}"
+GROK_INSTALL_URL="${GROK_INSTALL_URL:-https://x.ai/cli/install.sh}"
+GROK_COMMAND="${GROK_COMMAND:-grok}"
+GROK_HOME="${GROK_HOME:-$TARGET_HOME/.grok}"
+GROK_API_KEY_ENV="${GROK_API_KEY_ENV:-XAI_API_KEY}"
+GROK_MODEL_NAME="${GROK_MODEL_NAME:-}"
+GROK_MODEL_ID="${GROK_MODEL_ID:-}"
+GROK_MODEL_BASE_URL="${GROK_MODEL_BASE_URL:-}"
 
 for loader in \
   "$SCRIPT_DIR/../linux_installation_scripts_functions/component_loader.sh" \

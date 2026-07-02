@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Component manifest for Codex, Claude Code, Cline, and per-skill plugins.
+# Component manifest for Codex, Claude Code, Cline, Grok, and prompt plugins.
 
 ISC_REPO_NAME="linux_codex_claude_code_setup"
-ISC_REPO_LABEL="Codex, Claude Code, and Cline setup"
+ISC_REPO_LABEL="Codex, Claude Code, Cline, and Grok setup"
 ISC_PREFLIGHT="agent_cli_preflight"
 ISC_COMPONENTS=(
   "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli|CLIs"
   "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code|CLIs"
   "cline_cli|Cline CLI|on|install_cline_cli|detect_cline_cli|uninstall_cline_cli|CLIs"
+  "grok_cli|Grok CLI|on|install_grok_cli|detect_grok_cli|uninstall_grok_cli|CLIs"
   "agent_autoupdate|Delayed CLI auto-update timer (24h supply-chain delay)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate|Configuration"
 )
 

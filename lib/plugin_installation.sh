@@ -130,6 +130,25 @@ install_cline_prompt_skill() {
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
 
+# Install the selected skill into Grok's documented ~/.grok/skills directory.
+install_grok_prompt_skill() {
+  local plugin_name="$1" skill_name="$2" source_skill
+  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
+  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-grok-skill \
+    "$TARGET_HOME" "$source_skill" "$skill_name"
+}
+
+# Link the full plugin bundle so Grok discovers future hooks, agents, and MCPs
+# in addition to the currently selected skill.
+install_grok_prompt_plugin() {
+  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-grok-plugin \
+    "$TARGET_HOME" "$source_plugin" "$plugin_name"
+}
+
 # Optional global_instructions component: merge AGENTS.md/CLAUDE.md global
 # instructions for every plugin/skill installed in this run. Selecting plugins
 # without this component installs them without touching the agent instruction
@@ -219,6 +238,8 @@ install_prompt_plugin() {
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
   install_cline_prompt_skill "$plugin_name" "$skill_name"
+  install_grok_prompt_skill "$plugin_name" "$skill_name"
+  install_grok_prompt_plugin "$plugin_name"
   record_prompt_plugin "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
@@ -235,5 +256,6 @@ install_prompt_skill() {
       --codex-home "$codex_home"
   done
   install_cline_prompt_skill "$plugin_name" "$skill_name"
+  install_grok_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
 }

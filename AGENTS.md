@@ -1,11 +1,12 @@
 # Clean Installation Compatibility
 
-Keep Codex, Claude Code, Cline, marketplace registration, and plugin defaults
+Keep Codex, Claude Code, Cline, Grok, marketplace registration, and plugin defaults
 reproducible through this repository's `install.sh` and the master
 `installation_scripts/install.sh`. The committed `default.json` is the source
 of truth for per-skill defaults and must never be gitignored.
 
-This repository owns the raw Codex and Cline npm installations, generated
+This repository owns the raw Codex and Cline npm installations, the Grok CLI,
+generated
 Codex/Claude marketplace catalogs, CLI marketplace registration, and plugin
 installation. `claude_code_status_bar` owns the delegated Claude renderer;
 `programming_prompts` owns only

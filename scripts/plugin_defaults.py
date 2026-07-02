@@ -358,6 +358,92 @@ def install_cline_skill(home: Path, source_skill: Path, skill_name: str) -> None
     LOGGER.info("Installed Cline skill %s from %s", skill_name, source_skill)
 
 
+@log_call(LOGGER)
+def install_grok_skill(home: Path, source_skill: Path, skill_name: str) -> None:
+    """Link one managed skill into Grok's native user-level skill directory."""
+    if not NAME.fullmatch(skill_name):
+        raise ValueError(f"invalid Grok skill name: {skill_name!r}")
+    source_skill = source_skill.resolve()
+    if not source_skill.joinpath("SKILL.md").is_file():
+        raise ValueError(f"missing Grok skill source: {source_skill}")
+    target = home / ".grok" / "skills" / skill_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_skill:
+            LOGGER.info("Grok skill %s already linked", skill_name)
+            return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        if any(path.name == "programming_prompts" for path in old_source.parents):
+            target.unlink()
+        else:
+            raise ValueError(f"refusing to replace unmanaged Grok skill link: {target}")
+    elif target.exists():
+        raise ValueError(f"refusing to replace unmanaged Grok skill: {target}")
+    os.symlink(source_skill, target, target_is_directory=True)
+    LOGGER.info("Installed Grok skill %s from %s", skill_name, source_skill)
+
+
+@log_call(LOGGER)
+def install_grok_plugin(home: Path, source_plugin: Path, plugin_name: str) -> None:
+    """Link a full managed plugin bundle into Grok's native plugin directory."""
+    if not NAME.fullmatch(plugin_name):
+        raise ValueError(f"invalid Grok plugin name: {plugin_name!r}")
+    source_plugin = source_plugin.resolve()
+    if not source_plugin.joinpath("skills").is_dir():
+        raise ValueError(f"missing Grok plugin content: {source_plugin}")
+    target = home / ".grok" / "plugins" / plugin_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_plugin:
+            LOGGER.info("Grok plugin %s already linked", plugin_name)
+            return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        if any(path.name == "programming_prompts" for path in old_source.parents):
+            target.unlink()
+        else:
+            raise ValueError(f"refusing to replace unmanaged Grok plugin link: {target}")
+    elif target.exists():
+        raise ValueError(f"refusing to replace unmanaged Grok plugin: {target}")
+    os.symlink(source_plugin, target, target_is_directory=True)
+    LOGGER.info("Installed Grok plugin %s from %s", plugin_name, source_plugin)
+
+
+@log_call(LOGGER)
+def merge_grok_config(
+    target: Path, name: str, model_id: str, base_url: str, env_key: str
+) -> None:
+    """Merge an installer-managed custom-model block into Grok config TOML."""
+    if not NAME.fullmatch(name) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", env_key):
+        raise ValueError("invalid Grok model name or API-key environment variable")
+    start = "# BEGIN linux_codex_claude_code_setup Grok model"
+    end = "# END linux_codex_claude_code_setup Grok model"
+    quote = json.dumps
+    block = "\n".join(
+        (
+            start,
+            f"[model.{name}]",
+            f"model = {quote(model_id)}",
+            f"base_url = {quote(base_url)}",
+            f"name = {quote(name)}",
+            f"env_key = {quote(env_key)}",
+            "",
+            "[models]",
+            f"default = {quote(name)}",
+            end,
+        )
+    )
+    current = target.read_text(encoding="utf-8") if target.exists() else ""
+    if start in current and end in current:
+        prefix, remainder = current.split(start, 1)
+        _old, suffix = remainder.split(end, 1)
+        updated = f"{prefix}{block}{suffix}"
+    else:
+        updated = f"{current.rstrip()}\n\n{block}\n" if current.strip() else f"{block}\n"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(updated, encoding="utf-8")
+    LOGGER.info("Merged Grok model %s into %s", name, target)
+
+
 def main() -> None:
     """Run the plugin-defaults command-line helper."""
     parser = argparse.ArgumentParser()
@@ -393,6 +479,20 @@ def main() -> None:
     cline_skill.add_argument("home", type=Path)
     cline_skill.add_argument("source_skill", type=Path)
     cline_skill.add_argument("skill_name")
+    grok_skill = subparsers.add_parser("install-grok-skill")
+    grok_skill.add_argument("home", type=Path)
+    grok_skill.add_argument("source_skill", type=Path)
+    grok_skill.add_argument("skill_name")
+    grok_plugin = subparsers.add_parser("install-grok-plugin")
+    grok_plugin.add_argument("home", type=Path)
+    grok_plugin.add_argument("source_plugin", type=Path)
+    grok_plugin.add_argument("plugin_name")
+    grok_config = subparsers.add_parser("merge-grok-config")
+    grok_config.add_argument("target", type=Path)
+    grok_config.add_argument("name")
+    grok_config.add_argument("model_id")
+    grok_config.add_argument("base_url")
+    grok_config.add_argument("env_key")
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
@@ -427,8 +527,14 @@ def main() -> None:
             args.skill_name,
             args.codex_home,
         )
-    else:
+    elif args.command == "install-cline-skill":
         install_cline_skill(args.home, args.source_skill, args.skill_name)
+    elif args.command == "install-grok-skill":
+        install_grok_skill(args.home, args.source_skill, args.skill_name)
+    elif args.command == "install-grok-plugin":
+        install_grok_plugin(args.home, args.source_plugin, args.plugin_name)
+    else:
+        merge_grok_config(args.target, args.name, args.model_id, args.base_url, args.env_key)
 
 
 if __name__ == "__main__":

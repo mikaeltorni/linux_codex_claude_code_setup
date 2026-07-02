@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Codex, Claude Code, and Cline CLI installation functions.
+# Codex, Claude Code, Cline, and Grok CLI installation functions.
 
 # Ensure ~/.local/bin is on the target user's PATH via .bashrc (idempotent).
 # The user-local launchers and tracking wrapper live there, so every CLI
@@ -134,6 +134,37 @@ install_cline_cli() {
   run_as_target ln -sf "$raw_cline" "$TARGET_HOME/.local/bin/cline"
   ensure_local_bin_on_path
   msg "Installed Cline $($raw_cline --version 2>/dev/null || printf unknown)"
+}
+
+# configure_grok_model - Merge an optional custom model into Grok's user config.
+# Set GROK_MODEL_NAME, GROK_MODEL_ID, and GROK_MODEL_BASE_URL together; the API
+# key is read at runtime from the customizable GROK_API_KEY_ENV variable.
+configure_grok_model() {
+  [[ -n "$GROK_MODEL_NAME$GROK_MODEL_ID$GROK_MODEL_BASE_URL" ]] || return 0
+  if [[ -z "$GROK_MODEL_NAME" || -z "$GROK_MODEL_ID" || -z "$GROK_MODEL_BASE_URL" ]]; then
+    log "error" "GROK_MODEL_NAME, GROK_MODEL_ID, and GROK_MODEL_BASE_URL must be set together"
+    return 1
+  fi
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-grok-config \
+    "$GROK_HOME/config.toml" "$GROK_MODEL_NAME" "$GROK_MODEL_ID" \
+    "$GROK_MODEL_BASE_URL" "$GROK_API_KEY_ENV"
+}
+
+# install_grok_cli - Run xAI's official user-local installer, then merge any
+# operator-supplied model configuration without disturbing unrelated settings.
+install_grok_cli() {
+  msg "Installing Grok CLI from $GROK_INSTALL_URL"
+  run_as_target env GROK_INSTALL_URL="$GROK_INSTALL_URL" GROK_COMMAND="$GROK_COMMAND" bash -c '
+    set -euo pipefail
+    export PATH="$HOME/.local/bin:$PATH"
+    curl -fsSL --max-time 300 "$GROK_INSTALL_URL" | timeout 900 bash
+    command -v "$GROK_COMMAND" >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/$GROK_COMMAND" ]]
+  ' </dev/null
+  configure_grok_model
+  ensure_local_bin_on_path
+  run_as_target env GROK_COMMAND="$GROK_COMMAND" bash -c \
+    'export PATH="$HOME/.local/bin:$PATH"; "$GROK_COMMAND" --version' 1>&2
 }
 # install_codex_plain_launcher - expose the isolated npm binary as plain codex.
 install_codex_plain_launcher() {

@@ -1,6 +1,6 @@
-# Linux Codex, Claude Code, and Cline Setup
+# Linux Codex, Claude Code, Cline, and Grok Setup
 
-> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, and **Cline** CLIs plus their marketplace plugins for a productivity-focused desktop. Tested on Ubuntu 24.04.4 LTS; the CLI tooling is largely OS-portable (Windows/macOS install paths untested).
+> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, **Cline**, and **Grok** CLIs plus shared programming plugins and skills.
 
 Installs the Codex, Claude Code, and Cline CLIs and registers every configured
 `programming_prompts` plugin or direct skill as an independently selectable component.
@@ -15,11 +15,11 @@ plugin explicitly, and drives the component menu for both products.
 ```bash
 bash install.sh --list-components
 bash install.sh --default
-bash install.sh --select codex_cli,claude_code,cline_cli
+bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli
 ```
 
-The menu starts with a **CLIs** section containing Codex, Claude Code, and
-Cline. Local models and tracking-aware launchers belong to Agent Command Center,
+The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
+and Grok. Local models and tracking-aware launchers belong to Agent Command Center,
 not this CLI installer.
 The core is intentionally minimal — each CLI installs and runs on its own —
 and everything else is optional:
@@ -27,8 +27,14 @@ and everything else is optional:
 - `codex_cli` / `claude_code` / `cline_cli` — install each CLI. Selecting just
   one is enough; Cline is installed into an isolated user-owned npm prefix and
   linked as `~/.local/bin/cline`, matching its official `npm install -g cline`
-  package without requiring sudo.
-  `codex_cli` puts a plain `codex` launcher on `PATH`.
+  package without requiring sudo. `codex_cli` puts a plain `codex` launcher on
+  `PATH`.
+- `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer and
+  verifies `grok`. Override `GROK_INSTALL_URL`, `GROK_COMMAND`, `GROK_HOME`, or
+  `GROK_API_KEY_ENV`; set `GROK_MODEL_NAME`, `GROK_MODEL_ID`, and
+  `GROK_MODEL_BASE_URL` together to merge a custom model without replacing
+  unrelated `~/.grok/config.toml` settings. Authentication uses the environment
+  variable named by `GROK_API_KEY_ENV` (default `XAI_API_KEY`).
 - `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
   and once a day, updates Codex, Claude Code, and Cline to the newest *stable* release
   published at least 24 hours ago. Neither npm nor `claude install/update`
@@ -41,8 +47,10 @@ and everything else is optional:
 - `plugin-*` and `skill-*` — separate **Plugins** and **Skills** menu sections,
   with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global
-  `~/.cline/skills/` directory; an unrelated user-authored skill is never
-  overwritten.
+  `~/.cline/skills/` directory; unrelated user-authored skills are never
+  overwritten. Grok receives native `~/.grok/skills/` links, and full plugins are linked
+  under `~/.grok/plugins/` so skills, hooks, agents, and MCP definitions remain
+  discoverable even when Claude Code is not selected.
 Agent Command Center's Claude integration loads project `AGENTS.md` files at
 session start. This installer deliberately does not create or merge global
 `AGENTS.md`/`CLAUDE.md` instruction files.

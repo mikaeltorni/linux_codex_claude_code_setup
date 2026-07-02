@@ -29,6 +29,12 @@ detect_cline_cli() {
   [ -x "$CLINE_NPM_PREFIX/bin/cline" ] || run_as_target bash -lc 'command -v cline >/dev/null 2>&1'
 }
 
+# detect_grok_cli - true when the configured Grok command is user-accessible.
+detect_grok_cli() {
+  [ -x "$TARGET_HOME/.local/bin/$GROK_COMMAND" ] ||
+    run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$GROK_COMMAND"
+}
+
 # detect_codex_status_bar - true when Codex config contains tui.status_line.
 detect_codex_status_bar() {
   run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
@@ -97,4 +103,16 @@ uninstall_cline_cli() {
     run_as_target rm -f "$launcher"
   fi
   run_as_target rm -rf "$CLINE_NPM_PREFIX"
+}
+
+
+# uninstall_grok_cli - Remove the managed launcher while preserving ~/.grok.
+uninstall_grok_cli() {
+  msg "Removing Grok CLI binary (preserving user configuration)"
+  run_as_target rm -f "$TARGET_HOME/.local/bin/$GROK_COMMAND"
+  local agent_link="$TARGET_HOME/.local/bin/agent"
+  if [ -L "$agent_link" ] && [[ "$(readlink -f "$agent_link" 2>/dev/null || true)" == "$GROK_HOME/bin/"* ]]; then
+    run_as_target rm -f "$agent_link"
+  fi
+  run_as_target rm -rf "$GROK_HOME/bin"
 }
