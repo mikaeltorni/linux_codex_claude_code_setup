@@ -167,8 +167,17 @@ install_grok_cli() {
     'export PATH="$HOME/.local/bin:$PATH"; "$GROK_COMMAND" --version' 1>&2
 }
 # install_codex_plain_launcher - expose the isolated npm binary as plain codex.
+# A previously installed tracking-aware wrapper (a regular script that starts
+# codex-agent-tracker and exports CODEX_AGENT_RUN_ID) is preserved: replacing it
+# with the plain symlink on a codex_cli rerun/upgrade silently kills the Codex
+# start/finish TTS announcements. Deliberately restoring the plain launcher is
+# still possible by uninstalling the codex_wrapper component first.
 install_codex_plain_launcher() {
-  local raw_codex="$1" bin_dir="$TARGET_HOME/.local/bin"
+  local raw_codex="$1" bin_dir="$TARGET_HOME/.local/bin" launcher="$TARGET_HOME/.local/bin/codex"
   run_as_target mkdir -p "$bin_dir"
+  if [[ -f "$launcher" && ! -L "$launcher" ]] && grep -qs 'codex-agent-tracker' "$launcher"; then
+    msg "Keeping installed tracking-aware codex wrapper at $launcher"
+    return 0
+  fi
   run_as_target ln -sf "$raw_codex" "$bin_dir/codex"
 }
