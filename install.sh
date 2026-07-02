@@ -54,7 +54,7 @@ run_installer() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-}" in
-    --list-components|--detect|--help|-h) component_main "$@" ;;
+    --list-components|--export-selection|--detect|--help|-h) component_main "$@" ;;
     *) run_installer "$@" ;;
   esac
 fi
