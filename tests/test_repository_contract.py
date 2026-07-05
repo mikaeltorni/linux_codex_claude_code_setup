@@ -182,7 +182,7 @@ def test_installer_logging_contract_is_explicit() -> None:
     assert "run_with_installer_log component_main" in installer
     assert 'log_dir="$SCRIPT_DIR/.log"' in shell_logging
     assert 'tee "$log_file"' in shell_logging
-    assert "--list-components|--detect|--help|-h) component_main" in installer
+    assert "--list-components|--export-selection|--detect|--help|-h) component_main" in installer
     assert "def get_logger(" in python_logging
     assert "def log_call(" in python_logging
     assert "configure_logger" not in python_logging
