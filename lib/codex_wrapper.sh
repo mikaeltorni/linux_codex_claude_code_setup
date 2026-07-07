@@ -46,6 +46,11 @@ finish_agent_tracking() {
 trap finish_agent_tracking EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# When CODEXSYNC is enabled, union-merge chat history across all provider homes
+# before launching so a session started on another provider is resumable here.
+if [ "\${CODEXSYNC:-0}" = "1" ] && command -v codexsync >/dev/null 2>&1; then
+  codexsync --quiet || true
+fi
 "\$real_codex" "\$@"
 EOF
   run_as_target chmod 0755 "$bin_dir/codex"

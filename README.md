@@ -44,6 +44,17 @@ and everything else is optional:
   the day it ships, and it never downgrades a manually newer install. Tune the
   window via `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
+- `codex_history_sync` — installs `codexsync`, a non-destructive union merge of
+  Codex chat history across every provider home (`~/.codex`, `~/.codex-qwen`,
+  `~/.codex-openrouter`, `~/.codex-nvidia`). Each provider keeps its own session
+  store, so a chat started on one is normally invisible to the others' `resume`
+  pickers. `codexsync` copies every home's `sessions/` rollouts and unions each
+  `history.jsonl` into all homes, so any session can be continued from any
+  provider interchangeably. It only ever copies missing files and de-duplicates
+  history lines — nothing is deleted or overwritten — so it is safe to run
+  repeatedly. Export `CODEXSYNC=1` to have the `codex` launcher merge history
+  automatically before each run, or run `codexsync` on demand. Override the set
+  of homes with `--home DIR` (repeatable) or the `CODEX_SYNC_HOMES` env var.
 - `plugin-*` and `skill-*` — separate **Plugins** and **Skills** menu sections,
   with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global

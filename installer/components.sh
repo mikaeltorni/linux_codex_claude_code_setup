@@ -10,6 +10,7 @@ ISC_COMPONENTS=(
   "cline_cli|Cline CLI|on|install_cline_cli|detect_cline_cli|uninstall_cline_cli|CLIs"
   "grok_cli|Grok CLI|on|install_grok_cli|detect_grok_cli|uninstall_grok_cli|CLIs"
   "agent_autoupdate|Delayed CLI auto-update timer (24h supply-chain delay)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate|Configuration"
+  "codex_history_sync|codexsync cross-provider chat-history merge|on|install_codex_history_sync|detect_codex_history_sync|uninstall_codex_history_sync|Configuration"
 )
 
 register_plugin_component() {
