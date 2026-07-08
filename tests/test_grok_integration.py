@@ -14,9 +14,17 @@ def test_grok_is_default_on_and_uses_official_customizable_installer() -> None:
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
 
     assert '"grok_cli|Grok CLI|on|install_grok_cli|detect_grok_cli|uninstall_grok_cli|CLIs"' in manifest
-    for variable in ("GROK_INSTALL_URL", "GROK_COMMAND", "GROK_HOME", "GROK_API_KEY_ENV"):
+    for variable in (
+        "GROK_INSTALL_URL",
+        "GROK_COMMAND",
+        "GROK_HOME",
+        "GROK_API_KEY_ENV",
+        "GROK_CHANNEL",
+        "GROK_VERSION",
+    ):
         assert f'{variable}="${{{variable}:-' in install
     assert 'curl -fsSL --max-time 300 "$GROK_INSTALL_URL"' in cli
+    assert '"$GROK_COMMAND" update --alpha' in cli
     assert '"$GROK_COMMAND" --version' in cli
 
 

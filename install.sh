@@ -24,6 +24,10 @@ GROK_INSTALL_URL="${GROK_INSTALL_URL:-https://x.ai/cli/install.sh}"
 GROK_COMMAND="${GROK_COMMAND:-grok}"
 GROK_HOME="${GROK_HOME:-$TARGET_HOME/.grok}"
 GROK_API_KEY_ENV="${GROK_API_KEY_ENV:-XAI_API_KEY}"
+# Grok's curl installer lands on stable; switch to alpha so clean installs track
+# the faster release channel (currently ahead of stable, e.g. 0.2.92 vs 0.2.91).
+GROK_CHANNEL="${GROK_CHANNEL:-alpha}"
+GROK_VERSION="${GROK_VERSION:-}"
 GROK_MODEL_NAME="${GROK_MODEL_NAME:-}"
 GROK_MODEL_ID="${GROK_MODEL_ID:-}"
 GROK_MODEL_BASE_URL="${GROK_MODEL_BASE_URL:-}"

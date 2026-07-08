@@ -151,15 +151,25 @@ configure_grok_model() {
     "$GROK_MODEL_BASE_URL" "$GROK_API_KEY_ENV"
 }
 
-# install_grok_cli - Run xAI's official user-local installer, then merge any
-# operator-supplied model configuration without disturbing unrelated settings.
+# install_grok_cli - Run xAI's official user-local installer, promote to the
+# configured release channel, then merge any operator-supplied model settings.
 install_grok_cli() {
-  msg "Installing Grok CLI from $GROK_INSTALL_URL"
-  run_as_target env GROK_INSTALL_URL="$GROK_INSTALL_URL" GROK_COMMAND="$GROK_COMMAND" bash -c '
+  msg "Installing Grok CLI from $GROK_INSTALL_URL (channel=${GROK_CHANNEL:-stable})"
+  run_as_target env \
+    GROK_INSTALL_URL="$GROK_INSTALL_URL" \
+    GROK_COMMAND="$GROK_COMMAND" \
+    GROK_CHANNEL="$GROK_CHANNEL" \
+    GROK_VERSION="$GROK_VERSION" \
+    bash -c '
     set -euo pipefail
     export PATH="$HOME/.local/bin:$PATH"
     curl -fsSL --max-time 300 "$GROK_INSTALL_URL" | timeout 900 bash
     command -v "$GROK_COMMAND" >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/$GROK_COMMAND" ]]
+    if [[ -n "${GROK_VERSION:-}" ]]; then
+      "$GROK_COMMAND" update --version "$GROK_VERSION"
+    elif [[ "${GROK_CHANNEL:-stable}" == alpha ]]; then
+      "$GROK_COMMAND" update --alpha
+    fi
   ' </dev/null
   configure_grok_model
   ensure_local_bin_on_path

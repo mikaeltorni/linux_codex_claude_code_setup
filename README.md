@@ -29,9 +29,12 @@ and everything else is optional:
   linked as `~/.local/bin/cline`, matching its official `npm install -g cline`
   package without requiring sudo. `codex_cli` puts a plain `codex` launcher on
   `PATH`.
-- `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer and
-  verifies `grok`. Override `GROK_INSTALL_URL`, `GROK_COMMAND`, `GROK_HOME`, or
-  `GROK_API_KEY_ENV`; set `GROK_MODEL_NAME`, `GROK_MODEL_ID`, and
+- `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
+  then promotes the binary to Grok's **alpha** release channel (`grok update
+  --alpha`) so clean installs track pre-stable builds. Override
+  `GROK_INSTALL_URL`, `GROK_COMMAND`, `GROK_HOME`, `GROK_CHANNEL` (`alpha` or
+  `stable`, default `alpha`), `GROK_VERSION` (pin a specific build, e.g.
+  `0.2.92`), or `GROK_API_KEY_ENV`; set `GROK_MODEL_NAME`, `GROK_MODEL_ID`, and
   `GROK_MODEL_BASE_URL` together to merge a custom model without replacing
   unrelated `~/.grok/config.toml` settings. Authentication uses the environment
   variable named by `GROK_API_KEY_ENV` (default `XAI_API_KEY`).
