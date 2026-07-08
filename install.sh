@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Standalone Codex/Claude/Cline/Grok CLI and programming_prompts plugin installer.
+# Standalone Codex/Claude/Cline/Grok/opencode CLI and programming_prompts plugin installer.
 
 set -euo pipefail
 
@@ -27,6 +27,18 @@ GROK_API_KEY_ENV="${GROK_API_KEY_ENV:-XAI_API_KEY}"
 GROK_MODEL_NAME="${GROK_MODEL_NAME:-}"
 GROK_MODEL_ID="${GROK_MODEL_ID:-}"
 GROK_MODEL_BASE_URL="${GROK_MODEL_BASE_URL:-}"
+# opencode (sst) — official user-local installer drops the binary in
+# ~/.opencode/bin; its agents/skills/plugins/config live under ~/.config/opencode.
+# The installer wires only the default model and its reasoning variant. Provider
+# authentication is left to opencode's own `opencode auth login`, not managed here.
+# OPENCODE_VARIANT selects the glm-5.2 reasoning variant and must be one of
+# opencode's built-in glm variants: default (no extra thinking), high, or max.
+OPENCODE_INSTALL_URL="${OPENCODE_INSTALL_URL:-https://opencode.ai/install}"
+OPENCODE_COMMAND="${OPENCODE_COMMAND:-opencode}"
+OPENCODE_INSTALL_DIR="${OPENCODE_INSTALL_DIR:-$TARGET_HOME/.opencode/bin}"
+OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
+OPENCODE_MODEL="${OPENCODE_MODEL:-opencode-go/glm-5.2}"
+OPENCODE_VARIANT="${OPENCODE_VARIANT:-high}"
 
 for loader in \
   "$SCRIPT_DIR/../linux_installation_scripts_functions/component_loader.sh" \

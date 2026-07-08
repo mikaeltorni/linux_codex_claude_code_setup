@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Codex, Claude Code, Cline, and Grok CLI installation functions.
+# Codex, Claude Code, Cline, Grok, and opencode CLI installation functions.
 
 # Ensure ~/.local/bin is on the target user's PATH via .bashrc (idempotent).
 # The user-local launchers and tracking wrapper live there, so every CLI
@@ -165,6 +165,41 @@ install_grok_cli() {
   ensure_local_bin_on_path
   run_as_target env GROK_COMMAND="$GROK_COMMAND" bash -c \
     'export PATH="$HOME/.local/bin:$PATH"; "$GROK_COMMAND" --version' 1>&2
+}
+
+# configure_opencode_config - Merge the installer-managed defaults (default model
+# and its reasoning variant) into opencode's user config without disturbing
+# unrelated keys. Provider authentication is left to `opencode auth login`; no
+# API key is managed here.
+configure_opencode_config() {
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-opencode-config \
+    "$OPENCODE_CONFIG_HOME/opencode.json" "$OPENCODE_MODEL" "$OPENCODE_VARIANT"
+}
+
+# install_opencode_cli - Run opencode's official user-local installer, expose the
+# binary on ~/.local/bin (shared PATH dir used by every managed CLI), then merge
+# the default model and reasoning-effort configuration. Idempotent; the official
+# installer no-ops when already current.
+install_opencode_cli() {
+  msg "Installing opencode CLI from $OPENCODE_INSTALL_URL"
+  run_as_target env OPENCODE_INSTALL_URL="$OPENCODE_INSTALL_URL" \
+    OPENCODE_COMMAND="$OPENCODE_COMMAND" OPENCODE_INSTALL_DIR="$OPENCODE_INSTALL_DIR" bash -c '
+    set -euo pipefail
+    export PATH="$HOME/.local/bin:$OPENCODE_INSTALL_DIR:$PATH"
+    curl -fsSL --max-time 300 "$OPENCODE_INSTALL_URL" | timeout 900 bash
+    [[ -x "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" ]] || {
+      echo "opencode installation failed: $OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" >&2
+      exit 1
+    }
+  ' </dev/null
+  run_as_target mkdir -p "$TARGET_HOME/.local/bin"
+  run_as_target ln -sf "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" \
+    "$TARGET_HOME/.local/bin/$OPENCODE_COMMAND"
+  ensure_local_bin_on_path
+  configure_opencode_config
+  run_as_target env OPENCODE_COMMAND="$OPENCODE_COMMAND" bash -c \
+    'export PATH="$HOME/.local/bin:$PATH"; "$OPENCODE_COMMAND" --version' 1>&2 || true
 }
 # install_codex_plain_launcher - expose the isolated npm binary as plain codex.
 # A previously installed tracking-aware wrapper (a regular script that starts

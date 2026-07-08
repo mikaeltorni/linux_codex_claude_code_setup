@@ -409,6 +409,146 @@ def install_grok_plugin(home: Path, source_plugin: Path, plugin_name: str) -> No
 
 
 @log_call(LOGGER)
+def install_opencode_skill(home: Path, source_skill: Path, skill_name: str) -> None:
+    """Link one managed skill into opencode's native user-level skill directory.
+
+    opencode discovers skills from ``~/.config/opencode/skills/`` in every
+    session. Mirrors the Grok/Cline treatment: refuse to clobber an unrelated
+    user-authored skill, migrate a stale managed link, and no-op when current.
+    """
+    if not NAME.fullmatch(skill_name):
+        raise ValueError(f"invalid opencode skill name: {skill_name!r}")
+    source_skill = source_skill.resolve()
+    if not source_skill.joinpath("SKILL.md").is_file():
+        raise ValueError(f"missing opencode skill source: {source_skill}")
+    target = home / ".config" / "opencode" / "skills" / skill_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_skill:
+            LOGGER.info("opencode skill %s already linked", skill_name)
+            return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        if any(path.name == "programming_prompts" for path in old_source.parents):
+            target.unlink()
+        else:
+            raise ValueError(f"refusing to replace unmanaged opencode skill link: {target}")
+    elif target.exists():
+        raise ValueError(f"refusing to replace unmanaged opencode skill: {target}")
+    os.symlink(source_skill, target, target_is_directory=True)
+    LOGGER.info("Installed opencode skill %s from %s", skill_name, source_skill)
+
+
+@log_call(LOGGER)
+def install_opencode_plugin(home: Path, source_plugin: Path, plugin_name: str) -> None:
+    """Link a full managed plugin bundle into opencode's native plugin directory."""
+    if not NAME.fullmatch(plugin_name):
+        raise ValueError(f"invalid opencode plugin name: {plugin_name!r}")
+    source_plugin = source_plugin.resolve()
+    if not source_plugin.joinpath("skills").is_dir():
+        raise ValueError(f"missing opencode plugin content: {source_plugin}")
+    target = home / ".config" / "opencode" / "plugins" / plugin_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_plugin:
+            LOGGER.info("opencode plugin %s already linked", plugin_name)
+            return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        if any(path.name == "programming_prompts" for path in old_source.parents):
+            target.unlink()
+        else:
+            raise ValueError(f"refusing to replace unmanaged opencode plugin link: {target}")
+    elif target.exists():
+        raise ValueError(f"refusing to replace unmanaged opencode plugin: {target}")
+    os.symlink(source_plugin, target, target_is_directory=True)
+    LOGGER.info("Installed opencode plugin %s from %s", plugin_name, source_plugin)
+
+
+#: Reasoning variants opencode ships for the glm-5.2 (OpenCode Zen) model. The
+#: TUI "Select variant" picker exposes exactly these: ``default`` (no extra
+#: thinking budget), ``high``, and ``max``. Variant is a per-agent setting in
+#: opencode, so the managed default is applied to each built-in primary agent.
+OPENCODE_GLM_VARIANTS = ("default", "high", "max")
+#: opencode's built-in primary agents that the managed variant is applied to.
+OPENCODE_MANAGED_AGENTS = ("build", "plan")
+
+
+@log_call(LOGGER)
+def merge_opencode_config(target: Path, model: str, variant: str) -> None:
+    """Merge installer-managed opencode defaults, preserving unrelated user keys.
+
+    Sets the default ``model`` (``provider/model`` form) and applies the chosen
+    reasoning ``variant`` to each built-in primary agent (variant is a per-agent
+    setting in opencode). ``default`` clears the managed variant so opencode uses
+    the model's plain configuration. Also enables yolo mode by setting the
+    top-level ``permission`` to ``allow`` so every opencode invocation (bare
+    ``opencode`` and the ``oca``/``ocr``/``ocac`` launchers alike) auto-approves
+    tool actions instead of stalling on permission prompts. Provider
+    authentication is left entirely to ``opencode auth login`` — no API key is
+    read or written here. Only the managed keys are touched; every other
+    opencode.json setting (MCP, themes, custom agents) is left intact.
+
+    Args:
+        target: opencode.json path (``~/.config/opencode/opencode.json``).
+        model: Default model as ``provider/model`` (e.g. ``opencode/glm-5.2``).
+        variant: One of :data:`OPENCODE_GLM_VARIANTS`.
+    """
+    if "/" not in model:
+        raise ValueError(f"opencode model must be provider/model form: {model!r}")
+    if variant not in OPENCODE_GLM_VARIANTS:
+        raise ValueError(f"invalid opencode variant: {variant!r}")
+    raw = target.read_text(encoding="utf-8").strip() if target.exists() else ""
+    config = json.loads(raw) if raw else {}
+    config.setdefault("$schema", "https://opencode.ai/config.json")
+    config["model"] = model
+    # Yolo mode: auto-approve all tool actions for every opencode invocation.
+    config["permission"] = "allow"
+    agents = config.setdefault("agent", {})
+    for agent_name in OPENCODE_MANAGED_AGENTS:
+        agent_entry = agents.setdefault(agent_name, {})
+        # The variant only applies to the agent's own model, so pin it too.
+        agent_entry["model"] = model
+        if variant == "default":
+            agent_entry.pop("variant", None)
+        else:
+            agent_entry["variant"] = variant
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    LOGGER.info("Merged opencode config (model=%s, variant=%s) into %s", model, variant, target)
+
+
+@log_call(LOGGER)
+def install_cline_plugin(home: Path, source_plugin: Path, plugin_name: str) -> None:
+    """Link a full managed plugin bundle into Cline's global plugin directory.
+
+    Cline auto-discovers plugins from ``~/.cline/plugins/`` in every session, so
+    linking the bundle (skills, hooks, agents, MCP definitions) keeps the full
+    plugin discoverable even when only a single skill was selected. Mirrors the
+    Grok plugin treatment; the per-skill symlink under ``~/.cline/skills/`` is
+    installed separately by ``install_cline_skill``.
+    """
+    if not NAME.fullmatch(plugin_name):
+        raise ValueError(f"invalid Cline plugin name: {plugin_name!r}")
+    source_plugin = source_plugin.resolve()
+    if not source_plugin.joinpath("skills").is_dir():
+        raise ValueError(f"missing Cline plugin content: {source_plugin}")
+    target = home / ".cline" / "plugins" / plugin_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        if (target.parent / os.readlink(target)).resolve() == source_plugin:
+            LOGGER.info("Cline plugin %s already linked", plugin_name)
+            return
+        old_source = (target.parent / os.readlink(target)).resolve()
+        if any(path.name == "programming_prompts" for path in old_source.parents):
+            target.unlink()
+        else:
+            raise ValueError(f"refusing to replace unmanaged Cline plugin link: {target}")
+    elif target.exists():
+        raise ValueError(f"refusing to replace unmanaged Cline plugin: {target}")
+    os.symlink(source_plugin, target, target_is_directory=True)
+    LOGGER.info("Installed Cline plugin %s from %s", plugin_name, source_plugin)
+
+
+@log_call(LOGGER)
 def merge_grok_config(
     target: Path, name: str, model_id: str, base_url: str, env_key: str
 ) -> None:
@@ -479,6 +619,10 @@ def main() -> None:
     cline_skill.add_argument("home", type=Path)
     cline_skill.add_argument("source_skill", type=Path)
     cline_skill.add_argument("skill_name")
+    cline_plugin = subparsers.add_parser("install-cline-plugin")
+    cline_plugin.add_argument("home", type=Path)
+    cline_plugin.add_argument("source_plugin", type=Path)
+    cline_plugin.add_argument("plugin_name")
     grok_skill = subparsers.add_parser("install-grok-skill")
     grok_skill.add_argument("home", type=Path)
     grok_skill.add_argument("source_skill", type=Path)
@@ -493,6 +637,18 @@ def main() -> None:
     grok_config.add_argument("model_id")
     grok_config.add_argument("base_url")
     grok_config.add_argument("env_key")
+    opencode_skill = subparsers.add_parser("install-opencode-skill")
+    opencode_skill.add_argument("home", type=Path)
+    opencode_skill.add_argument("source_skill", type=Path)
+    opencode_skill.add_argument("skill_name")
+    opencode_plugin = subparsers.add_parser("install-opencode-plugin")
+    opencode_plugin.add_argument("home", type=Path)
+    opencode_plugin.add_argument("source_plugin", type=Path)
+    opencode_plugin.add_argument("plugin_name")
+    opencode_config = subparsers.add_parser("merge-opencode-config")
+    opencode_config.add_argument("target", type=Path)
+    opencode_config.add_argument("model")
+    opencode_config.add_argument("variant")
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
@@ -529,10 +685,18 @@ def main() -> None:
         )
     elif args.command == "install-cline-skill":
         install_cline_skill(args.home, args.source_skill, args.skill_name)
+    elif args.command == "install-cline-plugin":
+        install_cline_plugin(args.home, args.source_plugin, args.plugin_name)
     elif args.command == "install-grok-skill":
         install_grok_skill(args.home, args.source_skill, args.skill_name)
     elif args.command == "install-grok-plugin":
         install_grok_plugin(args.home, args.source_plugin, args.plugin_name)
+    elif args.command == "install-opencode-skill":
+        install_opencode_skill(args.home, args.source_skill, args.skill_name)
+    elif args.command == "install-opencode-plugin":
+        install_opencode_plugin(args.home, args.source_plugin, args.plugin_name)
+    elif args.command == "merge-opencode-config":
+        merge_opencode_config(args.target, args.model, args.variant)
     else:
         merge_grok_config(args.target, args.name, args.model_id, args.base_url, args.env_key)
 

@@ -130,6 +130,18 @@ install_cline_prompt_skill() {
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
 
+# Link the full plugin bundle into Cline's ~/.cline/plugins directory so Cline
+# auto-discovers the plugin (skills, hooks, agents, MCP definitions) in every
+# session, mirroring the Grok plugin treatment. The per-skill symlink under
+# ~/.cline/skills/ is installed separately by install_cline_prompt_skill.
+install_cline_prompt_plugin() {
+  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
+  [[ -d "$source_plugin/skills" ]] || return 0
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-cline-plugin \
+    "$TARGET_HOME" "$source_plugin" "$plugin_name"
+}
+
 # Install the selected skill into Grok's documented ~/.grok/skills directory.
 install_grok_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
@@ -146,6 +158,26 @@ install_grok_prompt_plugin() {
   local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" install-grok-plugin \
+    "$TARGET_HOME" "$source_plugin" "$plugin_name"
+}
+
+# Install the selected skill into opencode's native ~/.config/opencode/skills.
+install_opencode_prompt_skill() {
+  local plugin_name="$1" skill_name="$2" source_skill
+  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
+  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-opencode-skill \
+    "$TARGET_HOME" "$source_skill" "$skill_name"
+}
+
+# Link the full plugin bundle so opencode discovers future hooks, agents, and
+# MCPs in addition to the currently selected skill.
+install_opencode_prompt_plugin() {
+  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
+  [[ -d "$source_plugin/skills" ]] || return 0
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-opencode-plugin \
     "$TARGET_HOME" "$source_plugin" "$plugin_name"
 }
 
@@ -172,6 +204,24 @@ install_plugin_global_instructions() {
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"
+  # Cline loads Rules into every session's system prompt. It reads the
+  # cross-tool agents.md standard at ~/.agents/AGENTS.md and its native global
+  # rules directory at ~/Documents/Cline/Rules/. Merging both keeps the
+  # guidelines always-on for Cline, not just available as an invokable skill.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$TARGET_HOME/.agents/AGENTS.md" "$plugin_name" "$instructions"
+  local cline_rules="$TARGET_HOME/Documents/Cline/Rules"
+  run_as_target mkdir -p "$cline_rules"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$cline_rules/$plugin_name.md" "$plugin_name" "$instructions"
+  # opencode reads global agent instructions from ~/.config/opencode/AGENTS.md in
+  # every session, so merge the same managed block there to keep the guidelines
+  # always-on for opencode, not just available as an invokable skill.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$OPENCODE_CONFIG_HOME/AGENTS.md" "$plugin_name" "$instructions"
 }
 
 remove_marketplace_plugin_installations() {
@@ -238,8 +288,11 @@ install_prompt_plugin() {
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
   install_cline_prompt_skill "$plugin_name" "$skill_name"
+  install_cline_prompt_plugin "$plugin_name"
   install_grok_prompt_skill "$plugin_name" "$skill_name"
   install_grok_prompt_plugin "$plugin_name"
+  install_opencode_prompt_skill "$plugin_name" "$skill_name"
+  install_opencode_prompt_plugin "$plugin_name"
   record_prompt_plugin "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
@@ -257,5 +310,6 @@ install_prompt_skill() {
   done
   install_cline_prompt_skill "$plugin_name" "$skill_name"
   install_grok_prompt_skill "$plugin_name" "$skill_name"
+  install_opencode_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
 }

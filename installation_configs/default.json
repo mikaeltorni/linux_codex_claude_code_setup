@@ -36,7 +36,25 @@
       "uninstall": 0,
       "workspace": 0
     },
+    "codex_history_sync": {
+      "config_value": "",
+      "favorite": 0,
+      "on": 1,
+      "startup": 0,
+      "sticky": 0,
+      "uninstall": 0,
+      "workspace": 0
+    },
     "grok_cli": {
+      "config_value": "",
+      "favorite": 0,
+      "on": 1,
+      "startup": 0,
+      "sticky": 0,
+      "uninstall": 0,
+      "workspace": 0
+    },
+    "opencode_cli": {
       "config_value": "",
       "favorite": 0,
       "on": 1,

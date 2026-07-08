@@ -35,6 +35,14 @@ detect_grok_cli() {
     run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$GROK_COMMAND"
 }
 
+# detect_opencode_cli - true when the opencode command is user-accessible, either
+# through the shared ~/.local/bin launcher or the official ~/.opencode/bin binary.
+detect_opencode_cli() {
+  [ -x "$TARGET_HOME/.local/bin/$OPENCODE_COMMAND" ] ||
+    [ -x "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" ] ||
+    run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$OPENCODE_COMMAND"
+}
+
 # detect_codex_status_bar - true when Codex config contains tui.status_line.
 detect_codex_status_bar() {
   run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
@@ -105,6 +113,17 @@ uninstall_cline_cli() {
   run_as_target rm -rf "$CLINE_NPM_PREFIX"
 }
 
+
+# uninstall_opencode_cli - Remove the managed launcher and the official binary
+# while preserving ~/.config/opencode (user agents, skills, plugins, auth).
+uninstall_opencode_cli() {
+  msg "Removing opencode CLI binary (preserving ~/.config/opencode configuration)"
+  local launcher="$TARGET_HOME/.local/bin/$OPENCODE_COMMAND"
+  if [ -L "$launcher" ] && [[ "$(readlink -f "$launcher" 2>/dev/null || true)" == "$(readlink -f "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" 2>/dev/null || true)" ]]; then
+    run_as_target rm -f "$launcher"
+  fi
+  run_as_target rm -f "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND"
+}
 
 # uninstall_grok_cli - Remove the managed launcher while preserving ~/.grok.
 uninstall_grok_cli() {

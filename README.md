@@ -1,6 +1,6 @@
-# Linux Codex, Claude Code, Cline, and Grok Setup
+# Linux Codex, Claude Code, Cline, Grok, and opencode Setup
 
-> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, **Cline**, and **Grok** CLIs plus shared programming plugins and skills.
+> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, **Cline**, **Grok**, and **opencode** CLIs plus shared programming plugins and skills.
 
 Installs the Codex, Claude Code, and Cline CLIs and registers every configured
 `programming_prompts` plugin or direct skill as an independently selectable component.
@@ -15,11 +15,11 @@ plugin explicitly, and drives the component menu for both products.
 ```bash
 bash install.sh --list-components
 bash install.sh --default
-bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli
+bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
 ```
 
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
-and Grok. Local models and tracking-aware launchers belong to Agent Command Center,
+Grok, and opencode. Local models and tracking-aware launchers belong to Agent Command Center,
 not this CLI installer.
 The core is intentionally minimal — each CLI installs and runs on its own —
 and everything else is optional:
@@ -35,6 +35,17 @@ and everything else is optional:
   `GROK_MODEL_BASE_URL` together to merge a custom model without replacing
   unrelated `~/.grok/config.toml` settings. Authentication uses the environment
   variable named by `GROK_API_KEY_ENV` (default `XAI_API_KEY`).
+- `opencode_cli` — runs opencode's official `https://opencode.ai/install`
+  installer (binary at `~/.opencode/bin`), links `~/.local/bin/opencode`, and
+  merges installer-managed defaults into `~/.config/opencode/opencode.json`
+  without disturbing unrelated keys: the default model (`OPENCODE_MODEL`,
+  default `opencode-go/glm-5.2`) and its reasoning variant (`OPENCODE_VARIANT`,
+  default `high`; glm-5.2 exposes only `default`/`high`/`max`), applied per
+  built-in agent (`build`, `plan`). It also sets `"permission": "allow"` (yolo
+  mode) so opencode auto-approves tool actions. Provider authentication is left
+  to opencode's own `opencode auth login` — no API key is read or written.
+  Override `OPENCODE_INSTALL_URL`, `OPENCODE_COMMAND`, `OPENCODE_INSTALL_DIR`, or
+  `OPENCODE_CONFIG_HOME`.
 - `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
   and once a day, updates Codex, Claude Code, and Cline to the newest *stable* release
   published at least 24 hours ago. Neither npm nor `claude install/update`
@@ -59,12 +70,22 @@ and everything else is optional:
   with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global
   `~/.cline/skills/` directory; unrelated user-authored skills are never
-  overwritten. Grok receives native `~/.grok/skills/` links, and full plugins are linked
-  under `~/.grok/plugins/` so skills, hooks, agents, and MCP definitions remain
-  discoverable even when Claude Code is not selected.
+  overwritten. Cline also receives full plugin bundles under `~/.cline/plugins/`
+  so skills, hooks, agents, and MCP definitions stay discoverable in every
+  session, mirroring the Grok treatment. Grok receives native `~/.grok/skills/`
+  links, and full plugins are linked under `~/.grok/plugins/` so skills, hooks,
+  agents, and MCP definitions remain discoverable even when Claude Code is not
+  selected. opencode receives the same treatment natively under
+  `~/.config/opencode/skills/` and `~/.config/opencode/plugins/`.
+- `global_instructions` — when selected, merges each installed plugin's
+  `global-instructions/*.md` into `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`,
+  the cross-tool `~/.agents/AGENTS.md`, opencode's global
+  `~/.config/opencode/AGENTS.md`, and Cline's native global rules at
+  `~/Documents/Cline/Rules/<plugin>.md`. Cline loads Rules into every session's
+  system prompt, so the commit and programming guidelines stay always-on for
+  Cline rather than only available as an invokable skill.
 Agent Command Center's Claude integration loads project `AGENTS.md` files at
-session start. This installer deliberately does not create or merge global
-`AGENTS.md`/`CLAUDE.md` instruction files.
+session start.
 
 The installer is sudo-free by default. It clones `programming_prompts` when a
 sibling checkout is unavailable, preserves unrelated Claude settings, and
