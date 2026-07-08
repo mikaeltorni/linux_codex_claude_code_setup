@@ -55,6 +55,8 @@ isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
+source "$SCRIPT_DIR/lib/qwen_cli.sh"
+source "$SCRIPT_DIR/lib/openrouter_cli.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/history_sync.sh"

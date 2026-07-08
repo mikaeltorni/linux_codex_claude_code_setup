@@ -35,6 +35,18 @@ detect_grok_cli() {
     run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$GROK_COMMAND"
 }
 
+# detect_qwen_cli - true when the plain qwen launcher or its Codex home exists.
+detect_qwen_cli() {
+  [ -d "${QWEN_CODEX_HOME:-$TARGET_HOME/.codex-qwen}" ] ||
+    [ -x "$TARGET_HOME/.local/bin/${QWEN_CODEX_COMMAND:-qwen}" ]
+}
+
+# detect_openrouter_cli - true when the plain openr launcher or its Codex home exists.
+detect_openrouter_cli() {
+  [ -d "${OPENROUTER_CODEX_HOME:-$TARGET_HOME/.codex-openrouter}" ] ||
+    [ -x "$TARGET_HOME/.local/bin/${OPENROUTER_CODEX_PLAIN_COMMAND:-openr}" ]
+}
+
 # detect_opencode_cli - true when the opencode command is user-accessible, either
 # through the shared ~/.local/bin launcher or the official ~/.opencode/bin binary.
 detect_opencode_cli() {
@@ -123,6 +135,22 @@ uninstall_opencode_cli() {
     run_as_target rm -f "$launcher"
   fi
   run_as_target rm -f "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND"
+}
+
+# uninstall_qwen_cli - remove the plain qwen launcher and isolated runtime.
+uninstall_qwen_cli() {
+  msg "Removing plain Local Codex CLI (${QWEN_CODEX_COMMAND:-qwen})"
+  run_as_target rm -rf "${QWEN_CODEX_HOME:-$TARGET_HOME/.codex-qwen}" \
+    "${QWEN_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-qwen}"
+  run_as_target rm -f "$TARGET_HOME/.local/bin/${QWEN_CODEX_COMMAND:-qwen}"
+}
+
+# uninstall_openrouter_cli - remove the plain openr launcher and isolated runtime.
+uninstall_openrouter_cli() {
+  msg "Removing plain OpenRouter Codex CLI (${OPENROUTER_CODEX_PLAIN_COMMAND:-openr})"
+  run_as_target rm -rf "${OPENROUTER_CODEX_HOME:-$TARGET_HOME/.codex-openrouter}" \
+    "${OPENROUTER_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-openrouter}"
+  run_as_target rm -f "$TARGET_HOME/.local/bin/${OPENROUTER_CODEX_PLAIN_COMMAND:-openr}"
 }
 
 # uninstall_grok_cli - Remove the managed launcher while preserving ~/.grok.

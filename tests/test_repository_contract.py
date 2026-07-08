@@ -69,11 +69,11 @@ def test_programming_prompts_is_content_only() -> None:
     assert not (PROMPTS / "lib" / "plugin_installer.sh").exists()
     assert not (PROMPTS / "scripts" / "sync_plugin_marketplaces.py").exists()
     assert not list(PROMPTS.rglob("marketplace.json"))
-    assert (PROMPTS / "skills" / "commit" / "SKILL.md").is_file()
-    assert (PROMPTS / "skills" / "setup-repository-guidelines" / "SKILL.md").is_file()
     assert (
-        PROMPTS / "plugins" / "refactoring" / "skills" / "refactoring" / "SKILL.md"
+        PROMPTS / "plugins" / "commit-guidelines" / "skills" / "commit" / "SKILL.md"
     ).is_file()
+    assert (PROMPTS / "skills" / "setup-repository-guidelines" / "SKILL.md").is_file()
+    assert (PROMPTS / "skills" / "refactoring" / "SKILL.md").is_file()
 
 
 def test_installer_exposes_clis_and_each_plugin() -> None:
@@ -81,7 +81,9 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     ids = {line.split("\t", 1)[0] for line in result.stdout.splitlines()}
-    assert {"codex_cli", "claude_code", "cline_cli"} <= ids
+    assert {"codex_cli", "claude_code", "cline_cli", "qwen_cli", "openrouter_cli"} <= ids
+    assert "agent_tracker" not in ids
+    assert "qwen_notify_hook" not in ids
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
     assert {"plugin-commit-guidelines", "skill-init-project", "skill-refactoring", "skill-setup-repository-guidelines"} <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
@@ -195,16 +197,24 @@ def test_acc_delegates_before_installing_its_own_components() -> None:
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     installer = (ACC / "scripts" / "install_standalone.sh").read_text(encoding="utf-8")
     qwen = (ACC / "lib" / "qwen_codex.sh").read_text(encoding="utf-8")
+    openrouter = (ACC / "lib" / "openrouter_codex.sh").read_text(encoding="utf-8")
     tracker = (ACC / "lib" / "codex_agent_tracker.sh").read_text(encoding="utf-8")
     assert 'ISC_PREFLIGHT="acc_preflight"' in components
     assert "install_codex_claude_setup_dependency" in installer
     assert "linux_codex_claude_code_setup.git" in installer
     assert '"codex_cli|' not in components
     assert '"claude_code|' not in components
+    assert '"qwen_cli|' not in components
+    assert '"openrouter_cli|' not in components
     assert '"codex_notify_hook|' not in components
     assert "install_codex_cli()" not in qwen
     assert "install_claude_code()" not in tracker
     assert "install_codex_notify_hook()" not in qwen
+    qwen_setup = qwen.split("setup_qwen_notify_hook()", 1)[1].split("\n}", 1)[0]
+    openrouter_setup = openrouter.split("setup_openrouter_notify_hook()", 1)[1].split("\n}", 1)[0]
+    assert "install_qwen_codex_cli" not in qwen_setup
+    assert "install_openrouter_codex_cli" not in openrouter_setup
+    assert "for command_name in ca cca cla qa ga oa na" in tracker
     assert "sync_programming_plugin" not in tracker
 
 
