@@ -251,3 +251,52 @@ def test_cline_skill_migrates_links_within_programming_prompts(tmp_path: Path) -
     plugin_defaults.install_cline_skill(home, new, "commit")
 
     assert target.resolve() == new.resolve()
+
+
+def test_cline_plugin_links_bundle_into_cline_plugins(tmp_path: Path) -> None:
+    """The plugin writer links the full bundle under ~/.cline/plugins."""
+    home = tmp_path / "home"
+    source = tmp_path / "programming_prompts" / "plugins" / "commit-guidelines"
+    (source / "skills" / "commit").mkdir(parents=True)
+    (source / "skills" / "commit" / "SKILL.md").write_text("# Commit\n", encoding="utf-8")
+
+    plugin_defaults.install_cline_plugin(home, source, "commit-guidelines")
+
+    target = home / ".cline" / "plugins" / "commit-guidelines"
+    assert target.is_symlink()
+    assert target.resolve() == source.resolve()
+
+
+def test_cline_plugin_preserves_unmanaged_content(tmp_path: Path) -> None:
+    """The plugin writer refuses to overwrite an unrelated user plugin."""
+    home = tmp_path / "home"
+    source = tmp_path / "programming_prompts" / "plugins" / "commit-guidelines"
+    (source / "skills" / "commit").mkdir(parents=True)
+    (source / "skills" / "commit" / "SKILL.md").write_text("# Commit\n", encoding="utf-8")
+    target = home / ".cline" / "plugins" / "commit-guidelines"
+    target.parent.mkdir(parents=True)
+    target.mkdir()
+    (target / "user-plugin.ts").write_text("// user content\n", encoding="utf-8")
+
+    import pytest
+
+    with pytest.raises(ValueError):
+        plugin_defaults.install_cline_plugin(home, source, "commit-guidelines")
+    assert (target / "user-plugin.ts").read_text(encoding="utf-8") == "// user content\n"
+
+
+def test_cline_plugin_is_idempotent(tmp_path: Path) -> None:
+    """Re-linking the same managed source is a no-op."""
+    home = tmp_path / "home"
+    source = tmp_path / "programming_prompts" / "plugins" / "general-programming-guidelines"
+    (source / "skills" / "programming-guidelines").mkdir(parents=True)
+    (source / "skills" / "programming-guidelines" / "SKILL.md").write_text(
+        "# Guidelines\n", encoding="utf-8"
+    )
+
+    plugin_defaults.install_cline_plugin(home, source, "general-programming-guidelines")
+    plugin_defaults.install_cline_plugin(home, source, "general-programming-guidelines")
+
+    target = home / ".cline" / "plugins" / "general-programming-guidelines"
+    assert target.is_symlink()
+    assert target.resolve() == source.resolve()

@@ -57,6 +57,27 @@ def test_every_prompt_skill_is_exposed_to_cline() -> None:
     assert installer.count("install_cline_prompt_skill") >= 3
 
 
+def test_every_prompt_plugin_is_exposed_to_cline() -> None:
+    """Cline should also discover full plugin bundles under ~/.cline/plugins."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    helper = (ROOT / "scripts" / "plugin_defaults.py").read_text(encoding="utf-8")
+    assert "install_cline_prompt_plugin" in installer
+    # The plugin install must follow the skill install in install_prompt_plugin.
+    skill_call = installer.index('install_cline_prompt_skill "$plugin_name" "$skill_name"')
+    plugin_call = installer.index('install_cline_prompt_plugin "$plugin_name"')
+    assert skill_call < plugin_call
+    assert "install-cline-plugin" in helper
+    assert 'home / ".cline" / "plugins"' in helper
+
+
+def test_cline_global_rules_are_merged_by_global_instructions() -> None:
+    """Cline Rules are loaded every session; the installer merges them in."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    global_fn = installer.split("install_plugin_global_instructions()", 1)[1]
+    assert ".agents/AGENTS.md" in global_fn
+    assert "Documents/Cline/Rules" in global_fn
+
+
 def test_cline_skill_install_preserves_unmanaged_content(tmp_path: Path) -> None:
     """The skill writer links managed sources and refuses user-file overwrite."""
     home = tmp_path / "home"
