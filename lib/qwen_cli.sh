@@ -96,8 +96,9 @@ install_qwen_cli() {
     msg "Refreshing existing Local Codex home at $QWEN_CODEX_HOME"
   else
     run_as_target mkdir -p "$QWEN_CODEX_HOME" "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-    run_as_target timeout 900 npm install -g --prefix "$QWEN_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" </dev/null 1>&2
   fi
+  run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
+  run_as_target timeout 900 npm install -g --prefix "$QWEN_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" </dev/null 1>&2
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \

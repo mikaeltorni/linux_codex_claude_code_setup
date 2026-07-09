@@ -32,6 +32,16 @@ def test_cli_installers_do_not_emit_acc_shorthand_dispatchers() -> None:
             assert f"/.local/bin/{marker} " not in source
 
 
+def test_isolated_codex_instances_refresh_npm_package_on_rerun() -> None:
+    """Existing Qwen/OpenRouter homes must still receive Codex CLI updates."""
+    qwen = (ROOT / "lib" / "qwen_cli.sh").read_text(encoding="utf-8")
+    openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
+    for source in (qwen, openrouter):
+        install_body = source.split("install_", 1)[1]
+        assert 'npm install -g --prefix "$' in install_body
+        assert install_body.index("timeout 900 npm install") > install_body.index("fi")
+
+
 def test_acc_manifest_does_not_own_core_clis() -> None:
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     for row in ("codex_cli|", "claude_code|", "cline_cli|", "grok_cli|", "qwen_cli|", "openrouter_cli|"):

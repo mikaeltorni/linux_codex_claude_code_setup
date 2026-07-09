@@ -3,7 +3,7 @@
 
 # Pin isolated Codex npm installs to the same CLI version ACC uses so prompt
 # behavior stays consistent when both repositories are installed.
-CODEX_CLI_VERSION="${CODEX_CLI_VERSION:-0.143.0}"
+CODEX_CLI_VERSION="${CODEX_CLI_VERSION:-0.144.0}"
 
 # ── Local Codex (qwen) ───────────────────────────────────────────────────────
 QWEN_CODEX_COMMAND="qwen"
