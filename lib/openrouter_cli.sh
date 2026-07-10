@@ -25,8 +25,23 @@ ensure_openrouter_cwd_trusted() {
   printf '\n[projects."%s"]\ntrust_level = "trusted"\n' "$key" >>"$cfg"
 }
 
+# _openrouter_status_line_toml — Resolve the [tui] status_line TOML array for the
+# OpenRouter Codex instance. Prefer the shared claude_code_status_bar field
+# selections (the same source of truth ca/qa/claude use) so a default install
+# from installation_scripts keeps the status bar visible; fall back to a
+# built-in rich default if that repository is unavailable.
+_openrouter_status_line_toml() {
+  local status_bar_dir="${CLAUDE_CODE_STATUS_BAR_DIR:-$TARGET_HOME/projects/claude_code_status_bar}"
+  local helper="$status_bar_dir/agent_field_selection.py"
+  if [ -f "$helper" ]; then
+    python3 "$helper" toml-array openrouter "$TARGET_HOME" 2>/dev/null && return 0
+  fi
+  printf '["model-with-reasoning","current-dir","git-branch","context-remaining","branch-changes","used-tokens","total-input-tokens","total-output-tokens"]'
+}
+
 write_openrouter_config_toml() {
-  local dest_dir="$1"
+  local dest_dir="$1" status_line
+  status_line="$(_openrouter_status_line_toml)"
   run_as_target tee "${dest_dir}/config.toml" >/dev/null <<EOF
 model = "${OPENROUTER_CODEX_MODEL}"
 model_provider = "${OPENROUTER_CODEX_PROVIDER}"
@@ -49,6 +64,9 @@ enable_mcp_apps = false
 
 [history]
 persistence = "save-all"
+
+[tui]
+status_line = ${status_line}
 EOF
 }
 

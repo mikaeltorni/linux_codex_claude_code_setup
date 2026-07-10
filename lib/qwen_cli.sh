@@ -6,8 +6,23 @@ CLI_INSTANCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CLI_INSTANCES_DIR/configs/codex_instances/defaults.sh"
 agent_cli_apply_codex_instance_defaults
 
+# _qwen_status_line_toml — Resolve the [tui] status_line TOML array for the
+# local/Qwen Codex instance. Prefer the shared claude_code_status_bar field
+# selections (same source of truth as the ca/oa/claude bars) so a default
+# installation_scripts run keeps the qa status bar visible; fall back to a
+# built-in rich default when that repository is unavailable.
+_qwen_status_line_toml() {
+  local status_bar_dir="${CLAUDE_CODE_STATUS_BAR_DIR:-$TARGET_HOME/projects/claude_code_status_bar}"
+  local helper="$status_bar_dir/agent_field_selection.py"
+  if [ -f "$helper" ]; then
+    python3 "$helper" toml-array qwen "$TARGET_HOME" 2>/dev/null && return 0
+  fi
+  printf '["model-with-reasoning","current-dir","git-branch","context-remaining","branch-changes","used-tokens","total-input-tokens","total-output-tokens"]'
+}
+
 write_qwen_config_toml() {
-  local dest_dir="$1"
+  local dest_dir="$1" status_line
+  status_line="$(_qwen_status_line_toml)"
   run_as_target tee "${dest_dir}/config.toml" >/dev/null <<EOF
 oss_provider = "${QWEN_CODEX_LOCAL_PROVIDER}"
 model = "${QWEN_CODEX_LMSTUDIO_MODEL}"
@@ -27,6 +42,9 @@ enable_mcp_apps = false
 
 [history]
 persistence = "save-all"
+
+[tui]
+status_line = ${status_line}
 EOF
 
   run_as_target tee "${dest_dir}/qwen.config.toml" >/dev/null <<EOF
@@ -48,6 +66,9 @@ enable_mcp_apps = false
 
 [history]
 persistence = "save-all"
+
+[tui]
+status_line = ${status_line}
 EOF
 }
 
