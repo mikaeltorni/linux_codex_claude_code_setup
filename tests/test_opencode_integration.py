@@ -131,12 +131,18 @@ def test_opencode_skill_link_is_idempotent(tmp_path: Path) -> None:
 def test_acc_exposes_opencode_launcher_family_in_yolo_mode() -> None:
     """ACC wires oca/ocr/ocac driving opencode with --auto (yolo) and no API key."""
     tracker = (ACC / "lib/codex_agent_tracker.sh").read_text(encoding="utf-8")
-    assert "for command_name in oca ocr ocac" in tracker
-    assert "--continue" in tracker
+    dispatcher = (ACC / "scripts/codex-agent-tracker").read_text(encoding="utf-8")
+    assert " oca " in tracker
+    assert " ocr " in tracker
+    assert " ocac " in tracker
+    assert "for command_name in" in tracker
+    # The actual opencode --auto launch wiring lives in the Python dispatcher.
+    assert "--continue" in dispatcher
     assert 'export OPENCODE_MODEL="${opencode_model}"' in tracker
     assert 'export OPENCODE_VARIANT="${opencode_variant}"' in tracker
-    # Both launch paths (run and TUI) pass opencode's --auto yolo flag.
-    assert tracker.count("--auto") >= 2
+    # The dispatcher launches opencode with --auto (yolo); the .sh only declares
+    # the launcher labels and exports the opencode env defaults.
+    assert dispatcher.count("--auto") >= 1
     # The API-key wiring is gone.
     assert "OPENCODE_API_KEY" not in tracker
     assert "./.env" not in tracker
