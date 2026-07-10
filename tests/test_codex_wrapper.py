@@ -93,3 +93,79 @@ def test_wrapper_replaces_plain_launcher_without_overwriting_raw_binary(
     )
     assert run.returncode == 0, run.stderr
     assert run.stdout == "raw:ok\n"
+
+
+def test_wrapper_delegates_a_raw_launch_to_agent_command_center(tmp_path: Path) -> None:
+    """A direct codex command joins ACC tmux wrapping exactly once."""
+    home = tmp_path / "home"
+    raw = tmp_path / "raw-codex"
+    args_file = tmp_path / "args"
+    dispatch_file = tmp_path / "dispatch"
+    raw.write_text(
+        f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {args_file!s}\n",
+        encoding="utf-8",
+    )
+    raw.chmod(0o755)
+    install = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "\n".join(
+                [
+                    "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
+                    f"TARGET_HOME={str(home)!r}",
+                    "run_as_target() { \"$@\"; }",
+                    f"install_codex_wrapper {str(raw)!r}",
+                ]
+            ),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert install.returncode == 0, install.stderr
+
+    dispatcher = home / ".local" / "bin" / "agent-command-center"
+    dispatcher.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' \"$@\" > " + str(dispatch_file) + "\n"
+        "while [ \"$#\" -gt 0 ] && [ \"$1\" != \"--\" ]; do shift; done\n"
+        "shift\n"
+        "AGENT_COMMAND_CENTER_RAW_LAUNCH=1 exec \"$@\"\n",
+        encoding="utf-8",
+    )
+    dispatcher.chmod(0o755)
+
+    run = subprocess.run(
+        [str(home / ".local" / "bin" / "codex"), "hello", "world"],
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert run.returncode == 0, run.stderr
+    assert dispatch_file.read_text(encoding="utf-8").splitlines() == [
+        "raw-launch",
+        "--kind",
+        "codex",
+        "--",
+        str(home / ".local" / "bin" / "codex"),
+        "hello",
+        "world",
+    ]
+    assert args_file.read_text(encoding="utf-8").splitlines() == ["hello", "world"]
+
+
+def test_plain_provider_launchers_use_acc_raw_launch() -> None:
+    """Plain provider launchers retain their argv but enter ACC tmux sessions."""
+    launchers = {
+        "lib/qwen_cli.sh": "qwen",
+        "lib/openrouter_cli.sh": "openrouter",
+    }
+    for relative_path, kind in launchers.items():
+        source = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert f"raw-launch --kind {kind}" in source
+        assert "AGENT_COMMAND_CENTER_SESSION_RUN" in source
+        assert "AGENT_COMMAND_CENTER_RAW_LAUNCH" in source

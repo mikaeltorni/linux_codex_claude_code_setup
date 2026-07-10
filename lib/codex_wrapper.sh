@@ -23,6 +23,13 @@ install_codex_wrapper() {
   run_as_target tee "$bin_dir/codex" >/dev/null <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
+# A direct codex command uses ACC's normal tmux path when it is installed.
+# The marker prevents the native wrapper recreated inside that session from
+# dispatching recursively (and also protects the no-tmux direct fallback).
+acc_dispatcher="\$HOME/.local/bin/agent-command-center"
+if [ "\${AGENT_COMMAND_CENTER_SESSION_RUN:-0}" != 1 ] && [ "\${AGENT_COMMAND_CENTER_RAW_LAUNCH:-0}" != 1 ] && [ -x "\$acc_dispatcher" ]; then
+  exec "\$acc_dispatcher" raw-launch --kind codex -- "\$0" "\$@"
+fi
 export CODEX_AGENT_LABEL="\${CODEX_AGENT_LABEL:-Codex Agent}"
 export CODEX__TTS_VOICE="\${CODEX__TTS_VOICE:-af_bella}"
 export CODEX_HOME="\${CODEX_HOME:-\$HOME/.codex}"

@@ -77,6 +77,13 @@ write_openrouter_plain_wrapper() {
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Direct openr launches join ACC's persistent tmux-session path when
+# available.  The marker makes the child wrapper run its native CLI once.
+acc_dispatcher="\$HOME/.local/bin/agent-command-center"
+if [ "\${AGENT_COMMAND_CENTER_SESSION_RUN:-0}" != 1 ] && [ "\${AGENT_COMMAND_CENTER_RAW_LAUNCH:-0}" != 1 ] && [ -x "\$acc_dispatcher" ]; then
+  exec "\$acc_dispatcher" raw-launch --kind openrouter -- "\$0" "\$@"
+fi
+
 export CODEX_HOME="${OPENROUTER_CODEX_HOME}"
 $(declare -f ensure_openrouter_cwd_trusted)
 
