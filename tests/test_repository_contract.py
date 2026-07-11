@@ -65,10 +65,9 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         "setup-repository-guidelines",
     }
     assert all(entry["skill"] for entry in defaults["plugins"])
-    # Only the general programming guidelines is deployed by default so its slim
-    # tag is the sole always-on managed block. Every other prompt stays in the
-    # source repo as an opt-in install (default:false) and must not bloat the
-    # agent instruction files.
+    # Only the general programming guidelines is deployed by default, so its
+    # complete skill payload is the sole always-on managed block. Every other
+    # prompt stays in the source repo as an opt-in install (default:false).
     default_on = {entry["plugin"] for entry in defaults["plugins"] if entry["default"] is True}
     assert default_on == {"general-programming-guidelines"}
 
@@ -315,6 +314,40 @@ def test_global_instruction_tag_reaches_every_codex_home() -> None:
     assert '"$TARGET_HOME/.codex/AGENTS.md"' not in body
     # Claude keeps its guidance in CLAUDE.md, not AGENTS.md.
     assert '"$TARGET_HOME/.claude/CLAUDE.md"' in body
+
+
+def test_global_instruction_install_uses_the_complete_guidelines_skill() -> None:
+    """Global instruction files must contain the full skill, not only its tag."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    body = installer.split("install_plugin_global_instructions()", 1)[1].split(
+        "\n}", 1
+    )[0]
+    assert 'skills/$plugin_name/SKILL.md' in body
+    assert '[[ "$plugin_name" == "general-programming-guidelines"' in body
+    assert "complete" in body.lower()
+    assert "global-instructions/$1.md" in body
+
+
+def test_prompt_components_apply_global_instructions_during_normal_install() -> None:
+    """The component installer must not leave the always-on tag to a side path."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    for function_name in ("install_prompt_plugin()", "install_prompt_skill()"):
+        body = installer.split(function_name, 1)[1].split("\n}", 1)[0]
+        assert "install_plugin_global_instructions" in body
+
+
+def test_programming_prompt_verifier_checks_each_runtime_surface() -> None:
+    """The standalone verifier must prove skill and instruction delivery."""
+    entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "verify_programming_instructions" in entrypoint
+    assert '"verify"' in entrypoint
+    assert "SKILL.md" in entrypoint
+    assert "AGENTS.md" in entrypoint
+    assert "CLAUDE.md" in entrypoint
+    assert "Documents/Cline/Rules" in entrypoint
+    assert "OPENCODE_CONFIG_HOME" in entrypoint
 
 
 def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:

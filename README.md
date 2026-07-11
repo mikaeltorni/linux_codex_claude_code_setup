@@ -80,13 +80,15 @@ and everything else is optional:
   agents, and MCP definitions remain discoverable even when Claude Code is not
   selected. opencode receives the same treatment natively under
   `~/.config/opencode/skills/` and `~/.config/opencode/plugins/`.
-- `global_instructions` — when selected, merges each installed plugin's
-  `global-instructions/*.md` into `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`,
-  the cross-tool `~/.agents/AGENTS.md`, opencode's global
-  `~/.config/opencode/AGENTS.md`, and Cline's native global rules at
-  `~/Documents/Cline/Rules/<plugin>.md`. Cline loads Rules into every session's
-  system prompt, so the commit and programming guidelines stay always-on for
-  Cline rather than only available as an invokable skill.
+- The default `general-programming-guidelines` skill is merged as the complete
+  current `SKILL.md` into each runtime's managed instruction block, not merely
+  referenced by a short tag. Normal component installs and the standalone
+  `scripts/install_programming_plugins.sh` path both apply it. The same body is
+  verified in every configured Codex home, `~/.claude/CLAUDE.md`, the shared
+  `~/.agents/AGENTS.md`, opencode's `~/.config/opencode/AGENTS.md`, and Cline's
+  `~/Documents/Cline/Rules/general-programming-guidelines.md`.
+- Verify the installed fleet without reinstalling CLIs:
+  `bash scripts/install_programming_plugins.sh verify`.
 Agent Command Center's Claude integration loads project `AGENTS.md` files at
 session start.
 

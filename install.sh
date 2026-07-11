@@ -18,6 +18,7 @@ PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TAR
 # plugins. Defaults to the single default home. agent_command_center exports the
 # full set (.codex .codex-api .codex-qwen) so every Codex instance gets them.
 CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
+OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/cline-npm}"
 GROK_INSTALL_URL="${GROK_INSTALL_URL:-https://x.ai/cli/install.sh}"

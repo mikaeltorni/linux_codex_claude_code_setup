@@ -4,9 +4,9 @@
 PROMPTS_READY=0
 CODEX_MARKETPLACE_READY_HOMES=""
 CLAUDE_MARKETPLACE_READY=0
-# Plugins/skills installed in this run, consumed by the optional
-# global_instructions component so AGENTS.md/CLAUDE.md merging can be toggled
-# independently of plugin selection.
+# Plugins/skills installed in this run. The standalone entrypoint uses this list
+# for its final idempotent merge pass; normal component installs merge the
+# applicable managed instructions at the end of each prompt install.
 INSTALLED_PROMPT_PLUGINS=()
 
 # Space-separated list of Codex config homes that receive the plugins. Defaults
@@ -181,10 +181,9 @@ install_opencode_prompt_plugin() {
     "$TARGET_HOME" "$source_plugin" "$plugin_name"
 }
 
-# Optional global_instructions component: merge AGENTS.md/CLAUDE.md global
-# instructions for every plugin/skill installed in this run. Selecting plugins
-# without this component installs them without touching the agent instruction
-# files; selecting this with no plugins this run is a harmless no-op.
+# Merge AGENTS.md/CLAUDE.md global instructions for every prompt installed in
+# this run. The function remains a separate helper for the standalone entrypoint
+# and is also safe as an idempotent compatibility call after component installs.
 install_global_instructions_component() {
   local plugin_name
   (( ${#INSTALLED_PROMPT_PLUGINS[@]} == 0 )) && return 0
@@ -195,7 +194,17 @@ install_global_instructions_component() {
 }
 
 install_plugin_global_instructions() {
-  local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
+  local plugin_name="$1"
+  local instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
+  local complete_skill="$PROGRAMMING_PROMPTS_DIR/skills/$plugin_name/SKILL.md"
+  # The managed global block is the instruction payload seen at session start.
+  # For direct skills, embed the complete source skill instead of asking a weak
+  # model to discover and open a second file after the session has begun. The
+  # source tag remains the fallback for plugin prompts and standalone repairs.
+  if [[ "$plugin_name" == "general-programming-guidelines" && -f "$complete_skill" ]]; then
+    instructions="$complete_skill"
+    msg "Embedding complete $plugin_name skill in global agent instructions"
+  fi
   [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
   [[ -f "$instructions" ]] || return 0
   # Codex reads AGENTS.md from each CODEX_HOME, so every configured Codex home
@@ -300,6 +309,10 @@ install_prompt_plugin() {
   install_opencode_prompt_skill "$plugin_name" "$skill_name"
   install_opencode_prompt_plugin "$plugin_name"
   record_prompt_plugin "$plugin_name"
+  # Prompt components are independently selectable in the normal installer;
+  # apply their managed global instructions here rather than relying only on
+  # the standalone all-prompts entrypoint.
+  install_plugin_global_instructions "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
 
@@ -318,4 +331,5 @@ install_prompt_skill() {
   install_grok_prompt_skill "$plugin_name" "$skill_name"
   install_opencode_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
+  install_plugin_global_instructions "$plugin_name"
 }
