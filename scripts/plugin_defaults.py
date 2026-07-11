@@ -253,6 +253,51 @@ def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     LOGGER.info("Merged managed instructions for %s into %s", prompt_name, target)
 
 
+MARKER_LINE = re.compile(r"^<!-- programming-prompts:(?P<name>[A-Za-z0-9_-]+):(?P<kind>start|end) -->$")
+
+
+@log_call(LOGGER)
+def count_markers(target: Path, prompt_name: str) -> tuple[int, int]:
+    """Return (start_count, end_count) whole-line markers for ``prompt_name``.
+
+    Mirrors the canonical fleet verify loop used by the tag-guidelines-every
+    instance skill: only complete marker lines count, so a marker embedded in
+    prose or a code block (as ``merge_instructions`` intentionally strips from
+    the body) never inflates the count.
+    """
+    start = end = 0
+    if target.exists():
+        for line in target.read_text(encoding="utf-8").splitlines():
+            m = MARKER_LINE.match(line.strip())
+            if m and m.group("name") == prompt_name:
+                if m.group("kind") == "start":
+                    start += 1
+                else:
+                    end += 1
+    return start, end
+
+
+@log_call(LOGGER)
+def verify_instructions(target: Path, prompt_name: str) -> bool:
+    """Return True only when ``target`` has exactly one start+end marker.
+
+    A missing file, a missing block, or duplicated markers all mean the
+    instance would run without (or with a malformed copy of) the guideline, so
+    the function returns False and the installer's verify gate re-merges. This
+    is the single source of truth shared with the tag-guidelines-every-instance
+    skill's verify loop.
+    """
+    start, end = count_markers(target, prompt_name)
+    if start == 1 and end == 1:
+        LOGGER.info("Verified %s present once in %s", prompt_name, target)
+        return True
+    LOGGER.warning(
+        "Instruction verify failed for %s in %s: start=%s end=%s",
+        prompt_name, target, start, end,
+    )
+    return False
+
+
 @log_call(LOGGER)
 def cleanup_legacy_plugin_files(
     home: Path,
@@ -642,6 +687,9 @@ def main() -> None:
     instructions.add_argument("target", type=Path)
     instructions.add_argument("plugin_name")
     instructions.add_argument("body", type=Path)
+    verify_instr = subparsers.add_parser("verify-instructions")
+    verify_instr.add_argument("target", type=Path)
+    verify_instr.add_argument("plugin_name")
     cleanup = subparsers.add_parser("cleanup-legacy")
     cleanup.add_argument("home", type=Path)
     cleanup.add_argument("prompts_root", type=Path)
@@ -708,6 +756,9 @@ def main() -> None:
         set_claude_hide_account(args.settings, not args.disable)
     elif args.command == "merge-instructions":
         merge_instructions(args.target, args.plugin_name, args.body)
+    elif args.command == "verify-instructions":
+        ok = verify_instructions(args.target, args.plugin_name)
+        raise SystemExit(0 if ok else 1)
     elif args.command == "cleanup-legacy":
         cleanup_legacy_plugin_files(
             args.home,

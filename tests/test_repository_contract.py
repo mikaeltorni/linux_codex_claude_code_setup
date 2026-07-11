@@ -162,6 +162,31 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
 
 
+def test_installer_guarantees_fleet_verify_gate() -> None:
+    """The install scripts must verify (and repair) every instance after merge.
+
+    The original complaint was a stale/untagged agent instance: the merge was
+    best-effort with no post-merge audit, so a silently-failed merge shipped an
+    instance without the guideline. The installer now exposes a verify+repair
+    gate and a standalone 'verify' entrypoint mode.
+    """
+    plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(encoding="utf-8")
+    # The merge component must finish with a fleet verify+repair pass.
+    assert "verify_fleet_instructions" in plugin_installer
+    assert "install_global_instructions_component()" in plugin_installer
+    assert "fleet_instruction_targets" in plugin_installer
+    # The shared verify contract lives in plugin_defaults.py.
+    defaults = (ROOT / "scripts" / "plugin_defaults.py").read_text(encoding="utf-8")
+    assert "def verify_instructions(" in defaults
+    assert "def count_markers(" in defaults
+    assert '"verify-instructions"' in defaults
+    # A standalone verify mode lets ACC / the user re-tag the whole fleet.
+    assert "verify_fleet_programming_plugins" in entrypoint
+    assert "verify)" in entrypoint
+
+
+
 def test_codex_requires_nodejs_22_and_uses_nodesource_fallback() -> None:
     """A standalone Codex install must not accept Ubuntu's Node.js 18."""
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")

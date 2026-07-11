@@ -55,6 +55,26 @@ install_all_programming_plugins() {
   install_global_instructions_component
 }
 
+# Standalone fleet verify+repair: re-tag every default prompt on every
+# instance without reinstalling CLIs or re-adding marketplace plugins. Use this
+# after the installer provisions a new Codex home (ca/qa/na/oa), or to recover
+# from an interrupted merge. Exits non-zero if any instance stays untagged.
+verify_fleet_programming_plugins() {
+  ensure_programming_prompts
+  install_global_instructions_component
+}
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  install_all_programming_plugins
+  case "${1:-install}" in
+    verify)
+      verify_fleet_programming_plugins
+      ;;
+    install|"")
+      install_all_programming_plugins
+      ;;
+    *)
+      msg "Unknown argument: $1 (use 'install' or 'verify')"
+      exit 1
+      ;;
+  esac
 fi
