@@ -237,8 +237,13 @@ def cleanup_legacy_plugin_files(
         codex_home = home / ".codex"
     source_skill = prompts_root / "plugins" / plugin_name / "skills" / skill_name
     link_names = [skill_name]
-    if skill_name == "programming-guidelines":
-        link_names.append("programming_guidelines")
+    if skill_name in {"programming-guidelines", "general-programming-guidelines"}:
+        # The guidelines prompt was historically installed under both hyphen and
+        # underscore names, and as "programming-guidelines" while it was still a
+        # plugin-packaged skill; clean every alias when installing the renamed
+        # direct skill.
+        link_names.extend(("programming-guidelines", "programming_guidelines"))
+    link_names = list(dict.fromkeys(link_names))
     prompts_resolved = prompts_root.resolve()
     for name in link_names:
         path = codex_home / "skills" / name
