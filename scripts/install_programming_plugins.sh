@@ -117,6 +117,8 @@ verify_programming_instructions() {
     "opencode" || failures=1
   verify_skill_copy "$OPENCODE_CONFIG_HOME/skills/general-programming-guidelines/SKILL.md" \
     "$source_skill" "opencode" || failures=1
+  verify_instruction_payload "$TARGET_HOME/.grok/AGENTS.md" \
+    "$source_skill" "Grok instructions" || failures=1
   verify_skill_copy "$TARGET_HOME/.grok/skills/general-programming-guidelines/SKILL.md" \
     "$source_skill" "Grok" || failures=1
 

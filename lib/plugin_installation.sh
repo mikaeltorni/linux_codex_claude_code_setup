@@ -237,6 +237,11 @@ install_plugin_global_instructions() {
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$OPENCODE_CONFIG_HOME/AGENTS.md" "$plugin_name" "$instructions"
+  # Grok also reads its global AGENTS.md. Keep the complete mandatory body
+  # there so Grok cannot depend on choosing the native skill explicitly.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$TARGET_HOME/.grok/AGENTS.md" "$plugin_name" "$instructions"
 }
 
 remove_marketplace_plugin_installations() {
