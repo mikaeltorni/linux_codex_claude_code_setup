@@ -61,6 +61,13 @@ install_all_programming_plugins() {
 # from an interrupted merge. Exits non-zero if any instance stays untagged.
 verify_fleet_programming_plugins() {
   ensure_programming_prompts
+  # Seed the installed-plugins list so the fleet verify+repair pass covers every
+  # default prompt (the component no-ops when the list is empty).
+  while IFS=$'\t' read -r plugin skill _label _state kind; do
+    [[ -z "$plugin" ]] && continue
+    INSTALLED_PROMPT_PLUGINS+=("$plugin")
+  done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" list)
   install_global_instructions_component
 }
 
