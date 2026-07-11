@@ -58,7 +58,12 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     }
     assert plugin_defaults == plugin_names()
     assert skill_defaults <= direct_skill_names()
-    assert skill_defaults == {"init-project", "refactoring", "setup-repository-guidelines"}
+    assert skill_defaults == {
+        "general-programming-guidelines",
+        "init-project",
+        "refactoring",
+        "setup-repository-guidelines",
+    }
     assert all(entry["default"] is True and entry["skill"] for entry in defaults["plugins"])
 
 
@@ -85,7 +90,13 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert "agent_tracker" not in ids
     assert "qwen_notify_hook" not in ids
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
-    assert {"plugin-commit-guidelines", "skill-init-project", "skill-refactoring", "skill-setup-repository-guidelines"} <= ids
+    assert {
+        "plugin-commit-guidelines",
+        "skill-general-programming-guidelines",
+        "skill-init-project",
+        "skill-refactoring",
+        "skill-setup-repository-guidelines",
+    } <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
         encoding="utf-8"
     )
@@ -98,8 +109,8 @@ def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
     assert result.returncode == 0, result.stderr
     rows = {fields[0]: fields for line in result.stdout.splitlines() if (fields := line.split("\t"))}
     assert rows["plugin-commit-guidelines"][3] == "Plugins"
-    assert rows["plugin-general-programming-guidelines"][3] == "Plugins"
     assert rows["plugin-linux-desktop-configuration"][3] == "Plugins"
+    assert rows["skill-general-programming-guidelines"][3] == "Skills"
     assert rows["skill-init-project"][3] == "Skills"
     assert rows["skill-refactoring"][3] == "Skills"
     assert rows["skill-setup-repository-guidelines"][3] == "Skills"
@@ -250,6 +261,24 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     assert entrypoint.is_file()
     assert "install_prompt_plugin" in entrypoint.read_text(encoding="utf-8")
     assert "install_prompt_skill" in entrypoint.read_text(encoding="utf-8")
+
+
+def test_global_instruction_tag_reaches_every_codex_home() -> None:
+    """The always-on tag must be merged into each CODEX_HOME's AGENTS.md.
+
+    Codex reads AGENTS.md from its own CODEX_HOME, so tagging only the default
+    ~/.codex would leave ca/qa/oa/na untagged. The merge must iterate
+    target_codex_homes and write "$codex_home/AGENTS.md".
+    """
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    body = installer.split("install_plugin_global_instructions()", 1)[1].split(
+        "\n}", 1
+    )[0]
+    assert "target_codex_homes" in body
+    assert '"$codex_home/AGENTS.md"' in body
+    assert '"$TARGET_HOME/.codex/AGENTS.md"' not in body
+    # Claude keeps its guidance in CLAUDE.md, not AGENTS.md.
+    assert '"$TARGET_HOME/.claude/CLAUDE.md"' in body
 
 
 def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:

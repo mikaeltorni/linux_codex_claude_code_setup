@@ -198,9 +198,15 @@ install_plugin_global_instructions() {
   local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
   [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
   [[ -f "$instructions" ]] || return 0
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$TARGET_HOME/.codex/AGENTS.md" "$plugin_name" "$instructions"
+  # Codex reads AGENTS.md from each CODEX_HOME, so every configured Codex home
+  # (codex/.codex, ca/.codex-api, qa/.codex-qwen, oa/.codex-openrouter,
+  # na/.codex-nvidia) needs the managed tag — not just the default .codex home.
+  local codex_home
+  for codex_home in $(target_codex_homes); do
+    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+      --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+      "$codex_home/AGENTS.md" "$plugin_name" "$instructions"
+  done
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"

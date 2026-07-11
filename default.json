@@ -7,7 +7,7 @@
   },
   "plugins": [
     {"plugin": "commit-guidelines", "skill": "commit", "label": "Commit Guidelines", "default": true, "kind": "plugin"},
-    {"plugin": "general-programming-guidelines", "skill": "programming-guidelines", "label": "General Programming Guidelines", "default": true, "kind": "plugin"},
+    {"plugin": "general-programming-guidelines", "skill": "general-programming-guidelines", "label": "General Programming Guidelines", "default": true, "kind": "skill"},
     {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": true, "kind": "skill"},
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": true, "kind": "plugin"},
     {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": true, "kind": "skill"},
