@@ -204,8 +204,14 @@ def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     block = f"{start}\n{body}\n{end}"
     current = target.read_text(encoding="utf-8") if target.exists() else ""
     if start in current and end in current:
-        prefix, remainder = current.split(start, 1)
-        _old, suffix = remainder.split(end, 1)
+        # Self-healing replace: keep everything BEFORE the first start marker and
+        # AFTER the last end marker, then write exactly one clean block between
+        # them. A prior run that duplicated markers (e.g. a manual edit or an
+        # interrupted merge) would otherwise leave 2+ starts / 3+ ends, causing
+        # tools to mis-parse the managed block. Splitting on the first start and
+        # last end collapses any duplication into a single canonical block.
+        prefix = current.split(start, 1)[0]
+        suffix = current.rsplit(end, 1)[1]
         updated = f"{prefix}{block}{suffix}"
     else:
         updated = f"{current.rstrip()}\n\n{block}\n" if current.strip() else f"{block}\n"

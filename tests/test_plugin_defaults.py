@@ -300,3 +300,40 @@ def test_cline_plugin_is_idempotent(tmp_path: Path) -> None:
     target = home / ".cline" / "plugins" / "general-programming-guidelines"
     assert target.is_symlink()
     assert target.resolve() == source.resolve()
+
+
+def test_managed_instruction_merge_self_heals_duplicate_markers(tmp_path: Path) -> None:
+    """A corrupted block with duplicated start/end markers must collapse to one.
+
+    The live global AGENTS.md/CLAUDE.md once drifted to two start markers and
+    three end markers, which mis-parses the managed block. merge_instructions
+    must self-heal on the next run instead of adding a third pair.
+    """
+    target = tmp_path / "AGENTS.md"
+    body = tmp_path / "instructions.md"
+    body.write_text(
+        "Use a dedicated Git worktree and a new branch for every task by default.\n",
+        encoding="utf-8",
+    )
+    # Seed the corrupted state: two starts, three ends, with the worktree rule
+    # sitting between them.
+    corrupted = (
+        "# Existing\n"
+        "<!-- programming-prompts:sample-plugin:start -->\n"
+        "<!-- programming-prompts:sample-plugin:start -->\n"
+        "Use a dedicated Git worktree and a new branch for every task by default.\n"
+        "<!-- programming-prompts:sample-plugin:end -->\n"
+        "<!-- programming-prompts:sample-plugin:end -->\n"
+        "<!-- programming-prompts:sample-plugin:end -->\n"
+    )
+    target.write_text(corrupted, encoding="utf-8")
+    plugin_defaults.merge_instructions(target, "sample-plugin", body)
+    content = target.read_text(encoding="utf-8")
+    assert content.count("programming-prompts:sample-plugin:start") == 1
+    assert content.count("programming-prompts:sample-plugin:end") == 1
+    assert "dedicated Git worktree" in content
+    # The block must not leak extra markers on a follow-up run either.
+    plugin_defaults.merge_instructions(target, "sample-plugin", body)
+    content = target.read_text(encoding="utf-8")
+    assert content.count("programming-prompts:sample-plugin:start") == 1
+    assert content.count("programming-prompts:sample-plugin:end") == 1

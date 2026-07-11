@@ -197,6 +197,18 @@ install_global_instructions_component() {
 install_plugin_global_instructions() {
   local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
   [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
+  # Fall back to the plugin's own skill body so a clean install still merges the
+  # guideline even when no dedicated global-instructions/*.md source ships. The
+  # first "## " heading marks the start of the real body; the YAML frontmatter
+  # above it is stripped so the merged block is not polluted with metadata.
+  if [[ ! -f "$instructions" ]]; then
+    local skill_md="$PROGRAMMING_PROMPTS_DIR/plugins/$1/skills/$1/SKILL.md"
+    [[ -f "$skill_md" ]] || skill_md="$PROGRAMMING_PROMPTS_DIR/plugins/$1/skills/${1//-/_}/SKILL.md"
+    if [[ -f "$skill_md" ]]; then
+      instructions="$(mktemp)"
+      awk 'f{print} /^## /{f=1}' "$skill_md" >"$instructions"
+    fi
+  fi
   [[ -f "$instructions" ]] || return 0
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
