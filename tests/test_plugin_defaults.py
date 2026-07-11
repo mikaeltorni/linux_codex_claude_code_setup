@@ -337,3 +337,26 @@ def test_managed_instruction_merge_self_heals_duplicate_markers(tmp_path: Path) 
     content = target.read_text(encoding="utf-8")
     assert content.count("programming-prompts:sample-plugin:start") == 1
     assert content.count("programming-prompts:sample-plugin:end") == 1
+
+
+def test_skill_for_plugin_resolves_renamed_skill_dirs() -> None:
+    """skill-for-plugin must return the real skill name, not the plugin name.
+
+    Several plugins keep their skill in a differently-named directory (e.g.
+    general-programming-guidelines -> programming-guidelines), so the
+    global-instructions fallback cannot assume skill_dir == plugin_name.
+    """
+    defaults = plugin_defaults.load_defaults(ROOT / "default.json")
+    for plugin, expected in [
+        ("general-programming-guidelines", "programming-guidelines"),
+        ("commit-guidelines", "commit"),
+        ("linux-desktop-configuration", "linux-configuration"),
+        ("init-project", "init-project"),
+    ]:
+        out = plugin_defaults.resolve_skill_for_plugin(defaults, plugin)
+        assert out == expected, f"{plugin} -> {out!r}, expected {expected!r}"
+
+
+def test_skill_for_plugin_unknown_returns_none() -> None:
+    defaults = plugin_defaults.load_defaults(ROOT / "default.json")
+    assert plugin_defaults.resolve_skill_for_plugin(defaults, "does-not-exist") is None

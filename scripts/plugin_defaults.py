@@ -23,6 +23,20 @@ LOGGER = get_logger("plugin_defaults", "plugin_defaults.log")
 
 
 @log_call(LOGGER)
+def resolve_skill_for_plugin(defaults: dict, plugin: str) -> str | None:
+    """Return the skill name configured for ``plugin`` in ``defaults``.
+
+    The skill directory often differs from the plugin name (e.g.
+    general-programming-guidelines -> programming-guidelines), so callers that
+    need to locate the plugin's SKILL.md body must resolve it through the
+    committed defaults rather than guessing from the plugin name.
+    """
+    for entry in defaults.get("plugins", []):
+        if entry.get("plugin") == plugin:
+            return entry.get("skill")
+    return None
+
+
 def load_defaults(path: Path) -> dict:
     """Load and validate the committed plugin defaults.
 
@@ -655,6 +669,8 @@ def main() -> None:
     opencode_config.add_argument("target", type=Path)
     opencode_config.add_argument("model")
     opencode_config.add_argument("variant")
+    skill_for_plugin = subparsers.add_parser("skill-for-plugin")
+    skill_for_plugin.add_argument("plugin")
     args = parser.parse_args()
     defaults = load_defaults(args.defaults)
     if args.command == "list":
@@ -703,6 +719,11 @@ def main() -> None:
         install_opencode_plugin(args.home, args.source_plugin, args.plugin_name)
     elif args.command == "merge-opencode-config":
         merge_opencode_config(args.target, args.model, args.variant)
+    elif args.command == "skill-for-plugin":
+        match = resolve_skill_for_plugin(defaults, args.plugin)
+        if not match:
+            raise SystemExit(1)
+        print(match)
     else:
         merge_grok_config(args.target, args.name, args.model_id, args.base_url, args.env_key)
 

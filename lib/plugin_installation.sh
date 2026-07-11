@@ -195,15 +195,27 @@ install_global_instructions_component() {
 }
 
 install_plugin_global_instructions() {
-  local plugin_name="$1" instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
-  [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
+  local plugin_name="$1"
+  # Resolve the skill name the same way the marketplace does: from default.json.
+  # This is required because the skill directory (e.g. "programming-guidelines")
+  # often differs from the plugin name, and some skills live at the repo root
+  # skills/ directory rather than inside the plugin.
+  local skill_name
+  skill_name="$(run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py"     --defaults "$SCRIPT_DIR/default.json" skill-for-plugin "$plugin_name" 2>/dev/null)"
+  local instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$plugin_name.md"
+  [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/install/global-instructions.md"
   # Fall back to the plugin's own skill body so a clean install still merges the
   # guideline even when no dedicated global-instructions/*.md source ships. The
   # first "## " heading marks the start of the real body; the YAML frontmatter
   # above it is stripped so the merged block is not polluted with metadata.
   if [[ ! -f "$instructions" ]]; then
-    local skill_md="$PROGRAMMING_PROMPTS_DIR/plugins/$1/skills/$1/SKILL.md"
-    [[ -f "$skill_md" ]] || skill_md="$PROGRAMMING_PROMPTS_DIR/plugins/$1/skills/${1//-/_}/SKILL.md"
+    local skill_md=""
+    for cand in       "$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name/SKILL.md"       "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name/SKILL.md"; do
+      if [[ -f "$cand" ]]; then
+        skill_md="$cand"
+        break
+      fi
+    done
     if [[ -f "$skill_md" ]]; then
       instructions="$(mktemp)"
       awk 'f{print} /^## /{f=1}' "$skill_md" >"$instructions"
