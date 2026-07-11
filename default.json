@@ -11,6 +11,7 @@
     {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": true, "kind": "skill"},
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": true, "kind": "plugin"},
     {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": true, "kind": "skill"},
-    {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": true, "kind": "skill"}
+    {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": true, "kind": "skill"},
+    {"plugin": "tag-guidelines-every-instance", "skill": "tag-guidelines-every-instance", "label": "Tag Guidelines Every Instance", "default": true, "kind": "plugin"}
   ]
 }
