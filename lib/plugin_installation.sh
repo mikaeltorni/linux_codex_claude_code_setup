@@ -222,6 +222,10 @@ install_plugin_global_instructions() {
     fi
   fi
   [[ -f "$instructions" ]] || return 0
+  # opencode config home is set by install.sh; default it here so the
+  # merge works when this function is reached via the standalone
+  # install_programming_plugins.sh entrypoint too.
+  OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
 
   # The full fleet of agent instances that must carry every prompt guideline.
   # Codex: the default home plus every extra home (api/nvidia/openrouter/qwen).
@@ -314,7 +318,7 @@ install_prompt_plugin() {
     local codex_home
     for codex_home in $(target_codex_homes); do
       prepare_codex_marketplace "$codex_home" || continue
-      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin add "$selector" --json
+      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin add "$selector" --json ||         msg "Codex plugin add $selector failed for $codex_home (continuing)"
     done
   fi
 

@@ -215,6 +215,17 @@ def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     start = f"<!-- programming-prompts:{prompt_name}:start -->"
     end = f"<!-- programming-prompts:{prompt_name}:end -->"
     body = body_path.read_text(encoding="utf-8").strip()
+    # Never let a managed block nest or duplicate its own markers. A body that
+    # itself contains marker text (e.g. a skill that documents the marker
+    # format, or embeds it inline in backticks) would otherwise inject phantom
+    # markers into the target and make every downstream verify loop report
+    # duplicated blocks. Drop any line that contains a programming-prompts
+    # start/end marker before assembling the block; those lines are just
+    # marker-syntax explanations and must not reach the model's instructions.
+    marker_re = re.compile(r"programming-prompts:[A-Za-z0-9_-]+:(start|end)")
+    body = "\n".join(
+        line for line in body.splitlines() if not marker_re.search(line)
+    )
     block = f"{start}\n{body}\n{end}"
     current = target.read_text(encoding="utf-8") if target.exists() else ""
     if start in current and end in current:
