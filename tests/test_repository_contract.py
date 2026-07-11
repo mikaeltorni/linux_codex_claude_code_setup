@@ -64,7 +64,13 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         "refactoring",
         "setup-repository-guidelines",
     }
-    assert all(entry["default"] is True and entry["skill"] for entry in defaults["plugins"])
+    assert all(entry["skill"] for entry in defaults["plugins"])
+    # Only the general programming guidelines is deployed by default so its slim
+    # tag is the sole always-on managed block. Every other prompt stays in the
+    # source repo as an opt-in install (default:false) and must not bloat the
+    # agent instruction files.
+    default_on = {entry["plugin"] for entry in defaults["plugins"] if entry["default"] is True}
+    assert default_on == {"general-programming-guidelines"}
 
 
 def test_programming_prompts_is_content_only() -> None:
@@ -150,7 +156,22 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
     assert "codex_wrapper" not in states
     assert "global_instructions" not in states
     assert "ornstein_model" not in states
-    assert all(state == "on" for _, state in pairs)
+    # Opt-in prompts (everything except the always-on guidelines) are default-off
+    # so a default install deploys only the slim general-programming-guidelines
+    # tag. Every non-prompt component stays default-on.
+    opt_in_prompts = {
+        "plugin-commit-guidelines",
+        "plugin-linux-desktop-configuration",
+        "skill-init-project",
+        "skill-refactoring",
+        "skill-setup-repository-guidelines",
+    }
+    for component_id, state in pairs:
+        if component_id in opt_in_prompts:
+            assert state == "off", f"{component_id} must be opt-in"
+        else:
+            assert state == "on", f"{component_id} must stay default-on"
+    assert states["skill-general-programming-guidelines"] == "on"
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
@@ -259,8 +280,23 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     assert "CODEX_HOMES" in main
     entrypoint = ROOT / "scripts" / "install_programming_plugins.sh"
     assert entrypoint.is_file()
-    assert "install_prompt_plugin" in entrypoint.read_text(encoding="utf-8")
-    assert "install_prompt_skill" in entrypoint.read_text(encoding="utf-8")
+    entrypoint_text = entrypoint.read_text(encoding="utf-8")
+    assert "install_prompt_plugin" in entrypoint_text
+    assert "install_prompt_skill" in entrypoint_text
+
+
+def test_entrypoint_deploys_only_default_on_prompts() -> None:
+    """The standalone entrypoint must skip opt-in (default:false) prompts.
+
+    Only default-on prompts are deployed so the always-on set stays minimal
+    (general-programming-guidelines) and no other full-body block bloats the
+    agent instruction files.
+    """
+    entrypoint_text = (
+        ROOT / "scripts" / "install_programming_plugins.sh"
+    ).read_text(encoding="utf-8")
+    body = entrypoint_text.split("install_all_programming_plugins()", 1)[1]
+    assert '[[ "$state" == "on" ]] || continue' in body
 
 
 def test_global_instruction_tag_reaches_every_codex_home() -> None:
