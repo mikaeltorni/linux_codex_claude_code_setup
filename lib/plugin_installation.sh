@@ -192,6 +192,120 @@ install_global_instructions_component() {
   for plugin_name in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
     install_plugin_global_instructions "$plugin_name"
   done
+  # Guarantee the policy, not just attempt it: verify every merged prompt across
+  # the whole fleet and re-merge any instance that drifted to START!=1 END!=1.
+  verify_fleet_instructions
+}
+
+# verify_instructions TARGET PLUGIN
+# Use the shared plugin_defaults verify-instructions subcommand (the same
+# marker-counting contract the tag-guidelines-every-instance skill audits).
+# Returns 0 when the file has exactly one start+end marker for PLUGIN.
+verify_instructions() {
+  local target="$1" plugin_name="$2"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" verify-instructions "$target" "$plugin_name"
+}
+
+# merge_one_instruction TARGET PLUGIN INSTRUCTIONS
+# Idempotent merge of one managed block into a single target file.
+merge_one_instruction() {
+  local target="$1" plugin_name="$2" instructions="$3"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$target" "$plugin_name" "$instructions"
+}
+
+# The canonical fleet of instruction targets every agent instance must carry.
+# Keep this in lockstep with the verify loop documented in the
+# tag-guidelines-every-instance skill. Any new home the installer provisions
+# MUST be appended here so the audit stays exhaustive.
+fleet_instruction_targets() {
+  local codex_home
+  for codex_home in $(target_codex_homes) "$TARGET_HOME/.codex-api" "$TARGET_HOME/.codex-nvidia" "$TARGET_HOME/.codex-openrouter" "$TARGET_HOME/.codex-qwen"; do
+    printf '%s\n' "$codex_home/AGENTS.md"
+  done
+  printf '%s\n' "$TARGET_HOME/.claude/CLAUDE.md"
+  printf '%s\n' "$TARGET_HOME/.agents/AGENTS.md"
+  printf '%s\n' "$TARGET_HOME/.grok/AGENTS.md"
+  printf '%s\n' "$TARGET_HOME/.config/opencode/AGENTS.md"
+  printf '%s\n' "$TARGET_HOME/.cline/AGENTS.md"
+  printf '%s\n' "$TARGET_HOME/Documents/Cline/Rules"
+}
+
+# verify_fleet_instructions
+# For every default:true prompt plugin, check the whole fleet. Re-merge the
+# prompt into any instance that is missing or has duplicated markers, then exit
+# non-zero if anything still fails after the repair so the install surfaces the
+# gap instead of silently shipping an untagged instance.
+verify_fleet_instructions() {
+  local plugin_name target instructions rc=0
+  for plugin_name in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
+    instructions="$(_instructions_body_for_plugin "$plugin_name")"
+    [[ -n "$instructions" ]] || continue
+    while IFS= read -r target; do
+      [[ -z "$target" ]] && continue
+      # Cline Rules is a per-prompt file, not a directory; the verify loop reads
+      # the per-prompt file, and a directory entry means "verify every rule file".
+      if [[ -d "$target" ]]; then
+        verify_fleet_instructions_dir "$plugin_name" "$target" "$instructions"
+        continue
+      fi
+      if verify_instructions "$target" "$plugin_name"; then
+        continue
+      fi
+      msg "Fleet verify: $plugin_name missing/duplicated in $target — re-merging"
+      merge_one_instruction "$target" "$plugin_name" "$instructions"
+      if verify_instructions "$target" "$plugin_name"; then
+        msg "Fleet verify: repaired $plugin_name in $target"
+      else
+        msg "ERROR: fleet verify still failing for $plugin_name in $target"
+        rc=1
+      fi
+    done < <(fleet_instruction_targets)
+  done
+  return $rc
+}
+
+# verify_fleet_instructions_dir PLUGIN DIR INSTRUCTIONS
+# The Cline Rules directory holds one managed file per prompt; verify/repair it.
+verify_fleet_instructions_dir() {
+  local plugin_name="$1" dir="$2" instructions="$3"
+  local target="$dir/$plugin_name.md"
+  if verify_instructions "$target" "$plugin_name"; then
+    return 0
+  fi
+  msg "Fleet verify: $plugin_name missing/duplicated in $target — re-merging"
+  run_as_target mkdir -p "$dir"
+  merge_one_instruction "$target" "$plugin_name" "$instructions"
+  if ! verify_instructions "$target" "$plugin_name"; then
+    msg "ERROR: fleet verify still failing for $plugin_name in $target"
+  fi
+}
+
+# _instructions_body_for_plugin PLUGIN
+# Resolve the markdown body the installer would merge for PLUGIN (mirrors
+# install_plugin_global_instructions resolution order).
+_instructions_body_for_plugin() {
+  local plugin_name="$1"
+  local instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$plugin_name.md"
+  [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/install/global-instructions.md"
+  if [[ ! -f "$instructions" ]]; then
+    local skill_name
+    skill_name="$(run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+      --defaults "$SCRIPT_DIR/default.json" skill-for-plugin "$plugin_name" 2>/dev/null)"
+    local skill_md=""
+    for cand in \
+      "$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name/SKILL.md" \
+      "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name/SKILL.md"; do
+      if [[ -f "$cand" ]]; then skill_md="$cand"; break; fi
+    done
+    if [[ -f "$skill_md" ]]; then
+      instructions="$(mktemp)"
+      awk 'f{print} /^## /{f=1}' "$skill_md" >"$instructions"
+    fi
+  fi
+  [[ -f "$instructions" ]] && printf '%s\n' "$instructions"
 }
 
 install_plugin_global_instructions() {

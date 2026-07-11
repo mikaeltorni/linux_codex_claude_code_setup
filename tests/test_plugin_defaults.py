@@ -360,3 +360,51 @@ def test_skill_for_plugin_resolves_renamed_skill_dirs() -> None:
 def test_skill_for_plugin_unknown_returns_none() -> None:
     defaults = plugin_defaults.load_defaults(ROOT / "default.json")
     assert plugin_defaults.resolve_skill_for_plugin(defaults, "does-not-exist") is None
+
+
+def test_verify_instructions_detects_present_once(tmp_path: Path) -> None:
+    """Exactly one start+end marker means the instance is correctly tagged."""
+    target = tmp_path / "AGENTS.md"
+    body = tmp_path / "instructions.md"
+    body.write_text("Use the setup skill.\n", encoding="utf-8")
+    plugin_defaults.merge_instructions(target, "sample-plugin", body)
+    assert plugin_defaults.verify_instructions(target, "sample-plugin") is True
+
+
+def test_verify_instructions_detects_missing_and_duplicate(tmp_path: Path) -> None:
+    """A missing block or duplicated markers both fail the fleet verify gate."""
+    # Missing: file exists but carries no managed block.
+    missing = tmp_path / "missing.md"
+    missing.write_text("# Nothing here\n", encoding="utf-8")
+    assert plugin_defaults.verify_instructions(missing, "sample-plugin") is False
+
+    # Absent file is also a failure (untagged instance).
+    absent = tmp_path / "absent.md"
+    assert plugin_defaults.verify_instructions(absent, "sample-plugin") is False
+
+    # Duplicated: an interrupted re-merge leaves two start/end pairs.
+    dup = tmp_path / "dup.md"
+    body = tmp_path / "instructions.md"
+    body.write_text("Use the setup skill.\n", encoding="utf-8")
+    plugin_defaults.merge_instructions(dup, "sample-plugin", body)
+    content = dup.read_text(encoding="utf-8")
+    dup.write_text(content + content, encoding="utf-8")
+    assert plugin_defaults.verify_instructions(dup, "sample-plugin") is False
+
+
+def test_count_markers_only_counts_whole_lines(tmp_path: Path) -> None:
+    """A marker embedded in prose must not inflate the canonical count."""
+    target = tmp_path / "AGENTS.md"
+    target.write_text(
+        "See programming-prompts:sample-plugin:start in code.\n"
+        "<!-- programming-prompts:sample-plugin:start -->\n"
+        "body\n"
+        "<!-- programming-prompts:sample-plugin:end -->\n",
+        encoding="utf-8",
+    )
+    start, end = plugin_defaults.count_markers(target, "sample-plugin")
+    assert (start, end) == (1, 1)
+    # A different prompt's markers do not leak into the count.
+    other_s, other_e = plugin_defaults.count_markers(target, "other-plugin")
+    assert (other_s, other_e) == (0, 0)
+
