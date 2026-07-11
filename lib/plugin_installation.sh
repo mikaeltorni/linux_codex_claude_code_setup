@@ -222,9 +222,24 @@ install_plugin_global_instructions() {
     fi
   fi
   [[ -f "$instructions" ]] || return 0
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$TARGET_HOME/.codex/AGENTS.md" "$plugin_name" "$instructions"
+  # opencode config home is set by install.sh; default it here so the
+  # merge works when this function is reached via the standalone
+  # install_programming_plugins.sh entrypoint too.
+  OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
+
+  # The full fleet of agent instances that must carry every prompt guideline.
+  # Codex: the default home plus every extra home (api/nvidia/openrouter/qwen).
+  # Cross-tool / Claude: the standard file used by Codex, Claude, and the
+  # cross-tool ~/.agents file. Runtime-native: Grok, opencode, and Cline both
+  # as a cross-tool agents.md and as a Cline Rules document. Any new home the
+  # installer provisions must be appended here AND to the verify loop in the
+  # tag-guidelines-every-instance skill so the audit stays exhaustive.
+  local codex_home
+  for codex_home in $(target_codex_homes) "$TARGET_HOME/.codex-api" "$TARGET_HOME/.codex-nvidia" "$TARGET_HOME/.codex-openrouter" "$TARGET_HOME/.codex-qwen"; do
+    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+      --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+      "$codex_home/AGENTS.md" "$plugin_name" "$instructions"
+  done
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"
@@ -246,6 +261,18 @@ install_plugin_global_instructions() {
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$OPENCODE_CONFIG_HOME/AGENTS.md" "$plugin_name" "$instructions"
+  # Grok reads global agent instructions from ~/.grok/AGENTS.md in every
+  # session. Merge the same managed block there so the guidelines are always-on
+  # for Grok too, not just available as an invokable skill.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$TARGET_HOME/.grok/AGENTS.md" "$plugin_name" "$instructions"
+  # Cline's native cross-tool agents.md at ~/.cline/AGENTS.md is loaded into
+  # every Cline session. Merge the same managed block so the guidelines are
+  # always-on for Cline's cross-tool runtime, not just the Rules document.
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
+    "$TARGET_HOME/.cline/AGENTS.md" "$plugin_name" "$instructions"
 }
 
 remove_marketplace_plugin_installations() {
@@ -291,7 +318,7 @@ install_prompt_plugin() {
     local codex_home
     for codex_home in $(target_codex_homes); do
       prepare_codex_marketplace "$codex_home" || continue
-      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin add "$selector" --json
+      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin add "$selector" --json ||         msg "Codex plugin add $selector failed for $codex_home (continuing)"
     done
   fi
 

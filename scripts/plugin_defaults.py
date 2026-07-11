@@ -215,20 +215,39 @@ def merge_instructions(target: Path, prompt_name: str, body_path: Path) -> None:
     start = f"<!-- programming-prompts:{prompt_name}:start -->"
     end = f"<!-- programming-prompts:{prompt_name}:end -->"
     body = body_path.read_text(encoding="utf-8").strip()
+    # Never let a managed block nest or duplicate its own markers. A body that
+    # itself contains marker text (e.g. a skill that documents the marker
+    # format, or embeds it inline in backticks) would otherwise inject phantom
+    # markers into the target and make every downstream verify loop report
+    # duplicated blocks. Drop any line that contains a programming-prompts
+    # start/end marker before assembling the block; those lines are just
+    # marker-syntax explanations and must not reach the model's instructions.
+    marker_re = re.compile(r"programming-prompts:[A-Za-z0-9_-]+:(start|end)")
+    body = "\n".join(
+        line for line in body.splitlines() if not marker_re.search(line)
+    )
     block = f"{start}\n{body}\n{end}"
     current = target.read_text(encoding="utf-8") if target.exists() else ""
+
+    # Self-healing merge. Strip EVERY existing start/end marker (whole line)
+    # from the current content first, then append exactly one clean block. This
+    # collapses any duplication from an interrupted or repeated merge (e.g. a
+    # stale :end left above a new block) into a single canonical block instead
+    # of leaving 2+ starts / 3+ ends that tools then mis-parse.
+    def _strip_markers(text: str) -> str:
+        return "\n".join(
+            line for line in text.splitlines()
+            if not (line.strip() == start or line.strip() == end)
+        )
+
     if start in current and end in current:
-        # Self-healing replace: keep everything BEFORE the first start marker and
-        # AFTER the last end marker, then write exactly one clean block between
-        # them. A prior run that duplicated markers (e.g. a manual edit or an
-        # interrupted merge) would otherwise leave 2+ starts / 3+ ends, causing
-        # tools to mis-parse the managed block. Splitting on the first start and
-        # last end collapses any duplication into a single canonical block.
-        prefix = current.split(start, 1)[0]
-        suffix = current.rsplit(end, 1)[1]
-        updated = f"{prefix}{block}{suffix}"
+        cleaned = _strip_markers(current)
+        updated = f"{cleaned.rstrip()}\n\n{block}\n"
+    elif current.strip():
+        # No prior managed block: append one, preserving unrelated content.
+        updated = f"{current.rstrip()}\n\n{block}\n"
     else:
-        updated = f"{current.rstrip()}\n\n{block}\n" if current.strip() else f"{block}\n"
+        updated = f"{block}\n"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(updated, encoding="utf-8")
     LOGGER.info("Merged managed instructions for %s into %s", prompt_name, target)
