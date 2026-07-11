@@ -35,11 +35,19 @@ declare -F isc_load_helpers >/dev/null 2>&1 || \
 isc_load_helpers
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 
-# Install every committed default prompt into the configured Codex homes/Claude.
+# Install the default-on prompts into the configured Codex homes/Claude.
+#
+# Only prompts marked default:true in default.json are deployed here, so the
+# always-on set stays minimal (general-programming-guidelines only) and its slim
+# tag is the sole managed block merged into AGENTS.md/CLAUDE.md. Prompts marked
+# default:false remain in the source repo and the component menu as opt-in
+# installs; they are intentionally skipped by this standalone entrypoint so they
+# never bloat the agent instruction files by default.
 install_all_programming_plugins() {
   ensure_programming_prompts
-  while IFS=$'\t' read -r plugin skill _label _state kind; do
+  while IFS=$'\t' read -r plugin skill _label state kind; do
     [[ -z "$plugin" ]] && continue
+    [[ "$state" == "on" ]] || continue
     # Best-effort per prompt: one failure must not abort the rest.
     if [[ "$kind" == "skill" ]]; then
       install_prompt_skill "$plugin" "$skill" || \
@@ -50,8 +58,8 @@ install_all_programming_plugins() {
     fi
   done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" list)
-  # Merge AGENTS.md/CLAUDE.md global instructions for everything installed above.
-  # This entrypoint always installs the full default set, so it always merges.
+  # Merge AGENTS.md/CLAUDE.md global instructions for every prompt installed
+  # above (default-on only), so only the minimal always-on set is tagged.
   install_global_instructions_component
 }
 
