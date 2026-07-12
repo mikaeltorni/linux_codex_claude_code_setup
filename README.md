@@ -49,9 +49,10 @@ and everything else is optional:
   to opencode's own `opencode auth login` — no API key is read or written.
   Override `OPENCODE_INSTALL_URL`, `OPENCODE_COMMAND`, `OPENCODE_INSTALL_DIR`, or
   `OPENCODE_CONFIG_HOME`.
-- `agent_autoupdate` — a systemd **user** timer that, at login (system startup)
-  and once a day, updates Codex, Claude Code, and Cline to the newest *stable* release
-  published at least 24 hours ago. Neither npm nor `claude install/update`
+- `agent_autoupdate` — a systemd **user** timer that, at user-manager startup
+  (the first user session after a system reboot) and once a day, updates every
+  installed Codex runtime (`ca`, `qa`, `oa`, and `na`), Claude Code, and Cline
+  to the newest *stable* release published at least 24 hours ago. Neither npm nor `claude install/update`
   exposes a native publish-delay flag, so the installed updater resolves the
   target from each package's npm publish timestamps and pins to it. The delay
   means a freshly published (and possibly compromised) release is never taken on

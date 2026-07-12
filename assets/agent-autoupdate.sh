@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# agent-autoupdate.sh - Update Codex, Claude Code, and Cline to the newest *stable*
-# release that has been published for at least DELAY_HOURS (default 24h).
+# agent-autoupdate.sh - Update every installed Codex runtime, Claude Code, and
+# Cline to the newest *stable* release that has been published for at least
+# DELAY_HOURS (default 24h).
 #
 # Neither npm nor the Claude Code installer has a native "install a version
 # published >24h ago" flag, so this resolves the target version from each
@@ -8,8 +9,9 @@
 # published (and possibly compromised) release is never installed on the day it
 # ships, mirroring the rolling 24h publication delay already used for Python/uv.
 #
-# Run by the agent-autoupdate.timer user unit at login and once a day. Config is
-# read from autoupdate.env; everything is best-effort and never fails the boot.
+# Run by the agent-autoupdate.timer user unit at user-manager startup and once a
+# day. Config is read from autoupdate.env; everything is best-effort and never
+# fails the boot.
 
 set -uo pipefail
 
@@ -22,6 +24,9 @@ ENV_FILE="$CONFIG_DIR/autoupdate.env"
 
 DELAY_HOURS="${AGENT_AUTOUPDATE_DELAY_HOURS:-24}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$HOME/.local/share/linux_codex_claude_code_setup/npm}"
+QWEN_CODEX_NPM_PREFIX="${QWEN_CODEX_NPM_PREFIX:-$HOME/.local/codex-qwen}"
+OPENROUTER_CODEX_NPM_PREFIX="${OPENROUTER_CODEX_NPM_PREFIX:-$HOME/.local/codex-openrouter}"
+NVIDIA_CODEX_NPM_PREFIX="${NVIDIA_CODEX_NPM_PREFIX:-$HOME/.local/codex-nvidia}"
 CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-$HOME/.local/share/linux_codex_claude_code_setup/cline-npm}"
 export PATH="$HOME/.local/bin:$CODEX_NPM_PREFIX/bin:$CLINE_NPM_PREFIX/bin:$PATH"
 
@@ -75,24 +80,64 @@ PY
   printf '%s' "$result"
 }
 
-update_codex() {
-  command -v npm >/dev/null 2>&1 || { log "npm missing; skipping Codex"; return 0; }
-  local installed="" target
-  # `codex` may be the tracking-aware launcher. A version probe is updater
-  # bookkeeping, not an agent session, so suppress tracker lifecycle/TTS events.
-  installed="$(CODEX_AGENT_SKIP_TRACKER=1 codex --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-  target="$(resolve_delayed_version "@openai/codex" "$installed")"
-  if [ -z "$target" ]; then
-    log "Codex already at the newest stable >=${DELAY_HOURS}h old (${installed:-none}); no change"
+# version_is_older <installed-version> <target-version>
+# Return success only when both versions are stable semver values and the
+# installed version is strictly older than the delayed target.
+version_is_older() {
+  local installed="$1" target="$2" first
+  [[ "$installed" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  [ "$installed" != "$target" ] || return 1
+  first="$(printf '%s\n%s\n' "$installed" "$target" | sort -V | head -1)"
+  [ "$first" = "$installed" ]
+}
+
+# update_codex_prefix <label> <npm-prefix> <target-version>
+# Update one installed Codex runtime without invoking its user-facing launcher.
+# The isolated prefixes are the binaries used by ca, qa, oa, and na; probing
+# each raw binary keeps one newer instance from masking an older sibling.
+update_codex_prefix() {
+  local label="$1" prefix="$2" target="$3" binary installed=""
+  binary="$prefix/bin/codex"
+  if [ ! -x "$binary" ]; then
+    log "Codex $label is not installed at $prefix; skipping"
     return 0
   fi
-  log "Updating Codex ${installed:-none} -> $target (published >=${DELAY_HOURS}h ago)"
-  mkdir -p "$CODEX_NPM_PREFIX"
-  if timeout 900 npm install -g --prefix "$CODEX_NPM_PREFIX" "@openai/codex@$target" </dev/null; then
-    log "Codex updated to $target"
-  else
-    log "Codex update to $target failed; keeping ${installed:-current}"
+
+  # These are raw npm binaries, but retain the tracker suppression marker for
+  # compatibility with installations that place a wrapper at this path.
+  installed="$(CODEX_AGENT_SKIP_TRACKER=1 "$binary" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  if [ -z "$installed" ]; then
+    log "Codex $label version probe failed at $binary; skipping"
+    return 0
   fi
+  if ! version_is_older "$installed" "$target"; then
+    log "Codex $label already at ${installed} (target ${target}); no change"
+    return 0
+  fi
+
+  log "Updating Codex $label $installed -> $target (published >=${DELAY_HOURS}h ago)"
+  mkdir -p "$prefix"
+  if timeout 900 npm install -g --prefix "$prefix" "@openai/codex@$target" </dev/null; then
+    log "Codex $label updated to $target"
+  else
+    log "Codex $label update to $target failed; keeping $installed"
+  fi
+}
+
+update_codex() {
+  command -v npm >/dev/null 2>&1 || { log "npm missing; skipping all Codex runtimes"; return 0; }
+  local target
+  target="$(resolve_delayed_version "@openai/codex" "")"
+  if [ -z "$target" ]; then
+    log "No stable Codex release >=${DELAY_HOURS}h old is available; skipping all Codex runtimes"
+    return 0
+  fi
+
+  update_codex_prefix "main" "$CODEX_NPM_PREFIX" "$target"
+  update_codex_prefix "qwen" "$QWEN_CODEX_NPM_PREFIX" "$target"
+  update_codex_prefix "openrouter" "$OPENROUTER_CODEX_NPM_PREFIX" "$target"
+  update_codex_prefix "nvidia" "$NVIDIA_CODEX_NPM_PREFIX" "$target"
 }
 
 update_claude() {
