@@ -49,12 +49,34 @@ def _get(key: str, fallback: str = "", defaults: dict | None = None) -> str:
     return fallback
 
 
+# Short TUI labels; keep in sync with agent_command_center free OpenRouter defaults.
+_KNOWN_DISPLAY_NAMES = {
+    "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron 3 Ultra (free)",
+    "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron 3 Super (free)",
+}
+
+
+def catalog_display_name(base_model: str) -> str:
+    """Return a short human label for the Codex model catalog."""
+    known = _KNOWN_DISPLAY_NAMES.get(base_model)
+    if known:
+        return known
+    free = base_model.endswith(":free")
+    core = base_model[: -len(":free")] if free else base_model
+    if "/" in core:
+        core = core.split("/", 1)[1]
+    label = core.replace("-", " ").replace("_", " ").title()
+    if free:
+        label = f"{label} (free)"
+    return label
+
+
 def build_model_catalog(base_model: str, context_window: int = 131072) -> dict:
-    display_name = base_model.replace("-", " ").title()
+    display_name = catalog_display_name(base_model)
     return {
         "slug": base_model,
         "display_name": display_name,
-        "description": "Local model via LM Studio",
+        "description": "Model catalog entry for the Codex TUI",
         "default_reasoning_level": "high",
         "supported_reasoning_levels": [
             {"effort": "low", "description": "Fast responses with lighter reasoning"},
