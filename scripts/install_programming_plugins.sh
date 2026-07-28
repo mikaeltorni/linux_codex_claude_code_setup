@@ -23,7 +23,10 @@ PROGRAMMING_PROMPTS_DIR="${PROGRAMMING_PROMPTS_DIR:-$TARGET_HOME/projects/progra
 PROGRAMMING_PROMPTS_REPOSITORY="${PROGRAMMING_PROMPTS_REPOSITORY:-mikaeltorni/programming_prompts}"
 PROGRAMMING_PROMPTS_MARKETPLACE="programming-prompts"
 PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace}"
-CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
+# Empty by default: target_codex_homes then discovers every existing Codex home
+# (.codex plus every .codex-* variant) so no home keeps a stale guidelines
+# version. Callers that must target one home export CODEX_HOMES explicitly.
+CODEX_HOMES="${CODEX_HOMES:-}"
 OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
 
 for loader in \

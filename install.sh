@@ -15,9 +15,11 @@ PROGRAMMING_PROMPTS_REPOSITORY="${PROGRAMMING_PROMPTS_REPOSITORY:-mikaeltorni/pr
 PROGRAMMING_PROMPTS_MARKETPLACE="programming-prompts"
 PROGRAMMING_PROMPTS_MARKETPLACE_DIR="${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace}"
 # Space-separated list of Codex config homes that receive the programming_prompts
-# plugins. Defaults to the single default home. agent_command_center exports the
-# full set (.codex .codex-api .codex-qwen) so every Codex instance gets them.
-CODEX_HOMES="${CODEX_HOMES:-$TARGET_HOME/.codex}"
+# plugins. Left empty by default so target_codex_homes discovers every existing
+# home (.codex plus any .codex-* variant) and none of them keeps a stale
+# guidelines version. agent_command_center still exports an explicit set when it
+# needs to target one specific home.
+CODEX_HOMES="${CODEX_HOMES:-}"
 OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}"
 CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}"
 CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/cline-npm}"

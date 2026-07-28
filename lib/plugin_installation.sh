@@ -14,8 +14,26 @@ INSTALLED_PROMPT_PLUGINS=()
 # homes such as .codex-api and .codex-qwen so every Codex instance (codex, ca,
 # qa) sees the same skills. run_as_target uses a clean env, so each Codex call
 # below sets CODEX_HOME explicitly via `env`.
+#
+# When CODEX_HOMES is unset every already-provisioned Codex home is discovered
+# instead of only the default one. Homes such as .codex-api/.codex-qwen are
+# created by other flows, so defaulting to the default home alone let their
+# AGENTS.md drift to an older guidelines version until that flow ran again.
+discover_codex_homes() {
+  local home_dir
+  printf '%s\n' "$TARGET_HOME/.codex"
+  for home_dir in "$TARGET_HOME"/.codex-*; do
+    [[ -d "$home_dir" ]] || continue
+    printf '%s\n' "$home_dir"
+  done
+}
+
 target_codex_homes() {
-  printf '%s\n' ${CODEX_HOMES:-$TARGET_HOME/.codex}
+  if [[ -n "${CODEX_HOMES:-}" ]]; then
+    printf '%s\n' ${CODEX_HOMES}
+    return 0
+  fi
+  discover_codex_homes
 }
 
 generate_programming_prompts_marketplace() {
