@@ -385,3 +385,49 @@ def test_master_installs_standalone_repo_before_acc() -> None:
     assert clone_repos.index("programming_prompts") < clone_repos.index(name)
     assert clone_repos.index(name) < clone_repos.index("agent_command_center")
     assert install_repos.index(name) < install_repos.index("agent_command_center")
+
+
+def dispatch_skill_names() -> set[str]:
+    """Return every dispatch skill discoverable in the prompts checkout."""
+    return {path.parent.name for path in PROMPTS.glob("dispatch-skills/*/SKILL.md")}
+
+
+def test_dispatch_skills_are_configured_and_present() -> None:
+    """Every dispatch-skill default resolves to a dispatch-skills/ body."""
+    defaults = json.loads((ROOT / "default.json").read_text(encoding="utf-8"))
+    dispatch = {
+        entry["skill"]
+        for entry in defaults["plugins"]
+        if entry.get("kind") == "dispatch-skill"
+    }
+    assert "github-seo-outreach" in dispatch
+    assert dispatch <= dispatch_skill_names()
+    assert (PROMPTS / "dispatch-skills" / "github-seo-outreach" / "SKILL.md").is_file()
+
+
+def test_dispatch_skills_get_their_own_menu_section() -> None:
+    """Dispatch skills are separately selectable, under their own heading."""
+    result = run("bash", "install.sh", "--list-components")
+    assert result.returncode == 0, result.stderr
+    rows = {
+        fields[0]: fields
+        for line in result.stdout.splitlines()
+        if (fields := line.split("\t"))
+    }
+    assert "dispatch-skill-github-seo-outreach" in rows
+    assert rows["dispatch-skill-github-seo-outreach"][3] == "Dispatch Skills"
+
+
+def test_dispatch_skills_never_merge_into_instruction_files() -> None:
+    """Dispatch skill installs must not bloat AGENTS.md/CLAUDE.md."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    body = installer.split("install_dispatch_skill() {", 1)[1].split("\n}", 1)[0]
+    assert "install_plugin_global_instructions" not in body
+    assert "dispatch-skills" in body
+
+
+def test_dispatch_skill_source_resolution_is_shared() -> None:
+    """Every harness installer resolves skill sources through one helper."""
+    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
+    assert installer.count("resolve_prompt_skill_source()") == 1
+    assert installer.count('"$(resolve_prompt_skill_source ') == 3

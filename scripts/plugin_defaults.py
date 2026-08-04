@@ -19,6 +19,11 @@ from logging_utils import get_logger, log_call
 
 
 NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+# programming_prompts subdirectory holding on-demand dispatch skills. Their
+# bodies are installed into every harness skill directory like direct skills,
+# but are never merged into AGENTS.md/CLAUDE.md: they are invoked explicitly
+# (``/name`` or ``$name``) instead of loading in every session.
+DISPATCH_SKILLS_DIRNAME = "dispatch-skills"
 LOGGER = get_logger("plugin_defaults", "plugin_defaults.log")
 
 
@@ -50,7 +55,7 @@ def load_defaults(path: Path) -> dict:
             raise ValueError(f"invalid skill name for plugin {plugin!r}")
         if not isinstance(entry.get("default"), bool):
             raise ValueError(f"default must be Boolean for plugin {plugin!r}")
-        if entry.get("kind", "plugin") not in {"plugin", "skill"}:
+        if entry.get("kind", "plugin") not in {"plugin", "skill", "dispatch-skill"}:
             raise ValueError(f"invalid prompt kind for {plugin!r}")
         seen.add(plugin)
     LOGGER.info("Loaded %d plugin defaults", len(seen))
@@ -85,6 +90,9 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
     """
     plugin_entries = [entry for entry in defaults["plugins"] if entry.get("kind", "plugin") == "plugin"]
     skill_entries = [entry for entry in defaults["plugins"] if entry.get("kind") == "skill"]
+    dispatch_entries = [
+        entry for entry in defaults["plugins"] if entry.get("kind") == "dispatch-skill"
+    ]
     configured = {entry["plugin"] for entry in plugin_entries}
     discovered = {
         path.parent.parent.name
@@ -102,10 +110,15 @@ def validate_sources(defaults: dict, prompts_root: Path) -> None:
         skill = prompts_root / "skills" / entry["skill"] / "SKILL.md"
         if not skill.is_file():
             raise ValueError(f"missing configured direct skill: {skill}")
+    for entry in dispatch_entries:
+        skill = prompts_root / DISPATCH_SKILLS_DIRNAME / entry["skill"] / "SKILL.md"
+        if not skill.is_file():
+            raise ValueError(f"missing configured dispatch skill: {skill}")
     LOGGER.info(
-        "Validated %d programming prompt plugins and %d direct skills",
+        "Validated %d programming prompt plugins, %d direct skills, and %d dispatch skills",
         len(configured),
         len(skill_entries),
+        len(dispatch_entries),
     )
 
 
@@ -285,6 +298,7 @@ def install_direct_skill(
     prompt_name: str,
     skill_name: str,
     codex_home: Path | None = None,
+    source_dir: str = "skills",
 ) -> None:
     """Install a prompt as a direct skill without plugin marketplace metadata.
 
@@ -294,10 +308,20 @@ def install_direct_skill(
         prompt_name: Prompt identifier from defaults.
         skill_name: Skill directory name to install.
         codex_home: Codex config directory to update. Defaults to ``home/.codex``.
+        source_dir: programming_prompts subdirectory owning the skill body —
+            ``skills`` for always-on direct skills, ``dispatch-skills`` for
+            on-demand skills launched from the dispatch menu. Both install into
+            the same harness skill directories; only the source differs.
+
+    Raises:
+        ValueError: If ``source_dir`` is not a known prompt layout or the
+            resolved source has no ``SKILL.md``.
     """
+    if source_dir not in {"skills", DISPATCH_SKILLS_DIRNAME}:
+        raise ValueError(f"unsupported skill source directory: {source_dir!r}")
     if codex_home is None:
         codex_home = home / ".codex"
-    source_skill = prompts_root / "skills" / skill_name
+    source_skill = prompts_root / source_dir / skill_name
     if not source_skill.joinpath("SKILL.md").is_file():
         raise ValueError(f"missing direct skill source: {source_skill}")
 
@@ -321,7 +345,12 @@ def install_direct_skill(
         else:
             claude_skill.unlink()
     shutil.copytree(source_skill, claude_skill)
-    LOGGER.info("Installed direct skill %s from prompt %s", skill_name, prompt_name)
+    LOGGER.info(
+        "Installed direct skill %s from prompt %s (source=%s)",
+        skill_name,
+        prompt_name,
+        source_dir,
+    )
 
 
 @log_call(LOGGER)
@@ -620,6 +649,7 @@ def main() -> None:
     direct_skill.add_argument("plugin_name")
     direct_skill.add_argument("skill_name")
     direct_skill.add_argument("--codex-home", type=Path, default=None)
+    direct_skill.add_argument("--source-dir", default="skills")
     cline_skill = subparsers.add_parser("install-cline-skill")
     cline_skill.add_argument("home", type=Path)
     cline_skill.add_argument("source_skill", type=Path)
@@ -687,6 +717,7 @@ def main() -> None:
             args.plugin_name,
             args.skill_name,
             args.codex_home,
+            args.source_dir,
         )
     elif args.command == "install-cline-skill":
         install_cline_skill(args.home, args.source_skill, args.skill_name)

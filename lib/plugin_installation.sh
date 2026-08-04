@@ -136,13 +136,40 @@ record_prompt_plugin() {
   INSTALLED_PROMPT_PLUGINS+=("$plugin_name")
 }
 
+# resolve_prompt_skill_source — Print the programming_prompts directory that
+# owns a skill body, whichever prompt layout it uses.
+#
+# Arguments:
+#   $1  prompt/plugin identifier from default.json
+#   $2  skill directory name
+#
+# The three layouts are searched in order: bundled plugin skills
+# (plugins/<plugin>/skills/<skill>), direct skills (skills/<skill>), and
+# dispatch skills (dispatch-skills/<skill>). Every harness installer routes
+# through this one resolver, so a new prompt layout is added here once instead
+# of in each harness-specific function.
+resolve_prompt_skill_source() {
+  local plugin_name="$1" skill_name="$2" candidate
+  for candidate in \
+    "$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name" \
+    "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name" \
+    "$PROGRAMMING_PROMPTS_DIR/dispatch-skills/$skill_name"; do
+    if [[ -f "$candidate/SKILL.md" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  # Preserve the historical fallback so the Python writer reports the missing
+  # source path rather than this resolver failing silently.
+  printf '%s' "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+}
+
 # Install the selected skill into Cline's documented ~/.cline/skills directory.
 # The Python writer links the authoritative programming_prompts source and
 # refuses to overwrite an unrelated user-authored skill with the same name.
 install_cline_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
-  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" install-cline-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
@@ -163,8 +190,7 @@ install_cline_prompt_plugin() {
 # Install the selected skill into Grok's documented ~/.grok/skills directory.
 install_grok_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
-  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" install-grok-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
@@ -182,8 +208,7 @@ install_grok_prompt_plugin() {
 # Install the selected skill into opencode's native ~/.config/opencode/skills.
 install_opencode_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name"
-  [[ -f "$source_skill/SKILL.md" ]] || source_skill="$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
+  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
   run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" install-opencode-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
@@ -339,8 +364,19 @@ install_prompt_plugin() {
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
 }
 
-install_prompt_skill() {
-  local plugin_name="$1" skill_name="$2" codex_home
+# install_manifest_free_skill — Install one prompt body as a native skill into
+# every supported harness, without any plugin marketplace metadata.
+#
+# Arguments:
+#   $1  prompt identifier from default.json
+#   $2  skill directory name (also the /name and $name invocation)
+#   $3  programming_prompts subdirectory owning the body: skills | dispatch-skills
+#
+# Shared by install_prompt_skill and install_dispatch_skill so both kinds reach
+# Codex, Claude Code, Cline, Grok, and opencode through one code path; only the
+# source layout and the instruction-file merge differ between them.
+install_manifest_free_skill() {
+  local plugin_name="$1" skill_name="$2" source_dir="$3" codex_home
   ensure_programming_prompts
   remove_marketplace_plugin_installations "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
@@ -348,11 +384,31 @@ install_prompt_skill() {
     run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
       --defaults "$SCRIPT_DIR/default.json" install-direct-skill \
       "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
-      --codex-home "$codex_home"
+      --codex-home "$codex_home" --source-dir "$source_dir"
   done
   install_cline_prompt_skill "$plugin_name" "$skill_name"
   install_grok_prompt_skill "$plugin_name" "$skill_name"
   install_opencode_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
+}
+
+install_prompt_skill() {
+  local plugin_name="$1" skill_name="$2"
+  install_manifest_free_skill "$plugin_name" "$skill_name" "skills" || return 1
   install_plugin_global_instructions "$plugin_name"
+}
+
+# install_dispatch_skill — Install a dispatch skill (programming_prompts
+# dispatch-skills/<name>) so `/name` and `$name` resolve in every harness.
+#
+# Arguments:
+#   $1  prompt identifier from default.json
+#   $2  skill directory name
+#
+# Deliberately does NOT merge anything into AGENTS.md/CLAUDE.md: dispatch skills
+# are launched on demand from the skill menu, so adding their bodies to the
+# always-on instruction files would bloat every agent's context for a prompt
+# that is only needed when it is explicitly invoked.
+install_dispatch_skill() {
+  install_manifest_free_skill "$1" "$2" "dispatch-skills"
 }
