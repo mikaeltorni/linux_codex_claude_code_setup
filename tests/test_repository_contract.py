@@ -67,9 +67,24 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     assert all(entry["skill"] for entry in defaults["plugins"])
     # Only the general programming guidelines is deployed by default, so its
     # complete skill payload is the sole always-on managed block. Every other
-    # prompt stays in the source repo as an opt-in install (default:false).
-    default_on = {entry["plugin"] for entry in defaults["plugins"] if entry["default"] is True}
-    assert default_on == {"general-programming-guidelines"}
+    # instruction-merging prompt stays in the source repo as an opt-in install
+    # (default:false). Dispatch skills are exempt from this budget because they
+    # never merge into AGENTS.md/CLAUDE.md: installing one only places a SKILL.md
+    # in the harness skill directories, costing context solely when the user
+    # invokes it, so shipping them on by default keeps the menu usable without
+    # growing any instance instruction file.
+    always_on = {
+        entry["plugin"]
+        for entry in defaults["plugins"]
+        if entry["default"] is True and entry.get("kind") != "dispatch-skill"
+    }
+    assert always_on == {"general-programming-guidelines"}
+    dispatch_on = {
+        entry["plugin"]
+        for entry in defaults["plugins"]
+        if entry.get("kind") == "dispatch-skill"
+    }
+    assert dispatch_on == {"github-seo-outreach"}
 
 
 def test_programming_prompts_is_content_only() -> None:
