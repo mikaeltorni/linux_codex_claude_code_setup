@@ -300,3 +300,86 @@ def test_cline_plugin_is_idempotent(tmp_path: Path) -> None:
     target = home / ".cline" / "plugins" / "general-programming-guidelines"
     assert target.is_symlink()
     assert target.resolve() == source.resolve()
+
+
+def test_install_direct_skill_supports_dispatch_skill_source(tmp_path: Path) -> None:
+    """Dispatch skills install from dispatch-skills/ into the same targets."""
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    skill_source = prompts / "dispatch-skills" / "github-seo-outreach"
+    skill_source.mkdir(parents=True)
+    (skill_source / "SKILL.md").write_text("# SEO\n", encoding="utf-8")
+
+    plugin_defaults.install_direct_skill(
+        home,
+        prompts,
+        "github-seo-outreach",
+        "github-seo-outreach",
+        codex_home=home / ".codex",
+        source_dir="dispatch-skills",
+    )
+
+    codex_skill = home / ".codex" / "skills" / "github-seo-outreach"
+    claude_skill = home / ".claude" / "skills" / "github-seo-outreach"
+    assert codex_skill.is_symlink()
+    assert codex_skill.resolve() == skill_source.resolve()
+    assert claude_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == "# SEO\n"
+
+
+def test_install_direct_skill_rejects_unknown_source_directory(tmp_path: Path) -> None:
+    """Only the two supported prompt layouts may be installed as skills."""
+    try:
+        plugin_defaults.install_direct_skill(
+            tmp_path / "home",
+            tmp_path / "prompts",
+            "github-seo-outreach",
+            "github-seo-outreach",
+            source_dir="../etc",
+        )
+    except ValueError as error:
+        assert "source directory" in str(error)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("unknown source directory must be rejected")
+
+
+def test_dispatch_skill_kind_is_accepted_and_validated(tmp_path: Path) -> None:
+    """A dispatch-skill entry validates against dispatch-skills/<skill>."""
+    config = tmp_path / "default.json"
+    config.write_text(
+        json.dumps(
+            {
+                "marketplace": {"name": "sample", "repository": "owner/repository"},
+                "plugins": [
+                    {
+                        "plugin": "github-seo-outreach",
+                        "skill": "github-seo-outreach",
+                        "label": "GitHub SEO",
+                        "default": True,
+                        "kind": "dispatch-skill",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    parsed = plugin_defaults.load_defaults(config)
+    prompts = tmp_path / "programming_prompts"
+    try:
+        plugin_defaults.validate_sources(parsed, prompts)
+    except ValueError as error:
+        assert "dispatch skill" in str(error)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("missing dispatch skill source must fail validation")
+
+    body = prompts / "dispatch-skills" / "github-seo-outreach"
+    body.mkdir(parents=True)
+    (body / "SKILL.md").write_text("# SEO\n", encoding="utf-8")
+    plugin_defaults.validate_sources(parsed, prompts)
+
+
+def test_committed_defaults_ship_the_seo_dispatch_skill() -> None:
+    """The repository default catalog exposes the SEO dispatch skill."""
+    entries = {entry["plugin"]: entry for entry in defaults()["plugins"]}
+    seo = entries["github-seo-outreach"]
+    assert seo["kind"] == "dispatch-skill"
+    assert seo["default"] is True
