@@ -12,6 +12,6 @@
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": false, "kind": "plugin"},
     {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": false, "kind": "skill"},
     {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": false, "kind": "skill"},
-    {"plugin": "github-seo-outreach", "skill": "github-seo-outreach", "label": "GitHub SEO & Outreach (dispatch)", "default": true, "kind": "dispatch-skill"}
+    {"plugin": "github-seo", "skill": "github-seo", "label": "GitHub SEO (dispatch)", "default": true, "kind": "dispatch-skill"}
   ]
 }
