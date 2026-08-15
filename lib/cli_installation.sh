@@ -98,11 +98,14 @@ install_claude_code() {
   run_as_target bash -c '
     set -euo pipefail
     export PATH="$HOME/.local/bin:$PATH"
-    if ! command -v claude >/dev/null 2>&1; then
+    claude_bin="$HOME/.local/bin/claude"
+    if [[ -L "$claude_bin" && ! -e "$claude_bin" ]]; then
+      printf "%s\n" "Removing dangling Claude Code launcher: $claude_bin" >&2
+      rm -f "$claude_bin"
+    fi
+    if [[ ! -x "$claude_bin" ]]; then
       curl -fsSL --max-time 300 https://claude.ai/install.sh | bash
     fi
-    claude_bin="$(command -v claude || true)"
-    [[ -x "$claude_bin" ]] || claude_bin="$HOME/.local/bin/claude"
     [[ -x "$claude_bin" ]] || { echo "Claude Code installation failed" >&2; exit 1; }
     timeout 300 "$claude_bin" install latest ||
       printf "%s\n" "Claude Code install latest failed; continuing with the installed binary" >&2
