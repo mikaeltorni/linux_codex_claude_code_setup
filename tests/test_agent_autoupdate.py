@@ -170,3 +170,54 @@ fi
     assert "Updating Codex qwen" in result.stdout
     assert "Updating Codex openrouter" in result.stdout
     assert "Updating Codex nvidia" in result.stdout
+
+
+def test_updater_never_reuses_claude_outside_target_home(tmp_path: Path) -> None:
+    """A sandbox updater must ignore Claude commands inherited from host PATH."""
+
+    home = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    external_bin = tmp_path / "external-bin"
+    fake_bin.mkdir()
+    external_bin.mkdir()
+    external_log = tmp_path / "external-claude.log"
+
+    fake_npm = fake_bin / "npm"
+    fake_npm.write_text(
+        """#!/usr/bin/env bash
+if [[ "${1:-}" == view ]]; then
+  printf '%s\n' '{"created":"2020-01-01T00:00:00Z","1.0.0":"2020-01-01T00:00:00Z","1.0.1":"2020-01-02T00:00:00Z","modified":"2020-01-02T00:00:00Z"}'
+fi
+""",
+        encoding="utf-8",
+    )
+    fake_npm.chmod(0o755)
+    external_claude = external_bin / "claude"
+    external_claude.write_text(
+        """#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$CLAUDE_EXTERNAL_LOG"
+if [[ "${1:-}" == --version ]]; then printf '%s\n' '1.0.0'; fi
+""",
+        encoding="utf-8",
+    )
+    external_claude.chmod(0o755)
+
+    env = {
+        **os.environ,
+        "CLAUDE_EXTERNAL_LOG": str(external_log),
+        "HOME": str(home),
+        "PATH": f"{fake_bin}:{external_bin}:/usr/bin:/bin",
+        "XDG_CONFIG_HOME": str(tmp_path / "config"),
+    }
+    result = subprocess.run(
+        ["bash", str(ROOT / "assets/agent-autoupdate.sh")],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not external_log.exists(), "updater invoked Claude outside HOME"
+    assert "claude missing; skipping Claude Code" in result.stdout

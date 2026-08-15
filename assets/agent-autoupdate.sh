@@ -141,16 +141,18 @@ update_codex() {
 }
 
 update_claude() {
-  command -v claude >/dev/null 2>&1 || { log "claude missing; skipping Claude Code"; return 0; }
-  local installed="" target
-  installed="$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  local claude_bin="$HOME/.local/bin/claude" installed="" target
+  # Never reuse a Claude command inherited from another HOME. Clean-home tests
+  # and sandbox installs must be unable to update the operator's real binary.
+  [ -x "$claude_bin" ] || { log "claude missing; skipping Claude Code"; return 0; }
+  installed="$("$claude_bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
   target="$(resolve_delayed_version "@anthropic-ai/claude-code" "$installed")"
   if [ -z "$target" ]; then
     log "Claude Code already at the newest stable >=${DELAY_HOURS}h old (${installed:-none}); no change"
     return 0
   fi
   log "Updating Claude Code ${installed:-none} -> $target (published >=${DELAY_HOURS}h ago)"
-  if timeout 300 claude install "$target"; then
+  if timeout 300 "$claude_bin" install "$target"; then
     log "Claude Code updated to $target"
   else
     log "Claude Code install $target failed; keeping ${installed:-current}"

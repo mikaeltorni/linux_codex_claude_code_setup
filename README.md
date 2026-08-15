@@ -25,10 +25,12 @@ The core is intentionally minimal — each CLI installs and runs on its own —
 and everything else is optional:
 
 - `codex_cli` / `claude_code` / `cline_cli` — install each CLI. Selecting just
-  one is enough; Cline is installed into an isolated user-owned npm prefix and
-  linked as `~/.local/bin/cline`, matching its official `npm install -g cline`
-  package without requiring sudo. `codex_cli` puts a plain `codex` launcher on
-  `PATH`.
+  one is enough. Claude Code is always installed and updated through the target
+  user's `~/.local/bin/claude`; a dangling launcher is repaired, and a `claude`
+  command inherited from another home is never reused. Cline is installed into
+  an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
+  its official `npm install -g cline` package without requiring sudo.
+  `codex_cli` puts a plain `codex` launcher on `PATH`.
 - `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
   then promotes the binary to Grok's **alpha** release channel (`grok update
   --alpha`) so clean installs track pre-stable builds. Override
