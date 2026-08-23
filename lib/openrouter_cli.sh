@@ -36,7 +36,11 @@ _openrouter_status_line_toml() {
   if [ -f "$helper" ]; then
     python3 "$helper" toml-array openrouter "$TARGET_HOME" 2>/dev/null && return 0
   fi
-  printf '["model-with-reasoning","current-dir","git-branch","context-remaining","branch-changes","used-tokens","total-input-tokens","total-output-tokens"]'
+  # Keep this list inside the Codex TUI field catalog owned by
+  # claude_code_status_bar (git-branch was dropped there in favour of the
+  # worktree segment), so a machine without that checkout still gets a status
+  # line Codex actually renders.
+  printf '["model-with-reasoning","current-dir","context-remaining","branch-changes","used-tokens","total-input-tokens","total-output-tokens"]'
 }
 
 write_openrouter_config_toml() {

@@ -15,12 +15,26 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STATUS_BAR_DIR = ROOT.parent / "claude_code_status_bar"
+# The sibling checkout lives next to this repo, or one level further up when
+# the suite runs from a git worktree (projects/worktrees/<repo>-wt-<task>).
+STATUS_BAR_DIR = next(
+    (
+        candidate
+        for candidate in (
+            ROOT.parent / "claude_code_status_bar",
+            ROOT.parent.parent / "claude_code_status_bar",
+        )
+        if candidate.is_dir()
+    ),
+    ROOT.parent / "claude_code_status_bar",
+)
 OPENROUTER_LIB = ROOT / "lib" / "openrouter_cli.sh"
 QWEN_LIB = ROOT / "lib" / "qwen_cli.sh"
 
+# The built-in fallback list, which must stay inside the Codex TUI field
+# catalog owned by claude_code_status_bar (git-branch was dropped there).
 RICH_DEFAULT = [
-    "model-with-reasoning", "current-dir", "git-branch", "context-remaining",
+    "model-with-reasoning", "current-dir", "context-remaining",
     "branch-changes", "used-tokens", "total-input-tokens", "total-output-tokens",
 ]
 
@@ -98,7 +112,10 @@ def test_openrouter_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     selection_dir = tmp_path / ".config" / "claude_code_status_bar"
     selection_dir.mkdir(parents=True)
     (selection_dir / "field-selections.json").write_text(
-        json.dumps({"openrouter": ["model-with-reasoning", "git-branch"]}) + "\n",
+        json.dumps(
+            {"openrouter": ["model-with-reasoning", "used-tokens", "git-branch"]}
+        )
+        + "\n",
         encoding="utf-8",
     )
     dest = tmp_path / ".codex-openrouter"
@@ -106,7 +123,10 @@ def test_openrouter_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     proc = _write_openrouter(dest, tmp_path, status_bar_dir=STATUS_BAR_DIR)
     assert proc.returncode == 0, proc.stderr + proc.stdout
     text = (dest / "config.toml").read_text(encoding="utf-8")
-    assert 'status_line = ["model-with-reasoning","git-branch"]' in text
+    # The stored selection is honored, and a token outside the Codex catalog
+    # (git-branch, dropped upstream) is filtered out instead of written through.
+    assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
+    assert "git-branch" not in text
 
 
 def test_qwen_writer_emits_tui_status_line_in_both_configs(tmp_path: Path) -> None:
@@ -130,13 +150,18 @@ def test_qwen_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     selection_dir = tmp_path / ".config" / "claude_code_status_bar"
     selection_dir.mkdir(parents=True)
     (selection_dir / "field-selections.json").write_text(
-        json.dumps({"qwen": ["model-with-reasoning", "git-branch"]}) + "\n",
+        json.dumps(
+            {"qwen": ["model-with-reasoning", "used-tokens", "git-branch"]}
+        )
+        + "\n",
         encoding="utf-8",
     )
     dest = tmp_path / ".codex-qwen"
     dest.mkdir()
     proc = _write_qwen(dest, tmp_path, status_bar_dir=STATUS_BAR_DIR)
     assert proc.returncode == 0, proc.stderr + proc.stdout
-    assert 'status_line = ["model-with-reasoning","git-branch"]' in (
-        dest / "config.toml"
-    ).read_text(encoding="utf-8")
+    text = (dest / "config.toml").read_text(encoding="utf-8")
+    # The stored selection is honored, and a token outside the Codex catalog
+    # (git-branch, dropped upstream) is filtered out instead of written through.
+    assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
+    assert "git-branch" not in text
