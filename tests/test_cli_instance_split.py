@@ -7,7 +7,19 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ACC = ROOT.parent / "agent_command_center"
+# The sibling checkout lives next to this repo, or one level further up when
+# the suite runs from a git worktree (projects/worktrees/<repo>-wt-<task>).
+ACC = next(
+    (
+        candidate
+        for candidate in (
+            ROOT.parent / "agent_command_center",
+            ROOT.parent.parent / "agent_command_center",
+        )
+        if candidate.is_dir()
+    ),
+    ROOT.parent / "agent_command_center",
+)
 
 
 def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:

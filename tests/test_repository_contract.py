@@ -8,7 +8,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECTS = ROOT.parent
+# Sibling repositories live in the projects folder; when this suite runs from a
+# git worktree (projects/worktrees/<repo>-wt-<task>) that folder is one level up.
+PROJECTS = (
+    ROOT.parent
+    if (ROOT.parent / "agent_command_center").is_dir()
+    else ROOT.parent.parent
+)
 PROMPTS = PROJECTS / "programming_prompts"
 ACC = PROJECTS / "agent_command_center"
 ORCHESTRATOR = PROJECTS / "installation_scripts"
@@ -239,13 +245,20 @@ def test_installer_logging_contract_is_explicit() -> None:
 
 
 def test_acc_delegates_before_installing_its_own_components() -> None:
-    """ACC should clone/install the standalone dependency in its preflight."""
+    """ACC should clone/install the standalone dependency before any component.
+
+    The dependency install lives on ISC_CORE, not ISC_PREFLIGHT: preflight only
+    fires in front of the first component that actually runs, so a blank
+    selection (``--select ''``) skipped it and left ACC's wrappers with no CLIs
+    to wrap. ISC_CORE always runs, first.
+    """
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     installer = (ACC / "scripts" / "install_standalone.sh").read_text(encoding="utf-8")
     qwen = (ACC / "lib" / "qwen_codex.sh").read_text(encoding="utf-8")
     openrouter = (ACC / "lib" / "openrouter_codex.sh").read_text(encoding="utf-8")
     tracker = (ACC / "lib" / "codex_agent_tracker.sh").read_text(encoding="utf-8")
-    assert 'ISC_PREFLIGHT="acc_preflight"' in components
+    assert 'ISC_CORE="acc_core"' in components
+    assert 'ISC_PREFLIGHT="acc_preflight"' not in components
     assert "install_codex_claude_setup_dependency" in installer
     assert "linux_codex_claude_code_setup.git" in installer
     assert '"codex_cli|' not in components
