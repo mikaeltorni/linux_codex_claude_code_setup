@@ -134,7 +134,7 @@ install_qwen_cli() {
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \
-    QWEN_CODEX_CONTEXT_WINDOW="${QWEN_CODEX_CONTEXT_WINDOW:-131072}" \
+    QWEN_CODEX_CONTEXT_WINDOW="${QWEN_CODEX_CONTEXT_WINDOW:-40960}" \
     python3 "$SCRIPT_DIR/scripts/generate_model_catalog.py" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
 
   write_qwen_config_toml "$QWEN_CODEX_HOME"
