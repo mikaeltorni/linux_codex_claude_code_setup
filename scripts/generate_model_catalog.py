@@ -71,7 +71,7 @@ def catalog_display_name(base_model: str) -> str:
     return label
 
 
-def build_model_catalog(base_model: str, context_window: int = 131072) -> dict:
+def build_model_catalog(base_model: str, context_window: int = 40960) -> dict:
     display_name = catalog_display_name(base_model)
     return {
         "slug": base_model,
@@ -114,7 +114,7 @@ def build_model_catalog(base_model: str, context_window: int = 131072) -> dict:
 def write_model_catalog(
     codex_home: str | Path,
     base_model: str,
-    context_window: int = 131072,
+    context_window: int = 40960,
 ) -> Path:
     codex_home = Path(codex_home)
     out_path = codex_home / "model-catalog.json"
@@ -137,12 +137,12 @@ def main() -> int:
     base_model = model_name.split("@")[0]
     context_window_str = os.environ.get(
         "QWEN_CODEX_CONTEXT_WINDOW",
-        _get("QWEN_CODEX_CONTEXT_WINDOW", "131072", defaults),
+        _get("QWEN_CODEX_CONTEXT_WINDOW", "40960", defaults),
     )
     try:
         context_window = int(context_window_str)
     except ValueError:
-        context_window = 131072
+        context_window = 40960
 
     try:
         write_model_catalog(codex_home, base_model, context_window)

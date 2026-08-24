@@ -85,3 +85,13 @@ def test_acc_tracked_qwen_launcher_is_separate_from_plain_qwen() -> None:
     assert 'QWEN_CODEX_COMMAND="qwen"' in defaults
     assert 'QWEN_CODEX_LAUNCHER_COMMAND="qwen-local"' in defaults
     assert '/.local/bin/$QWEN_CODEX_LAUNCHER_COMMAND"' in qwen
+
+
+def test_plain_qwen_defaults_match_the_startup_model() -> None:
+    """The provider-owned plain launcher must target the same Qwen profile as ACC."""
+    defaults = (ROOT / "configs" / "codex_instances" / "defaults.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'QWEN_CODEX_LMSTUDIO_MODEL="${QWEN_CODEX_LMSTUDIO_MODEL:-qwen3-8b}"' in defaults
+    assert 'QWEN_CODEX_CONTEXT_WINDOW="40960"' in defaults
+    assert 'QWEN_CODEX_AUTO_COMPACT_TOKEN_LIMIT="35840"' in defaults

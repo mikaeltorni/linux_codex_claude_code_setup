@@ -17,7 +17,7 @@ installation. `claude_code_status_bar` owns the delegated Claude renderer;
 `programming_prompts` owns only
 per-plugin content and manifests. `claude_code_status_bar` owns all agent display
 configuration, and Agent Command Center owns tracker/runtime behavior, the
-tracking-aware Codex wrapper, and its Ornstein local-model selection.
+tracking-aware Codex wrapper, and its Qwen3-8B local-model selection.
 
 Keep this installer root-optional. User configuration belongs under the target
 user's home and must preserve unrelated settings and installed plugins.

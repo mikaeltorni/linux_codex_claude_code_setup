@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_ornstein_detection_requires_selected_downloaded_weight(tmp_path: Path) -> None:
+def test_qwen3_8b_detection_requires_selected_downloaded_weight(tmp_path: Path) -> None:
     """A selected catalog row without its GGUF is not an installed model."""
     home = tmp_path / "home"
     catalog = (
@@ -21,9 +21,9 @@ def test_ornstein_detection_requires_selected_downloaded_weight(tmp_path: Path) 
     catalog.write_text(
         json.dumps({
             "profiles": [{
-                "id": "ornstein",
+                "id": "qwen3-8b",
                 "default_install": True,
-                "model_path": "owner/ornstein.gguf",
+                "model_path": "owner/qwen3-8b.gguf",
             }]
         }),
         encoding="utf-8",
@@ -33,7 +33,7 @@ def test_ornstein_detection_requires_selected_downloaded_weight(tmp_path: Path) 
             f"TARGET_HOME={str(home)!r}",
             "TARGET_USER=$USER",
             "source lib/model_setup.sh",
-            "detect_lmstudio_ornstein_model",
+            "detect_lmstudio_qwen3_8b_model",
         ]
     )
     missing = subprocess.run(
@@ -45,7 +45,7 @@ def test_ornstein_detection_requires_selected_downloaded_weight(tmp_path: Path) 
     )
     assert missing.returncode != 0
 
-    weight = home / ".lmstudio/models/owner/ornstein.gguf"
+    weight = home / ".lmstudio/models/owner/qwen3-8b.gguf"
     weight.parent.mkdir(parents=True)
     weight.touch()
     present = subprocess.run(

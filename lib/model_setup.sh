@@ -51,15 +51,15 @@ raise SystemExit(1)
 PY
 }
 
-# detect_lmstudio_ornstein_model — true when Ornstein is selected for install.
-detect_lmstudio_ornstein_model() {
-  detect_lmstudio_model "ornstein"
+# detect_lmstudio_qwen3_8b_model — true when Qwen3-8B is selected for install.
+detect_lmstudio_qwen3_8b_model() {
+  detect_lmstudio_model "qwen3-8b"
 }
 
-# install_ornstein_model — add Ornstein as the default local coding model.
-install_ornstein_model() {
-  msg "Installing Ornstein through linux_lmstudio_local_agents"
-  LMSTUDIO_ADD_MODELS="ornstein" LMSTUDIO_MAIN_MODEL="ornstein" \
+# install_qwen3_8b_model — add Qwen3-8B as the default local coding model.
+install_qwen3_8b_model() {
+  msg "Installing Qwen3-8B through linux_lmstudio_local_agents"
+  LMSTUDIO_ADD_MODELS="qwen3-8b" LMSTUDIO_MAIN_MODEL="qwen3-8b" \
     run_lmstudio_model_installer --select lm_studio_app,serve,models
 }
 
