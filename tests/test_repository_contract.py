@@ -149,10 +149,10 @@ def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
 def test_models_and_tracking_wrapper_are_owned_by_acc() -> None:
     """The CLI installer must not expose ACC runtime or local-model rows."""
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
-    assert "qwen3_8b_model|" not in components
+    assert "qwen3_8_27b_model|" not in components
     assert "codex_wrapper|" not in components
     acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
-    assert "qwen3_8b_model|" in acc_components
+    assert "qwen3_8_27b_model|" in acc_components
     assert "codex_wrapper|" in acc_components
 
 
@@ -175,7 +175,7 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
     # into another component; each is independently selectable and default-on.
     assert "codex_wrapper" not in states
     assert "global_instructions" not in states
-    assert "qwen3_8b_model" not in states
+    assert "qwen3_8_27b_model" not in states
     # Opt-in prompts (everything except the always-on guidelines) are default-off
     # so a default install deploys only the slim general-programming-guidelines
     # tag. Every non-prompt component stays default-on.

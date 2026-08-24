@@ -92,6 +92,6 @@ def test_plain_qwen_defaults_match_the_startup_model() -> None:
     defaults = (ROOT / "configs" / "codex_instances" / "defaults.sh").read_text(
         encoding="utf-8"
     )
-    assert 'QWEN_CODEX_LMSTUDIO_MODEL="${QWEN_CODEX_LMSTUDIO_MODEL:-qwen3-8b}"' in defaults
+    assert 'QWEN_CODEX_LMSTUDIO_MODEL="${QWEN_CODEX_LMSTUDIO_MODEL:-qwen3.8-27b}"' in defaults
     assert 'QWEN_CODEX_CONTEXT_WINDOW="40960"' in defaults
     assert 'QWEN_CODEX_AUTO_COMPACT_TOKEN_LIMIT="35840"' in defaults
