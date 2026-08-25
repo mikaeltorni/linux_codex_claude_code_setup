@@ -51,7 +51,7 @@ def _get(key: str, fallback: str = "", defaults: dict | None = None) -> str:
 
 # Short TUI labels; keep in sync with agent_command_center free OpenRouter defaults.
 _KNOWN_DISPLAY_NAMES = {
-    "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron 3 Ultra (free)",
+    "stealth/ox-alpha": "Ox Alpha",
     "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron 3 Super (free)",
 }
 

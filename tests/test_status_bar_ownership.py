@@ -1,7 +1,7 @@
 """Regression tests: plain qwen/openr CLI writers must keep the TUI status line.
 
 The isolated Qwen (qa, ~/.codex-qwen) and OpenRouter (oa, ~/.codex-openrouter,
-model nvidia/nemotron-3-ultra-550b-a55b:free) Codex instances used to be written with ``tee`` and no
+model stealth/ox-alpha) Codex instances used to be written with ``tee`` and no
 ``[tui]`` table, so every default install / re-run wiped the status bar that
 claude_code_status_bar (and ACC) add. These tests lock the contract that both
 writers emit ``[tui] status_line`` and pull the shared field selections when the
@@ -50,7 +50,7 @@ def _write_openrouter(dest: Path, tmp_path: Path, status_bar_dir=None) -> subpro
             "QWEN_CODEX_HOME=\"{tmp_path}/.codex-qwen\"",
             "OPENROUTER_CODEX_HOME=\"{tmp_path}/.codex-openrouter\"",
             "OPENROUTER_CODEX_NPM_PREFIX=\"{tmp_path}/.local/codex-openrouter\"",
-            "OPENROUTER_CODEX_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free",
+            "OPENROUTER_CODEX_MODEL=stealth/ox-alpha",
             "OPENROUTER_CODEX_PROVIDER=openrouter",
             "OPENROUTER_CODEX_PROVIDER_NAME=OpenRouter",
             "OPENROUTER_CODEX_BASE_URL=https://openrouter.ai/api/v1",

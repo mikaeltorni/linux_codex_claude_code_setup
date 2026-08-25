@@ -16,7 +16,7 @@ QWEN_CODEX_LMSTUDIO_MODEL="${QWEN_CODEX_LMSTUDIO_MODEL:-qwen3.8-27b}"
 # ── OpenRouter Codex (openr) ─────────────────────────────────────────────────
 OPENROUTER_CODEX_PLAIN_COMMAND="openr"
 # Keep in sync with agent_command_center OPENROUTER_CODEX_MODEL (free Ultra).
-OPENROUTER_CODEX_MODEL="${OPENROUTER_CODEX_MODEL:-nvidia/nemotron-3-ultra-550b-a55b:free}"
+OPENROUTER_CODEX_MODEL="${OPENROUTER_CODEX_MODEL:-stealth/ox-alpha}"
 OPENROUTER_CODEX_PROVIDER="openrouter"
 OPENROUTER_CODEX_PROVIDER_NAME="OpenRouter"
 OPENROUTER_CODEX_BASE_URL="https://openrouter.ai/api/v1"
