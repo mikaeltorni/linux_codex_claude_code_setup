@@ -5,6 +5,10 @@ CLI_INSTANCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=/dev/null
 source "$CLI_INSTANCES_DIR/configs/codex_instances/defaults.sh"
 agent_cli_apply_codex_instance_defaults
+# The generated wrapper embeds acc_wait_for_cli; pull it in here rather than
+# relying on install.sh source ordering.
+# shellcheck source=/dev/null
+source "$CLI_INSTANCES_DIR/lib/cli_wait.sh"
 
 _openrouter_env_file() {
   local acc_dir="$TARGET_HOME/projects/agent_command_center"
@@ -75,6 +79,8 @@ EOF
 }
 
 write_openrouter_plain_wrapper() {
+  # See install_codex_wrapper: the embedded guard must be sourced.
+  require_cli_wait_guard || return 1
   local env_file
   env_file="$(_openrouter_env_file)"
   run_as_target tee "$TARGET_HOME/.local/bin/$OPENROUTER_CODEX_PLAIN_COMMAND" >/dev/null <<EOF
@@ -108,6 +114,8 @@ if [ -z "\${OPENROUTER_API_KEY:-}" ]; then
 fi
 
 ensure_openrouter_cwd_trusted
+$(declare -f acc_wait_for_cli)
+acc_wait_for_cli "$OPENROUTER_CODEX_NPM_PREFIX/bin/codex" || exit 127
 exec "$OPENROUTER_CODEX_NPM_PREFIX/bin/codex" \\
   -c model_provider="$OPENROUTER_CODEX_PROVIDER" \\
   -m "$OPENROUTER_CODEX_MODEL" \\

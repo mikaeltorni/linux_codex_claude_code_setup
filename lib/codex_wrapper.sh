@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Install the tracking-aware Codex wrapper while keeping ca as the --yolo owner.
 
+CODEX_WRAPPER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The generated wrapper embeds acc_wait_for_cli, so pull the dependency in here
+# rather than relying on install.sh's source ordering.
+# shellcheck source=/dev/null
+source "$CODEX_WRAPPER_LIB_DIR/cli_wait.sh"
+
 # Expose the raw Codex npm binary on PATH as a plain `codex` launcher. This is
 # the core entrypoint installed by the codex_cli component so `codex` works even
 # when the optional tracking-aware wrapper is not selected. The codex_wrapper
@@ -16,6 +22,10 @@ install_codex_plain_launcher() {
 install_codex_wrapper() {
   local raw_codex="$1"
   local bin_dir="$TARGET_HOME/.local/bin"
+  # The wrapper embeds acc_wait_for_cli with declare -f. If lib/cli_wait.sh was
+  # not sourced that expands to nothing and every later launch dies with
+  # "acc_wait_for_cli: command not found" — fail here instead.
+  require_cli_wait_guard || return 1
   run_as_target mkdir -p "$bin_dir"
   # The plain launcher is a symlink to the raw npm binary. Remove it before
   # writing the wrapper so tee creates a new file instead of following the link.
@@ -36,6 +46,8 @@ export CODEX_HOME="\${CODEX_HOME:-\$HOME/.codex}"
 export CODEX_AGENT_LMSTUDIO_MODEL="\${CODEX_AGENT_LMSTUDIO_MODEL:-}"
 tracker="\$HOME/.local/bin/codex-agent-tracker"
 real_codex="$raw_codex"
+$(declare -f acc_wait_for_cli)
+acc_wait_for_cli "\$real_codex" || exit 127
 agent_run_id="codex-\$\$-\$(date +%s)-\${RANDOM:-0}"
 export CODEX_AGENT_RUN_ID="\$agent_run_id"
 if [ "\${CODEX_AGENT_SKIP_TRACKER:-0}" != "1" ] && [ -x "\$tracker" ]; then

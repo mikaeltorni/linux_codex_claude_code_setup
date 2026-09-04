@@ -25,6 +25,7 @@ def test_wrapper_forwards_yolo_exactly_once(tmp_path: Path) -> None:
             "\n".join(
                 [
                     "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'cli_wait.sh')!r}",
                     f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
                     f"TARGET_HOME={str(home)!r}",
                     "run_as_target() { \"$@\"; }",
@@ -66,6 +67,7 @@ def test_wrapper_replaces_plain_launcher_without_overwriting_raw_binary(
             "\n".join(
                 [
                     "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'cli_wait.sh')!r}",
                     f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
                     f"TARGET_HOME={str(home)!r}",
                     "run_as_target() { \"$@\"; }",
@@ -113,6 +115,7 @@ def test_wrapper_delegates_a_raw_launch_to_agent_command_center(tmp_path: Path) 
             "\n".join(
                 [
                     "set -euo pipefail",
+                    f"source {str(ROOT / 'lib' / 'cli_wait.sh')!r}",
                     f"source {str(ROOT / 'lib' / 'codex_wrapper.sh')!r}",
                     f"TARGET_HOME={str(home)!r}",
                     "run_as_target() { \"$@\"; }",
