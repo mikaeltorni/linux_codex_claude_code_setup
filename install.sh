@@ -57,6 +57,11 @@ declare -F isc_activate_components >/dev/null 2>&1 || \
 isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
+# Shared with the deployed auto-updater: installs npm prefixes via a staging
+# directory so a reinstall never leaves a live bin/codex missing under a
+# concurrently launched agent. run_as_target keeps sudo installs user-owned.
+source "$SCRIPT_DIR/assets/npm_atomic_install.sh"
+NPM_ATOMIC_RUNNER=run_as_target
 source "$SCRIPT_DIR/lib/cli_installation.sh"
 source "$SCRIPT_DIR/lib/qwen_cli.sh"
 source "$SCRIPT_DIR/lib/openrouter_cli.sh"

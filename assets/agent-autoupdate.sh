@@ -32,6 +32,18 @@ export PATH="$HOME/.local/bin:$CODEX_NPM_PREFIX/bin:$CLINE_NPM_PREFIX/bin:$PATH"
 
 log() { printf '%s agent-autoupdate: %s\n' "$(date -Is)" "$*"; }
 
+# Staged npm installs, deployed next to this script by install_agent_autoupdate.
+# Without it an update would blank out a live bin/codex mid-extraction and any
+# agent launched in that window would die with a bare 127.
+# shellcheck source=/dev/null
+NPM_ATOMIC_INSTALL_LIB="${NPM_ATOMIC_INSTALL_LIB:-$(dirname "$(readlink -f "$0")")/npm_atomic_install.sh}"
+if [ -r "$NPM_ATOMIC_INSTALL_LIB" ]; then
+  source "$NPM_ATOMIC_INSTALL_LIB"
+else
+  log "Missing $NPM_ATOMIC_INSTALL_LIB; reinstall linux_codex_claude_code_setup"
+  exit 1
+fi
+
 # resolve_delayed_version <npm-package> <installed-version>
 # Print the newest stable (X.Y.Z, no prerelease) version published at least
 # DELAY_HOURS ago, but only when it is strictly newer than the installed one.
@@ -118,7 +130,7 @@ update_codex_prefix() {
 
   log "Updating Codex $label $installed -> $target (published >=${DELAY_HOURS}h ago)"
   mkdir -p "$prefix"
-  if timeout 900 npm install -g --prefix "$prefix" "@openai/codex@$target" </dev/null; then
+  if npm_install_prefix_atomic "$prefix" "@openai/codex@$target"; then
     log "Codex $label updated to $target"
   else
     log "Codex $label update to $target failed; keeping $installed"
@@ -170,7 +182,7 @@ update_cline() {
   fi
   log "Updating Cline ${installed:-none} -> $target (published >=${DELAY_HOURS}h ago)"
   mkdir -p "$CLINE_NPM_PREFIX" "$HOME/.local/bin"
-  if timeout 900 npm install -g --prefix "$CLINE_NPM_PREFIX" "cline@$target" </dev/null; then
+  if npm_install_prefix_atomic "$CLINE_NPM_PREFIX" "cline@$target"; then
     ln -sf "$CLINE_NPM_PREFIX/bin/cline" "$HOME/.local/bin/cline"
     log "Cline updated to $target"
   else

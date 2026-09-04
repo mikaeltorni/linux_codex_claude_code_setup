@@ -50,8 +50,11 @@ def test_isolated_codex_instances_refresh_npm_package_on_rerun() -> None:
     openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
     for source in (qwen, openrouter):
         install_body = source.split("install_", 1)[1]
-        assert 'npm install -g --prefix "$' in install_body
-        assert install_body.index("timeout 900 npm install") > install_body.index("fi")
+        # The install goes through the staged helper (see
+        # assets/npm_atomic_install.sh) but must still run unconditionally after
+        # the "home already exists" branch, so a rerun refreshes the CLI.
+        assert 'npm_install_prefix_atomic "$' in install_body
+        assert install_body.index("npm_install_prefix_atomic") > install_body.index("fi")
 
 
 def test_acc_manifest_does_not_own_core_clis() -> None:
