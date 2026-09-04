@@ -5,6 +5,10 @@ CLI_INSTANCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=/dev/null
 source "$CLI_INSTANCES_DIR/configs/codex_instances/defaults.sh"
 agent_cli_apply_codex_instance_defaults
+# The generated wrapper embeds acc_wait_for_cli; pull it in here rather than
+# relying on install.sh source ordering.
+# shellcheck source=/dev/null
+source "$CLI_INSTANCES_DIR/lib/cli_wait.sh"
 
 # _qwen_status_line_toml — Resolve the [tui] status_line TOML array for the
 # local/Qwen Codex instance. Prefer the shared claude_code_status_bar field
@@ -77,6 +81,8 @@ EOF
 }
 
 write_qwen_plain_wrapper() {
+  # See install_codex_wrapper: the embedded guard must be sourced.
+  require_cli_wait_guard || return 1
   run_as_target tee "$TARGET_HOME/.local/bin/$QWEN_CODEX_COMMAND" >/dev/null <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -97,6 +103,8 @@ fi
 if [ -n "\$lms_cli" ] && "\$lms_cli" server status 2>/dev/null | grep -qi 'not running'; then
   systemctl --user start lmstudio-serve.service >/dev/null 2>&1 || "\$lms_cli" server start >/dev/null 2>&1 || true
 fi
+$(declare -f acc_wait_for_cli)
+acc_wait_for_cli "$QWEN_CODEX_NPM_PREFIX/bin/codex" || exit 127
 exec "$QWEN_CODEX_NPM_PREFIX/bin/codex" \\
   --oss \\
   --local-provider "$QWEN_CODEX_LOCAL_PROVIDER" \\
