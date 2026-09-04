@@ -34,7 +34,7 @@ def test_cline_uses_an_isolated_user_install_with_lifecycle_support() -> None:
     main = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     assert 'CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-' in main
-    assert 'npm install -g --prefix "$CLINE_NPM_PREFIX" cline' in installer
+    assert 'npm_install_prefix_atomic "$CLINE_NPM_PREFIX" cline' in installer
     assert "install_cline_cli()" in installer
     assert "detect_cline_cli()" in lifecycle
     assert "uninstall_cline_cli()" in lifecycle

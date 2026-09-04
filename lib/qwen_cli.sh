@@ -130,7 +130,8 @@ install_qwen_cli() {
     run_as_target mkdir -p "$QWEN_CODEX_HOME" "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   fi
   run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  run_as_target timeout 900 npm install -g --prefix "$QWEN_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" </dev/null 1>&2
+  # Staged + swapped so a reinstall never blanks out this prefix's bin/codex.
+  npm_install_prefix_atomic "$QWEN_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" 1>&2
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \

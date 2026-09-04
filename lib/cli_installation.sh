@@ -58,10 +58,11 @@ ensure_codex_binary() {
   # the resolved path may reach stdout.
   ensure_nodejs_22 1>&2 || return 1
   run_as_target mkdir -p "$CODEX_NPM_PREFIX" 1>&2
-  # Time-box and detach stdin so a stalled download or an unexpected npm prompt
-  # cannot hang the child install.sh — and with it the whole master run, which
-  # would leave every repository after this one uninstalled.
-  run_as_target timeout 900 npm install -g --prefix "$CODEX_NPM_PREFIX" @openai/codex </dev/null 1>&2
+  # Staged + swapped rather than installed in place: a reinstall must never blank
+  # out bin/codex, because the tracking-aware wrapper execs that exact path and a
+  # concurrently launched agent would die with a bare 127. The helper also
+  # time-boxes and detaches stdin so a stalled download cannot hang install.sh.
+  npm_install_prefix_atomic "$CODEX_NPM_PREFIX" @openai/codex 1>&2
   local raw_codex="$CODEX_NPM_PREFIX/bin/codex"
   [[ -x "$raw_codex" ]] || { echo "Codex installation failed: $raw_codex" >&2; return 1; }
   printf '%s' "$raw_codex"
@@ -128,7 +129,8 @@ install_cline_cli() {
   msg "Installing Cline CLI"
   ensure_nodejs_22 1>&2 || return 1
   run_as_target mkdir -p "$CLINE_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  run_as_target timeout 900 npm install -g --prefix "$CLINE_NPM_PREFIX" cline </dev/null
+  # Staged + swapped so a reinstall never blanks out the live bin/cline.
+  npm_install_prefix_atomic "$CLINE_NPM_PREFIX" cline
   local raw_cline="$CLINE_NPM_PREFIX/bin/cline"
   if [[ ! -x "$raw_cline" ]]; then
     log "error" "Cline installation failed: $raw_cline"
