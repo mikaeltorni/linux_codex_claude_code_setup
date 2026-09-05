@@ -1,5 +1,9 @@
 # Clean Installation Compatibility
 
+The `linux-configuration` skill owns the clean-install and root-optional
+installer rules; they are not restated here. Repository-specific installer
+facts:
+
 Keep Codex, Claude Code, Cline, Grok, opencode, marketplace registration, and
 plugin defaults
 reproducible through this repository's `install.sh` and the master
@@ -19,8 +23,8 @@ per-plugin content and manifests. `claude_code_status_bar` owns all agent displa
 configuration, and Agent Command Center owns tracker/runtime behavior, the
 tracking-aware Codex wrapper, and its Qwen3.8-27B local-model selection.
 
-Keep this installer root-optional. User configuration belongs under the target
-user's home and must preserve unrelated settings and installed plugins.
+User configuration belongs under the target user's home and must preserve
+unrelated settings and installed plugins.
 
 The `opencode_cli` component only installs the opencode binary
 (`~/.opencode/bin`, launcher `~/.local/bin/opencode`) and its
