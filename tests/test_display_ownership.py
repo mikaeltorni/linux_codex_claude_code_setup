@@ -20,3 +20,14 @@ def test_cli_setup_exposes_no_display_components() -> None:
     assert "codex_status_bar" not in ids
     assert "claude_status_bar" not in ids
     assert not (ROOT / "lib" / "status_bar_setup.sh").exists()
+
+
+def test_moved_status_bar_helpers_are_gone() -> None:
+    """Status-bar detect/uninstall helpers moved to claude_code_status_bar."""
+    lifecycle = (ROOT / "lib" / "lifecycle.sh").read_text(encoding="utf-8")
+    assert "detect_codex_status_bar()" not in lifecycle
+    assert "detect_claude_status_bar()" not in lifecycle
+    assert "uninstall_codex_status_bar()" not in lifecycle
+    assert "uninstall_claude_status_bar()" not in lifecycle
+    assert not (ROOT / "scripts" / "status_bar_config.py").exists()
+    assert not (ROOT / "lib" / "status_bar_setup.sh").exists()
