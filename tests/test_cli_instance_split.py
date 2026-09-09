@@ -34,6 +34,23 @@ def test_cli_manifest_exposes_plain_qwen_and_openr() -> None:
     assert "agent_tracker" not in ids
 
 
+def test_readme_documents_qwen_and_openrouter_cli_components() -> None:
+    """The CLI installer README must name every static CLIs-section id."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for component_id in (
+        "codex_cli",
+        "claude_code",
+        "cline_cli",
+        "grok_cli",
+        "qwen_cli",
+        "openrouter_cli",
+        "opencode_cli",
+        "agent_autoupdate",
+        "codex_history_sync",
+    ):
+        assert f"`{component_id}`" in readme, f"README omits {component_id}"
+
+
 def test_cli_installers_do_not_emit_acc_shorthand_dispatchers() -> None:
     qwen = (ROOT / "lib" / "qwen_cli.sh").read_text(encoding="utf-8")
     openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
