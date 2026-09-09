@@ -55,32 +55,6 @@ detect_opencode_cli() {
     run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$OPENCODE_COMMAND"
 }
 
-# detect_codex_status_bar - true when Codex config contains tui.status_line.
-detect_codex_status_bar() {
-  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
-    detect "$TARGET_HOME/.codex/config.toml"
-}
-
-# detect_claude_status_bar - true when Claude settings wire the delegated bar.
-detect_claude_status_bar() {
-  local settings="$TARGET_HOME/.claude/settings.json"
-  [ -f "$settings" ] && grep -q '"statusLine"' "$settings" 2>/dev/null
-}
-
-# uninstall_codex_status_bar - remove only the installer-managed TUI key.
-uninstall_codex_status_bar() {
-  msg "Removing Codex TUI status-bar configuration"
-  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
-    remove "$TARGET_HOME/.codex/config.toml"
-}
-
-# uninstall_claude_status_bar - remove wiring while preserving Claude settings.
-uninstall_claude_status_bar() {
-  msg "Removing Claude Code status-line wiring"
-  run_as_target python3 "$SCRIPT_DIR/scripts/status_bar_config.py" \
-    remove-claude "$TARGET_HOME/.claude/settings.json"
-}
-
 # uninstall_codex_cli - remove the codex launcher and the isolated npm install.
 uninstall_codex_cli() {
   msg "Removing Codex CLI launcher and isolated npm package"
