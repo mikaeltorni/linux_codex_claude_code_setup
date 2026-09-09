@@ -19,8 +19,9 @@ bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
 ```
 
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
-Grok, and opencode. Local models and tracking-aware launchers belong to Agent Command Center,
-not this CLI installer.
+Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
+models and tracking-aware launchers belong to Agent Command Center, not this
+CLI installer.
 The core is intentionally minimal — each CLI installs and runs on its own —
 and everything else is optional:
 
@@ -31,6 +32,12 @@ and everything else is optional:
   an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
   its official `npm install -g cline` package without requiring sudo.
   `codex_cli` puts a plain `codex` launcher on `PATH`.
+- `qwen_cli` — installs the local Codex (`qwen`) CLI into its isolated home
+  (`~/.codex-qwen`) and puts a plain `qwen` launcher on `PATH`. Tracking-aware
+  `qa` belongs to Agent Command Center.
+- `openrouter_cli` — installs the OpenRouter Codex (`openr`) CLI into
+  `~/.codex-openrouter` and puts a plain `openr` launcher on `PATH`. Tracking-aware
+  `oa` belongs to Agent Command Center.
 - `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
   then promotes the binary to Grok's **alpha** release channel (`grok update
   --alpha`) so clean installs track pre-stable builds. Override
