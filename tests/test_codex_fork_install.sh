@@ -19,6 +19,7 @@ git -C "$CODEX_FORK_DIR" init -q
 git -C "$CODEX_FORK_DIR" config user.email test@example.invalid
 git -C "$CODEX_FORK_DIR" config user.name test
 printf '[workspace]\nmembers = []\n' >"$CODEX_FORK_DIR/codex-rs/Cargo.toml"
+printf 'lockfile-version = old\n' >"$CODEX_FORK_DIR/codex-rs/Cargo.lock"
 printf '[toolchain]\nchannel = "stable"\n' >"$CODEX_FORK_DIR/codex-rs/rust-toolchain.toml"
 git -C "$CODEX_FORK_DIR" add codex-rs
 git -C "$CODEX_FORK_DIR" commit -qm 'test source checkout'
@@ -32,6 +33,10 @@ chmod +x "$HOME/.cargo/bin/rustup"
 cat >"$TEST_ROOT/fake-bin/cargo" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "$*" == "metadata --format-version 1" ]]; then
+  printf 'lockfile-version = updated\n' >Cargo.lock
+  exit 0
+fi
 [[ "$*" == "build --release --locked -p codex-cli --bin codex" ]]
 mkdir -p target/release
 cat >target/release/codex <<EOF
