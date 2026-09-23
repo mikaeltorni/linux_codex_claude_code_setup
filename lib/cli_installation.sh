@@ -212,7 +212,7 @@ install_opencode_cli() {
   run_as_target env OPENCODE_COMMAND="$OPENCODE_COMMAND" bash -c \
     'export PATH="$HOME/.local/bin:$PATH"; "$OPENCODE_COMMAND" --version' 1>&2 || true
 }
-# install_codex_plain_launcher - expose the isolated npm binary as plain codex.
+# install_codex_plain_launcher - expose the isolated fork binary as plain codex.
 # A previously installed tracking-aware wrapper (a regular script that starts
 # codex-agent-tracker and exports CODEX_AGENT_RUN_ID) is preserved: replacing it
 # with the plain symlink on a codex_cli rerun/upgrade silently kills the Codex

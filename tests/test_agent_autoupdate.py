@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +13,195 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False)
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], cwd=repo, text=True, capture_output=True, check=True
+    )
+    return result.stdout.strip()
+
+
+def _create_codex_release_fork(tmp_path: Path, *, conflict: bool = False) -> dict[str, str | Path]:
+    """Create a fork with one local commit and a newer stable upstream tag."""
+    upstream = tmp_path / "upstream.git"
+    upstream_work = tmp_path / "upstream-work"
+    fork = tmp_path / "projects" / "codex"
+    upstream.mkdir()
+    subprocess.run(["git", "init", "--bare", str(upstream)], check=True, capture_output=True)
+    upstream_work.mkdir()
+    _git(upstream_work, "init", "-b", "main")
+    _git(upstream_work, "config", "user.email", "test@example.invalid")
+    _git(upstream_work, "config", "user.name", "Codex update test")
+    (upstream_work / "codex-rs").mkdir()
+    (upstream_work / "codex-rs" / "Cargo.toml").write_text(
+        '[workspace]\nmembers = []\n', encoding="utf-8"
+    )
+    (upstream_work / "codex-rs" / "rust-toolchain.toml").write_text(
+        '[toolchain]\nchannel = "stable"\n', encoding="utf-8"
+    )
+    (upstream_work / ".gitignore").write_text(
+        "/codex-rs/target/\n", encoding="utf-8"
+    )
+    (upstream_work / "shared.txt").write_text("base\n", encoding="utf-8")
+    _git(upstream_work, "add", ".")
+    _git(upstream_work, "commit", "-m", "base release")
+    _git(upstream_work, "tag", "rust-v1.0.0")
+    _git(upstream_work, "remote", "add", "origin", str(upstream))
+    _git(upstream_work, "push", "-u", "origin", "main", "--tags")
+
+    fork.parent.mkdir(parents=True)
+    subprocess.run(
+        ["git", "clone", "--branch", "main", str(upstream), str(fork)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _git(fork, "config", "user.email", "test@example.invalid")
+    _git(fork, "config", "user.name", "Codex fork test")
+    if conflict:
+        (fork / "shared.txt").write_text("fork version\n", encoding="utf-8")
+    else:
+        (fork / "fork-feature.txt").write_text("local feature\n", encoding="utf-8")
+    _git(fork, "add", ".")
+    _git(fork, "commit", "-m", "local fork feature")
+    feature_commit = _git(fork, "rev-parse", "HEAD")
+    _git(fork, "config", "--unset", "user.email")
+    _git(fork, "config", "--unset", "user.name")
+
+    (upstream_work / "shared.txt").write_text(
+        "release version\n" if conflict else "base\n", encoding="utf-8"
+    )
+    (upstream_work / "release.txt").write_text("release 1.1.0\n", encoding="utf-8")
+    _git(upstream_work, "add", ".")
+    _git(upstream_work, "commit", "-m", "Codex release 1.1.0")
+    _git(upstream_work, "tag", "rust-v1.1.0")
+    _git(upstream_work, "push", "origin", "main", "refs/tags/rust-v1.1.0")
+    release_commit = _git(upstream_work, "rev-parse", "refs/tags/rust-v1.1.0^{commit}")
+    return {
+        "fork": fork,
+        "upstream": upstream,
+        "feature_commit": feature_commit,
+        "release_commit": release_commit,
+    }
+
+
+def _prepare_autoupdate_home(
+    tmp_path: Path, fork: Path, releases: list[dict[str, object]], prefix_count: int = 4
+) -> tuple[Path, dict[str, Path], dict[str, str]]:
+    """Create isolated updater inputs with mocked GitHub, Cargo, npm, and CLI tools."""
+    home = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    local_bin = home / ".local" / "bin"
+    cargo_bin = home / ".cargo" / "bin"
+    xdg_config = tmp_path / "config"
+    config_dir = xdg_config / "linux_codex_claude_code_setup"
+    for directory in (fake_bin, local_bin, cargo_bin, config_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    prefixes = {
+        "main": tmp_path / "main-prefix",
+        "qwen": tmp_path / "qwen-prefix",
+        "openrouter": tmp_path / "openrouter-prefix",
+        "nvidia": tmp_path / "nvidia-prefix",
+    }
+    labels = list(prefixes)[:prefix_count]
+    for label in labels:
+        prefix = prefixes[label]
+        binary = prefix / "bin" / "codex"
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_text(
+            "#!/usr/bin/env bash\nprintf 'codex-cli 0.144.0\\n'\n", encoding="utf-8"
+        )
+        binary.chmod(0o755)
+        (prefix / "codex-fork-revision").write_text("old-revision\n", encoding="utf-8")
+
+    (home / "releases.json").write_text(json.dumps(releases), encoding="utf-8")
+    curl = fake_bin / "curl"
+    curl.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+while (($#)); do
+  if [[ "$1" == -o ]]; then
+    cat "$HOME/releases.json" >"$2"
+    exit 0
+  fi
+  shift
+done
+cat "$HOME/releases.json"
+""",
+        encoding="utf-8",
+    )
+    curl.chmod(0o755)
+
+    rustup = cargo_bin / "rustup"
+    rustup.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    rustup.chmod(0o755)
+    cargo = cargo_bin / "cargo"
+    cargo.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == "build --release --locked -p codex-cli --bin codex" ]]
+printf '%s\\n' "$CODEX_FORK_BUILD_REVISION" >>"$HOME/cargo.log"
+mkdir -p target/release
+printf '#!/usr/bin/env bash\\nprintf "fork-revision: %s\\\\n"\\n' "$CODEX_FORK_BUILD_REVISION" >target/release/codex
+chmod +x target/release/codex
+""",
+        encoding="utf-8",
+    )
+    cargo.chmod(0o755)
+
+    (local_bin / "cline").write_text(
+        "#!/usr/bin/env bash\n[ \"${1:-}\" = --version ] && printf '1.0.0\\n'\n",
+        encoding="utf-8",
+    )
+    (local_bin / "cline").chmod(0o755)
+    npm = fake_bin / "npm"
+    npm.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >>"$HOME/npm.log"
+if [[ "$1" == view ]]; then
+  printf '%s\\n' '{"created":"2020-01-01T00:00:00Z","1.0.0":"2020-01-01T00:00:00Z","modified":"2020-01-02T00:00:00Z"}'
+fi
+""",
+        encoding="utf-8",
+    )
+    npm.chmod(0o755)
+
+    (config_dir / "autoupdate.env").write_text(
+        "\n".join(
+            [
+                "AGENT_AUTOUPDATE_DELAY_HOURS=24",
+                f"CODEX_FORK_DIR={fork}",
+                "CODEX_FORK_BRANCH=main",
+                f"CODEX_FORK_UPSTREAM_URL={tmp_path / 'upstream.git'}",
+                "CODEX_FORK_RELEASES_API_URL=https://api.test/repos/openai/codex/releases",
+                f"CODEX_NPM_PREFIX={prefixes['main']}",
+                f"QWEN_CODEX_NPM_PREFIX={prefixes['qwen']}",
+                f"OPENROUTER_CODEX_NPM_PREFIX={prefixes['openrouter']}",
+                f"NVIDIA_CODEX_NPM_PREFIX={prefixes['nvidia']}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "XDG_CONFIG_HOME": str(xdg_config),
+        "PATH": f"{fake_bin}:{local_bin}:{cargo_bin}:/usr/bin:/bin",
+    }
+    return home, {key: value for key, value in prefixes.items() if key in labels}, env
+
+
+def _release(tag: str, published_at: datetime) -> dict[str, object]:
+    return {
+        "tag_name": tag,
+        "published_at": published_at.isoformat().replace("+00:00", "Z"),
+        "draft": False,
+        "prerelease": False,
+    }
 
 
 def test_component_is_registered_and_default_on() -> None:
@@ -47,17 +238,26 @@ def test_lifecycle_functions_and_units_are_defined() -> None:
         "NVIDIA_CODEX_NPM_PREFIX",
     ):
         assert prefix in lib
+    assert "CODEX_FORK_DIR" in lib
+    assert "CODEX_FORK_UPSTREAM_URL" in lib
+    assert "codex_fork_install.sh" in lib
+    assert "CODEX_FORK_BRANCH=$AGENT_AUTOUPDATE_CODEX_FORK_BRANCH" in lib
+    assert "CODEX_FORK_RELEASES_API_URL=$AGENT_AUTOUPDATE_CODEX_RELEASES_API_URL" in lib
     assert "OnStartupSec=2min" in lib
     assert "OnUnitActiveSec=1d" in lib
 
 
 def test_updater_script_enforces_publication_delay() -> None:
-    """The shipped updater pins to stable releases past the configured delay."""
+    """Codex tags and npm-managed CLIs both honor the configured delay."""
     script = ROOT / "assets" / "agent-autoupdate.sh"
     assert script.is_file()
     body = script.read_text(encoding="utf-8")
-    # Resolves the target from npm publish timestamps for both packages.
-    assert "@openai/codex" in body
+    # Codex is selected from stable GitHub tags; Claude and Cline keep npm times.
+    assert "api.github.com/repos/openai/codex/releases" in body
+    assert "resolve_delayed_codex_tag" in body
+    assert "refs/tags/$target_tag" in body
+    assert 'codex_fork_install_built_to_prefix "$prefix"' in body
+    assert 'npm_install_prefix_atomic "$prefix" "@openai/codex' not in body
     assert "@anthropic-ai/claude-code" in body
     assert 'resolve_delayed_version "cline"' in body
     assert "npm view" in body and "time --json" in body
@@ -69,108 +269,79 @@ def test_updater_script_enforces_publication_delay() -> None:
     ).returncode == 0
 
 
-def test_codex_version_probe_does_not_create_a_tracked_agent_run() -> None:
-    """Raw-prefix version probes must not trigger Codex lifecycle/TTS events."""
+def test_codex_updates_use_source_revision_markers() -> None:
+    """Codex source builds are compared by git revision, not package version."""
     body = (ROOT / "assets" / "agent-autoupdate.sh").read_text(encoding="utf-8")
-    assert 'CODEX_AGENT_SKIP_TRACKER=1 "$binary" --version' in body
+    assert 'cat "$prefix/codex-fork-revision"' in body
+    assert 'codex_fork_install_built_to_prefix "$prefix"' in body
+    assert '"$binary" --version' not in body
 
 
-def test_updater_refreshes_every_installed_codex_prefix(tmp_path: Path) -> None:
-    """The startup updater must refresh main, qa, oa, and na runtimes."""
-    home = tmp_path / "home"
-    fake_bin = home / ".local/bin"
-    config_dir = tmp_path / "config/linux_codex_claude_code_setup"
-    fake_bin.mkdir(parents=True)
-    config_dir.mkdir(parents=True)
-
-    prefixes = {
-        "main": tmp_path / "main-npm",
-        "qwen": tmp_path / "qwen-npm",
-        "openrouter": tmp_path / "openrouter-npm",
-        "nvidia": tmp_path / "nvidia-npm",
-    }
-    for prefix in prefixes.values():
-        binary = prefix / "bin/codex"
-        binary.parent.mkdir(parents=True)
-        binary.write_text(
-            '#!/usr/bin/env bash\nprintf \'codex-cli 0.144.0\\n\'\n',
-            encoding="utf-8",
-        )
-        binary.chmod(0o755)
-
-    (config_dir / "autoupdate.env").write_text(
-        "\n".join(
-            [
-                "AGENT_AUTOUPDATE_DELAY_HOURS=24",
-                f"CODEX_NPM_PREFIX={prefixes['main']}",
-                f"QWEN_CODEX_NPM_PREFIX={prefixes['qwen']}",
-                f"OPENROUTER_CODEX_NPM_PREFIX={prefixes['openrouter']}",
-                f"NVIDIA_CODEX_NPM_PREFIX={prefixes['nvidia']}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    fake_npm = fake_bin / "npm"
-    fake_npm.write_text(
-        """#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\\n' \"$*\" >> \"$HOME/npm.log\"
-if [[ \"${1:-}\" == view ]]; then
-  printf '%s\\n' '{\"created\":\"2020-01-01T00:00:00Z\",\"0.144.0\":\"2020-01-01T00:00:00Z\",\"0.144.1\":\"2020-01-02T00:00:00Z\",\"modified\":\"2020-01-02T00:00:00Z\"}'
-  exit 0
-fi
-if [[ \"${1:-}\" == install ]]; then
-  prefix= package=\"${!#}\"
-  while (($#)); do
-    if [[ \"$1\" == --prefix ]]; then
-      prefix=\"$2\"
-      shift 2
-    else
-      shift
-    fi
-  done
-  version=\"${package##*@}\"
-  binary=\"$prefix/bin/codex\"
-  mkdir -p \"$(dirname \"$binary\")\"
-  printf '%s\\n' '#!/usr/bin/env bash' \"printf 'codex-cli ${version}\\\\n'\" > \"$binary\"
-  chmod 755 \"$binary\"
-fi
-""",
-        encoding="utf-8",
-    )
-    fake_npm.chmod(0o755)
-
-    env = {
-        **os.environ,
-        "HOME": str(home),
-        "XDG_CONFIG_HOME": str(tmp_path / "config"),
-        "PATH": f"{fake_bin}:/usr/bin:/bin",
-    }
-    result = subprocess.run(
-        ["bash", str(ROOT / "assets/agent-autoupdate.sh")],
-        cwd=ROOT,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    install_lines = [
-        line
-        for line in (home / "npm.log").read_text(encoding="utf-8").splitlines()
-        if line.startswith("install -g --prefix")
+def test_updater_merges_delayed_release_and_refreshes_all_codex_prefixes(tmp_path: Path) -> None:
+    """Merge only an aged stable release and install its source in all prefixes."""
+    source = _create_codex_release_fork(tmp_path)
+    releases = [
+        _release("rust-v1.2.0", datetime.now(timezone.utc) - timedelta(hours=1)),
+        _release("rust-v1.1.0", datetime.now(timezone.utc) - timedelta(hours=30)),
+        _release("rust-v1.0.1-rc.1", datetime.now(timezone.utc) - timedelta(days=2)),
     ]
-    assert len(install_lines) == len(prefixes)
+    home, prefixes, env = _prepare_autoupdate_home(tmp_path, source["fork"], releases)
+    result = subprocess.run(
+        ["bash", str(ROOT / "assets/agent-autoupdate.sh")], cwd=ROOT, env=env,
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    fork = source["fork"]
+    _git(fork, "merge-base", "--is-ancestor", str(source["feature_commit"]), "HEAD")
+    _git(fork, "merge-base", "--is-ancestor", str(source["release_commit"]), "HEAD")
+    assert (fork / "fork-feature.txt").read_text(encoding="utf-8") == "local feature\n"
+    assert (fork / "release.txt").read_text(encoding="utf-8") == "release 1.1.0\n"
+    revision = _git(fork, "rev-parse", "HEAD")
+    assert (home / "cargo.log").read_text(encoding="utf-8").splitlines() == [revision]
     for prefix in prefixes.values():
-        assert str(prefix) in "\n".join(install_lines)
-        assert "codex-cli 0.144.1" in (prefix / "bin/codex").read_text(encoding="utf-8")
-    assert "Updating Codex main" in result.stdout
-    assert "Updating Codex qwen" in result.stdout
-    assert "Updating Codex openrouter" in result.stdout
-    assert "Updating Codex nvidia" in result.stdout
+        assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == revision
+        assert revision in (prefix / "bin/codex").read_text(encoding="utf-8")
+    npm_calls = (home / "npm.log").read_text(encoding="utf-8").splitlines()
+    assert not any("@openai/codex" in call for call in npm_calls)
+    assert "Updating Codex runtime" in result.stdout
+    assert "rust-v1.1.0" in result.stdout
 
+
+def test_updater_skips_codex_when_no_release_has_aged_enough(tmp_path: Path) -> None:
+    """A too-young stable release must not merge, build, or replace binaries."""
+    source = _create_codex_release_fork(tmp_path)
+    releases = [_release("rust-v1.1.0", datetime.now(timezone.utc) - timedelta(hours=1))]
+    home, prefixes, env = _prepare_autoupdate_home(tmp_path, source["fork"], releases)
+    original_head = _git(source["fork"], "rev-parse", "HEAD")
+    result = subprocess.run(
+        ["bash", str(ROOT / "assets/agent-autoupdate.sh")], cwd=ROOT, env=env,
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert _git(source["fork"], "rev-parse", "HEAD") == original_head
+    assert not (home / "cargo.log").exists()
+    for prefix in prefixes.values():
+        assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == "old-revision"
+        assert "0.144.0" in (prefix / "bin/codex").read_text(encoding="utf-8")
+
+
+def test_updater_aborts_release_merge_conflict_without_building(tmp_path: Path) -> None:
+    """A conflicting upstream release leaves fork source and installed CLIs intact."""
+    source = _create_codex_release_fork(tmp_path, conflict=True)
+    releases = [_release("rust-v1.1.0", datetime.now(timezone.utc) - timedelta(hours=30))]
+    home, prefixes, env = _prepare_autoupdate_home(tmp_path, source["fork"], releases)
+    original_head = _git(source["fork"], "rev-parse", "HEAD")
+    result = subprocess.run(
+        ["bash", str(ROOT / "assets/agent-autoupdate.sh")], cwd=ROOT, env=env,
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert _git(source["fork"], "rev-parse", "HEAD") == original_head
+    assert not _git(source["fork"], "status", "--porcelain")
+    assert not (home / "cargo.log").exists()
+    for prefix in prefixes.values():
+        assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == "old-revision"
+    assert "merge failed" in result.stdout
 
 def test_updater_never_reuses_claude_outside_target_home(tmp_path: Path) -> None:
     """A sandbox updater must ignore Claude commands inherited from host PATH."""
@@ -180,6 +351,14 @@ def test_updater_never_reuses_claude_outside_target_home(tmp_path: Path) -> None
     external_bin = tmp_path / "external-bin"
     fake_bin.mkdir()
     external_bin.mkdir()
+    home.mkdir(parents=True)
+    (home / "releases.json").write_text("[]", encoding="utf-8")
+    fake_curl = fake_bin / "curl"
+    fake_curl.write_text(
+        "#!/usr/bin/env bash\nwhile (($#)); do if [[ $1 == -o ]]; then cat \"$HOME/releases.json\" >\"$2\"; exit; fi; shift; done\ncat \"$HOME/releases.json\"\n",
+        encoding="utf-8",
+    )
+    fake_curl.chmod(0o755)
     external_log = tmp_path / "external-claude.log"
 
     fake_npm = fake_bin / "npm"

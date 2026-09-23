@@ -7,7 +7,7 @@ CODEX_WRAPPER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$CODEX_WRAPPER_LIB_DIR/cli_wait.sh"
 
-# Expose the raw Codex npm binary on PATH as a plain `codex` launcher. This is
+# Expose the raw locally built Codex binary on PATH as a plain `codex` launcher. This is
 # the core entrypoint installed by the codex_cli component so `codex` works even
 # when the optional tracking-aware wrapper is not selected. The codex_wrapper
 # component overwrites this symlink in place with the wrapper script; selecting
@@ -27,7 +27,7 @@ install_codex_wrapper() {
   # "acc_wait_for_cli: command not found" — fail here instead.
   require_cli_wait_guard || return 1
   run_as_target mkdir -p "$bin_dir"
-  # The plain launcher is a symlink to the raw npm binary. Remove it before
+  # The plain launcher is a symlink to the raw Codex binary. Remove it before
   # writing the wrapper so tee creates a new file instead of following the link.
   run_as_target rm -f "$bin_dir/codex"
   run_as_target tee "$bin_dir/codex" >/dev/null <<EOF

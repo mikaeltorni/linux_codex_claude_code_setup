@@ -10,13 +10,9 @@
 
 # acc_wait_for_cli - block briefly until a CLI binary is executable.
 #
-# Installs and auto-updates swap the npm prefix atomically (see
-# assets/npm_atomic_install.sh), but on a filesystem or kernel without
-# RENAME_EXCHANGE the swap falls back to two renames, leaving a brief window in
-# which the path does not resolve. A launch landing in that window used to die
-# with bash's "No such file or directory" and exit 127. Waiting turns that race
-# into a barely noticeable pause, and a genuinely missing binary into a message
-# that says what to do.
+# Codex installs and delayed updates replace the local binary by atomic rename.
+# This short wait also covers prefix creation on first install, while a genuinely
+# missing binary becomes a message that says what to do.
 #
 # Args:
 #   $1 - path to the CLI binary to wait for.
