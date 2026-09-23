@@ -73,8 +73,9 @@ and everything else is optional:
   while merging the newest stable upstream Codex release that has been
   published for at least 24 hours. The updater builds that merged source once
   and atomically replaces each installed binary. Claude Code and Cline continue
-  to use delayed npm publication timestamps. A merge conflict, dirty fork, or
-  failed build leaves the installed Codex binaries untouched. Tune the delay via
+  to use delayed npm publication timestamps. Dirty fork source, an unmergeable
+  history, or a failed build leaves installed Codex binaries untouched. For
+  file conflicts, the updater keeps the existing fork version. Tune the delay via
   `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `codex_history_sync` — installs `codexsync`, a non-destructive union merge of
