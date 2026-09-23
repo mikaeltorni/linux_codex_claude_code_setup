@@ -6,7 +6,7 @@
 # after a successful uninstall.
 
 # detect_codex_cli - true when a `codex` launcher is on the user's PATH dir or
-# the isolated npm binary exists.
+# the isolated Codex binary exists.
 detect_codex_cli() {
   [ -e "$TARGET_HOME/.local/bin/codex" ] || [ -x "$CODEX_NPM_PREFIX/bin/codex" ]
 }
@@ -55,14 +55,14 @@ detect_opencode_cli() {
     run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$OPENCODE_COMMAND"
 }
 
-# uninstall_codex_cli - remove the codex launcher and the isolated npm install.
+# uninstall_codex_cli - remove the codex launcher and isolated fork binary.
 uninstall_codex_cli() {
-  msg "Removing Codex CLI launcher and isolated npm package"
+  msg "Removing Codex CLI launcher and isolated fork binary"
   run_as_target rm -f "$TARGET_HOME/.local/bin/codex"
   run_as_target rm -rf "$CODEX_NPM_PREFIX"
 }
 
-# uninstall_codex_wrapper - remove the tracking wrapper. If the raw npm binary
+# uninstall_codex_wrapper - remove the tracking wrapper. If the raw Codex binary
 # still exists, restore the plain launcher symlink so `codex` keeps working.
 uninstall_codex_wrapper() {
   local bin="$TARGET_HOME/.local/bin/codex" raw="$CODEX_NPM_PREFIX/bin/codex"

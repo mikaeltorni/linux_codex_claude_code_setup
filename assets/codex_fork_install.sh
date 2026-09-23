@@ -160,7 +160,7 @@ codex_fork_build() {
 # Prints the installed binary path and returns non-zero on build or install
 # failure. All build and install progress is sent to stderr/logging.
 codex_fork_install_to_prefix() {
-  local prefix="$1" binary tmp_binary marker_tmp helper_path
+  local prefix="$1" helper_path
   [[ -n "$prefix" ]] || { codex_fork_error "A Codex install prefix is required"; return 2; }
   helper_path="${CODEX_FORK_HELPER_PATH:-${TARGET_HOME:-$HOME}/.local/share/linux_codex_claude_code_setup/codex_fork_install.sh}"
   codex_fork_publish_helper "$helper_path" || {
@@ -169,7 +169,18 @@ codex_fork_install_to_prefix() {
   }
   codex_fork_ensure_checkout || return 1
   codex_fork_build || return 1
+  codex_fork_install_built_to_prefix "$prefix"
+}
 
+# Install the binary already selected by codex_fork_build into one isolated
+# provider prefix. Callers updating several providers can compile only once.
+codex_fork_install_built_to_prefix() {
+  local prefix="$1" binary tmp_binary marker_tmp
+  [[ -n "$prefix" ]] || { codex_fork_error "A Codex install prefix is required"; return 2; }
+  [[ -x "${CODEX_FORK_BUILD_BINARY:-}" && -n "${CODEX_FORK_BUILD_REVISION:-}" ]] || {
+    codex_fork_error "Build Codex before installing the built binary into a prefix"
+    return 1
+  }
   binary="$prefix/bin/codex"
   tmp_binary="$prefix/bin/.codex.$$"
   marker_tmp="$prefix/.codex-fork-revision.$$"

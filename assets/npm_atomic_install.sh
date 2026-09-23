@@ -15,9 +15,9 @@
 # so the live path flips from the old tree straight to the new one and a
 # concurrent launcher only ever sees one complete install.
 #
-# Every prefix managed here is dedicated to exactly one package (the Codex
-# runtimes and Cline each own their own prefix), so replacing the whole prefix
-# directory is equivalent to replacing the package.
+# The npm-managed Cline prefix is dedicated to exactly one package, so replacing
+# the whole prefix directory is equivalent to replacing that package. Codex is
+# built from the local fork and does not use this npm installer.
 #
 # Sourced by lib/cli_installation.sh, lib/qwen_cli.sh, lib/openrouter_cli.sh and
 # by the deployed assets/agent-autoupdate.sh.
