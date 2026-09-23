@@ -141,8 +141,11 @@ PY
 }
 
 # Merge the newest aged release and build it once for every installed provider.
+# Stable tags can diverge from the fork's newer main history, so conflicting
+# files keep the existing fork side; a merge Git cannot complete is aborted.
 update_codex() {
   local releases_file target_tag current_branch release_commit prefix marker installed_count=0 needs_build=0
+  local conflict_path conflict_entry conflict_metadata conflict_has_ours conflict_count=0
   local -a prefixes=("$CODEX_NPM_PREFIX" "$QWEN_CODEX_NPM_PREFIX" "$OPENROUTER_CODEX_NPM_PREFIX" "$NVIDIA_CODEX_NPM_PREFIX")
   if ! declare -F codex_fork_build >/dev/null 2>&1; then
     log "Codex fork build helper unavailable; skipping all Codex runtimes"
@@ -191,10 +194,50 @@ update_codex() {
         GIT_AUTHOR_EMAIL="codex-fork-updater@localhost" \
         GIT_COMMITTER_NAME="Codex fork updater" \
         GIT_COMMITTER_EMAIL="codex-fork-updater@localhost" \
-        git -C "$CODEX_FORK_DIR" merge --no-edit --no-ff "$release_commit" >/dev/null 2>&1; then
-      git -C "$CODEX_FORK_DIR" merge --abort >/dev/null 2>&1 || true
-      log "Codex release $target_tag merge failed; source and installed runtimes left unchanged"
-      return 0
+        git -C "$CODEX_FORK_DIR" merge --no-edit --no-ff --strategy-option=ours "$release_commit" >/dev/null 2>&1; then
+      if ! git -C "$CODEX_FORK_DIR" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+        log "Codex release $target_tag merge failed before conflict resolution; source and runtimes left unchanged"
+        return 0
+      fi
+      while IFS= read -r -d '' conflict_path; do
+        conflict_has_ours=0
+        while IFS= read -r -d '' conflict_entry; do
+          conflict_metadata="${conflict_entry%%$'\t'*}"
+          if [[ "$conflict_metadata" =~ [[:space:]]2$ ]]; then
+            conflict_has_ours=1
+          fi
+        done < <(git -C "$CODEX_FORK_DIR" ls-files -u -z -- "$conflict_path")
+
+        if [ "$conflict_has_ours" -eq 1 ]; then
+          if ! git -C "$CODEX_FORK_DIR" checkout --ours -- "$conflict_path" \
+              || ! git -C "$CODEX_FORK_DIR" add -- "$conflict_path"; then
+            git -C "$CODEX_FORK_DIR" merge --abort >/dev/null 2>&1 || true
+            log "Could not keep the existing fork version of $conflict_path; runtimes left unchanged"
+            return 0
+          fi
+        elif ! git -C "$CODEX_FORK_DIR" rm -f -- "$conflict_path" >/dev/null 2>&1; then
+          git -C "$CODEX_FORK_DIR" merge --abort >/dev/null 2>&1 || true
+          log "Could not keep the existing fork deletion of $conflict_path; runtimes left unchanged"
+          return 0
+        fi
+        conflict_count=$((conflict_count + 1))
+      done < <(git -C "$CODEX_FORK_DIR" diff --name-only --diff-filter=U -z)
+
+      if [ "$conflict_count" -eq 0 ]; then
+        git -C "$CODEX_FORK_DIR" merge --abort >/dev/null 2>&1 || true
+        log "Codex release $target_tag merge failed without resolvable paths; runtimes left unchanged"
+        return 0
+      fi
+      if ! GIT_AUTHOR_NAME="Codex fork updater" \
+          GIT_AUTHOR_EMAIL="codex-fork-updater@localhost" \
+          GIT_COMMITTER_NAME="Codex fork updater" \
+          GIT_COMMITTER_EMAIL="codex-fork-updater@localhost" \
+          git -C "$CODEX_FORK_DIR" -c core.editor=true merge --continue >/dev/null 2>&1; then
+        git -C "$CODEX_FORK_DIR" merge --abort >/dev/null 2>&1 || true
+        log "Could not finish the Codex release $target_tag merge; runtimes left unchanged"
+        return 0
+      fi
+      log "Resolved $conflict_count Codex release conflict(s) using the existing fork version"
     fi
     log "Merged Codex release $target_tag into the local fork"
   else

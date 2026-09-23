@@ -22,7 +22,9 @@ def _git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def _create_codex_release_fork(tmp_path: Path, *, conflict: bool = False) -> dict[str, str | Path]:
+def _create_codex_release_fork(
+    tmp_path: Path, *, conflict: bool = False, unrelated_release: bool = False
+) -> dict[str, str | Path]:
     """Create a fork with one local commit and a newer stable upstream tag."""
     upstream = tmp_path / "upstream.git"
     upstream_work = tmp_path / "upstream-work"
@@ -44,6 +46,7 @@ def _create_codex_release_fork(tmp_path: Path, *, conflict: bool = False) -> dic
         "/codex-rs/target/\n", encoding="utf-8"
     )
     (upstream_work / "shared.txt").write_text("base\n", encoding="utf-8")
+    (upstream_work / "retired.txt").write_text("base file\n", encoding="utf-8")
     _git(upstream_work, "add", ".")
     _git(upstream_work, "commit", "-m", "base release")
     _git(upstream_work, "tag", "rust-v1.0.0")
@@ -61,6 +64,7 @@ def _create_codex_release_fork(tmp_path: Path, *, conflict: bool = False) -> dic
     _git(fork, "config", "user.name", "Codex fork test")
     if conflict:
         (fork / "shared.txt").write_text("fork version\n", encoding="utf-8")
+        (fork / "retired.txt").unlink()
     else:
         (fork / "fork-feature.txt").write_text("local feature\n", encoding="utf-8")
     _git(fork, "add", ".")
@@ -69,9 +73,31 @@ def _create_codex_release_fork(tmp_path: Path, *, conflict: bool = False) -> dic
     _git(fork, "config", "--unset", "user.email")
     _git(fork, "config", "--unset", "user.name")
 
+    if unrelated_release:
+        release_work = tmp_path / "unrelated-release-work"
+        release_work.mkdir()
+        _git(release_work, "init", "-b", "release")
+        _git(release_work, "config", "user.email", "test@example.invalid")
+        _git(release_work, "config", "user.name", "Codex release test")
+        (release_work / "release.txt").write_text("unrelated release\n", encoding="utf-8")
+        _git(release_work, "add", ".")
+        _git(release_work, "commit", "-m", "unrelated release")
+        _git(release_work, "tag", "rust-v1.1.0")
+        _git(release_work, "remote", "add", "origin", str(upstream))
+        _git(release_work, "push", "origin", "refs/tags/rust-v1.1.0")
+        release_commit = _git(release_work, "rev-parse", "refs/tags/rust-v1.1.0^{commit}")
+        return {
+            "fork": fork,
+            "upstream": upstream,
+            "feature_commit": feature_commit,
+            "release_commit": release_commit,
+        }
+
     (upstream_work / "shared.txt").write_text(
         "release version\n" if conflict else "base\n", encoding="utf-8"
     )
+    if conflict:
+        (upstream_work / "retired.txt").write_text("updated retired file\n", encoding="utf-8")
     (upstream_work / "release.txt").write_text("release 1.1.0\n", encoding="utf-8")
     _git(upstream_work, "add", ".")
     _git(upstream_work, "commit", "-m", "Codex release 1.1.0")
@@ -325,9 +351,34 @@ def test_updater_skips_codex_when_no_release_has_aged_enough(tmp_path: Path) -> 
         assert "0.144.0" in (prefix / "bin/codex").read_text(encoding="utf-8")
 
 
-def test_updater_aborts_release_merge_conflict_without_building(tmp_path: Path) -> None:
-    """A conflicting upstream release leaves fork source and installed CLIs intact."""
+def test_updater_keeps_fork_content_when_release_merge_conflicts(tmp_path: Path) -> None:
+    """Conflicting release files keep the fork version and update all prefixes."""
     source = _create_codex_release_fork(tmp_path, conflict=True)
+    releases = [_release("rust-v1.1.0", datetime.now(timezone.utc) - timedelta(hours=30))]
+    home, prefixes, env = _prepare_autoupdate_home(tmp_path, source["fork"], releases)
+    original_head = _git(source["fork"], "rev-parse", "HEAD")
+    result = subprocess.run(
+        ["bash", str(ROOT / "assets/agent-autoupdate.sh")], cwd=ROOT, env=env,
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    fork = source["fork"]
+    assert _git(fork, "rev-parse", "HEAD") != original_head
+    _git(fork, "merge-base", "--is-ancestor", str(source["feature_commit"]), "HEAD")
+    _git(fork, "merge-base", "--is-ancestor", str(source["release_commit"]), "HEAD")
+    assert (fork / "shared.txt").read_text(encoding="utf-8") == "fork version\n"
+    assert not (fork / "retired.txt").exists()
+    revision = _git(fork, "rev-parse", "HEAD")
+    assert (home / "cargo.log").read_text(encoding="utf-8").splitlines() == [revision]
+    assert not _git(source["fork"], "status", "--porcelain")
+    for prefix in prefixes.values():
+        assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == revision
+    assert "Resolved 1 Codex release conflict" in result.stdout
+
+
+def test_updater_aborts_when_release_history_is_unrelated(tmp_path: Path) -> None:
+    """An unrelated release history leaves source and installed runtimes intact."""
+    source = _create_codex_release_fork(tmp_path, unrelated_release=True)
     releases = [_release("rust-v1.1.0", datetime.now(timezone.utc) - timedelta(hours=30))]
     home, prefixes, env = _prepare_autoupdate_home(tmp_path, source["fork"], releases)
     original_head = _git(source["fork"], "rev-parse", "HEAD")
@@ -341,7 +392,7 @@ def test_updater_aborts_release_merge_conflict_without_building(tmp_path: Path) 
     assert not (home / "cargo.log").exists()
     for prefix in prefixes.values():
         assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == "old-revision"
-    assert "merge failed" in result.stdout
+    assert "merge failed before conflict resolution" in result.stdout
 
 def test_updater_never_reuses_claude_outside_target_home(tmp_path: Path) -> None:
     """A sandbox updater must ignore Claude commands inherited from host PATH."""
