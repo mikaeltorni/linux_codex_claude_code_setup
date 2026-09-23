@@ -7,18 +7,29 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# The sibling checkout lives next to this repo, or one level further up when
-# the suite runs from a git worktree (projects/worktrees/<repo>-wt-<task>).
+# Resolve siblings from Git's common directory so this works in the live
+# checkout and the mandated projects/.worktrees/<repo>/<task> layout.
+COMMON_DIR = Path(
+    subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+)
+PROJECTS = COMMON_DIR.parent.parent
 ACC = next(
     (
         candidate
         for candidate in (
-            ROOT.parent / "agent_command_center",
-            ROOT.parent.parent / "agent_command_center",
+            PROJECTS
+            / ".worktrees/agent_command_center/agent_command_center_feat-codex-fork-install",
+            PROJECTS / "agent_command_center",
         )
         if candidate.is_dir()
     ),
-    ROOT.parent / "agent_command_center",
+    PROJECTS / "agent_command_center",
 )
 
 
@@ -61,17 +72,16 @@ def test_cli_installers_do_not_emit_acc_shorthand_dispatchers() -> None:
             assert f"/.local/bin/{marker} " not in source
 
 
-def test_isolated_codex_instances_refresh_npm_package_on_rerun() -> None:
-    """Existing Qwen/OpenRouter homes must still receive Codex CLI updates."""
+def test_isolated_codex_instances_refresh_local_fork_on_rerun() -> None:
+    """Existing Qwen/OpenRouter homes receive the local fork on every rerun."""
     qwen = (ROOT / "lib" / "qwen_cli.sh").read_text(encoding="utf-8")
     openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
     for source in (qwen, openrouter):
         install_body = source.split("install_", 1)[1]
-        # The install goes through the staged helper (see
-        # assets/npm_atomic_install.sh) but must still run unconditionally after
-        # the "home already exists" branch, so a rerun refreshes the CLI.
-        assert 'npm_install_prefix_atomic "$' in install_body
-        assert install_body.index("npm_install_prefix_atomic") > install_body.index("fi")
+        # The source build/install must still run unconditionally after the
+        # "home already exists" branch, so a rerun refreshes the CLI.
+        assert "codex_fork_install_to_prefix \"$" in install_body
+        assert install_body.index("codex_fork_install_to_prefix") > install_body.index("fi")
 
 
 def test_acc_manifest_does_not_own_core_clis() -> None:
@@ -96,7 +106,8 @@ def test_acc_hooks_refresh_only_without_runtime_provisioning() -> None:
 
 def test_acc_tracker_still_generates_shorthand_dispatchers() -> None:
     tracker = (ACC / "lib" / "codex_agent_tracker.sh").read_text(encoding="utf-8")
-    assert "for command_name in ca cca cla qa ga oa na" in tracker
+    assert "local acc_front_ends=(ca cx cap cca cla qa ga oa na" in tracker
+    assert 'for command_name in "${acc_front_ends[@]}"' in tracker
 
 
 def test_acc_tracked_qwen_launcher_is_separate_from_plain_qwen() -> None:

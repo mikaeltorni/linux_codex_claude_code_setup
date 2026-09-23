@@ -8,15 +8,31 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# Sibling repositories live in the projects folder; when this suite runs from a
-# git worktree (projects/worktrees/<repo>-wt-<task>) that folder is one level up.
-PROJECTS = (
-    ROOT.parent
-    if (ROOT.parent / "agent_command_center").is_dir()
-    else ROOT.parent.parent
+# Derive the projects folder from Git's common repository directory. This works
+# in the live checkout and the mandated projects/.worktrees layout.
+COMMON_DIR = Path(
+    subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
 )
+PROJECTS = COMMON_DIR.parent.parent
 PROMPTS = PROJECTS / "programming_prompts"
-ACC = PROJECTS / "agent_command_center"
+ACC = next(
+    (
+        candidate
+        for candidate in (
+            PROJECTS
+            / ".worktrees/agent_command_center/agent_command_center_feat-codex-fork-install",
+            PROJECTS / "agent_command_center",
+        )
+        if candidate.is_dir()
+    ),
+    PROJECTS / "agent_command_center",
+)
 ORCHESTRATOR = PROJECTS / "installation_scripts"
 
 
@@ -214,12 +230,22 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
 
 
-def test_codex_requires_nodejs_22_and_uses_nodesource_fallback() -> None:
-    """A standalone Codex install must not accept Ubuntu's Node.js 18."""
+def test_codex_builds_from_the_fork_while_cline_keeps_nodejs_22() -> None:
+    """Codex uses the local Rust build; Node.js remains a Cline dependency."""
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
-    assert "ensure_nodejs_22" in cli
+    assert "codex_fork_install_to_prefix \"$CODEX_NPM_PREFIX\"" in cli
+    assert "ensure_nodejs_22" in cli.split("install_cline_cli()", 1)[1]
     assert "https://deb.nodesource.com/setup_22.x" in cli
-    assert "apt_install nodejs npm" not in cli
+    assert 'npm_install_prefix_atomic "$CODEX_NPM_PREFIX"' not in cli
+
+
+def test_codex_fork_helper_is_installed_for_shared_consumers() -> None:
+    """ACC and the delayed updater receive the same source-build helper."""
+    helper = (ROOT / "assets" / "codex_fork_install.sh").read_text(encoding="utf-8")
+    assert "codex_fork_publish_helper" in helper
+    assert "codex_fork_install_to_prefix" in helper
+    assert "codex-rs/target/release/codex" in helper
+    assert "codex-fork-revision" in helper
 
 
 def test_installer_logging_contract_is_explicit() -> None:
@@ -273,7 +299,8 @@ def test_acc_delegates_before_installing_its_own_components() -> None:
     openrouter_setup = openrouter.split("setup_openrouter_notify_hook()", 1)[1].split("\n}", 1)[0]
     assert "install_qwen_codex_cli" not in qwen_setup
     assert "install_openrouter_codex_cli" not in openrouter_setup
-    assert "for command_name in ca cca cla qa ga oa na" in tracker
+    assert "local acc_front_ends=(ca cx cap cca cla qa ga oa na" in tracker
+    assert 'for command_name in "${acc_front_ends[@]}"' in tracker
     assert "sync_programming_plugin" not in tracker
 
 
