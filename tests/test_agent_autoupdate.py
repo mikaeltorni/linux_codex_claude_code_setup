@@ -42,6 +42,9 @@ def _create_codex_release_fork(
     (upstream_work / "codex-rs" / "rust-toolchain.toml").write_text(
         '[toolchain]\nchannel = "stable"\n', encoding="utf-8"
     )
+    (upstream_work / "codex-rs" / "Cargo.lock").write_text(
+        "lockfile-version = old\n", encoding="utf-8"
+    )
     (upstream_work / ".gitignore").write_text(
         "/codex-rs/target/\n", encoding="utf-8"
     )
@@ -167,6 +170,10 @@ cat "$HOME/releases.json"
     cargo.write_text(
         """#!/usr/bin/env bash
 set -euo pipefail
+if [[ "$*" == "metadata --format-version 1" ]]; then
+  printf 'lockfile-version = updated\\n' >Cargo.lock
+  exit 0
+fi
 [[ "$*" == "build --release --locked -p codex-cli --bin codex" ]]
 printf '%s\\n' "$CODEX_FORK_BUILD_REVISION" >>"$HOME/cargo.log"
 mkdir -p target/release
@@ -323,6 +330,13 @@ def test_updater_merges_delayed_release_and_refreshes_all_codex_prefixes(tmp_pat
     assert (fork / "fork-feature.txt").read_text(encoding="utf-8") == "local feature\n"
     assert (fork / "release.txt").read_text(encoding="utf-8") == "release 1.1.0\n"
     revision = _git(fork, "rev-parse", "HEAD")
+    assert _git(fork, "log", "-1", "--format=%s", "--grep=sync Cargo.lock") == (
+        "chore(codex): sync Cargo.lock for workspace manifests"
+    )
+    assert (fork / "codex-rs" / "Cargo.lock").read_text(encoding="utf-8") == (
+        "lockfile-version = updated\n"
+    )
+    assert not _git(fork, "status", "--porcelain")
     assert (home / "cargo.log").read_text(encoding="utf-8").splitlines() == [revision]
     for prefix in prefixes.values():
         assert (prefix / "codex-fork-revision").read_text(encoding="utf-8").strip() == revision

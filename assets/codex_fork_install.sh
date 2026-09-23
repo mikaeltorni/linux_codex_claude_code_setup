@@ -123,13 +123,38 @@ codex_fork_ensure_rustup() {
 # revision through globals for codex_fork_install_to_prefix.
 codex_fork_build() {
   CODEX_FORK_BUILD_REPO="$(codex_fork_repository_dir)"
+  CODEX_FORK_BUILD_BINARY="$CODEX_FORK_BUILD_REPO/codex-rs/target/release/codex"
+
+  codex_fork_ensure_rustup || return 1
+  # Merging a stable release tag into the fork can change workspace package
+  # versions without updating Cargo.lock. Let Cargo reconcile the lockfile,
+  # then commit only that generated file so the actual build remains locked.
+  if ! codex_fork_run_as_target env CODEX_FORK_BUILD_REPO="$CODEX_FORK_BUILD_REPO" bash -c '
+    set -euo pipefail
+    export PATH="$HOME/.cargo/bin:$PATH"
+    cd "$CODEX_FORK_BUILD_REPO/codex-rs"
+    cargo metadata --format-version 1 >/dev/null
+    status="$(git -C "$CODEX_FORK_BUILD_REPO" status --porcelain --untracked-files=all)"
+    if [[ -n "$status" ]]; then
+      if [[ "$status" != " M codex-rs/Cargo.lock" ]]; then
+        printf "Cargo metadata changed unexpected Codex source files:\\n%s\\n" "$status" >&2
+        exit 1
+      fi
+      git -C "$CODEX_FORK_BUILD_REPO" add -- codex-rs/Cargo.lock
+      git -C "$CODEX_FORK_BUILD_REPO" \
+        -c user.name="Codex fork updater" \
+        -c user.email="codex-fork-updater@localhost" \
+        -c commit.gpgsign=false \
+        commit -m "chore(codex): sync Cargo.lock for workspace manifests"
+    fi
+  ' >&2; then
+    codex_fork_error "Cargo could not safely reconcile the lockfile for $CODEX_FORK_BUILD_REPO"
+    return 1
+  fi
   CODEX_FORK_BUILD_REVISION="$(codex_fork_run_as_target git -C "$CODEX_FORK_BUILD_REPO" rev-parse --verify HEAD)" || {
     codex_fork_error "Could not resolve the Codex source revision at $CODEX_FORK_BUILD_REPO"
     return 1
   }
-  CODEX_FORK_BUILD_BINARY="$CODEX_FORK_BUILD_REPO/codex-rs/target/release/codex"
-
-  codex_fork_ensure_rustup || return 1
   codex_fork_log "Building Codex from fork revision $CODEX_FORK_BUILD_REVISION"
   if ! codex_fork_run_as_target env \
     CODEX_FORK_BUILD_REPO="$CODEX_FORK_BUILD_REPO" \
