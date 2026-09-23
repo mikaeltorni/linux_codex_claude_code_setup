@@ -129,8 +129,7 @@ install_qwen_plugins_into_home() {
 
 install_qwen_cli() {
   msg "Installing plain Local Codex CLI (${QWEN_CODEX_COMMAND})"
-  ensure_nodejs_22 1>&2 || return 1
-  apt_install curl python3 1>&2
+  apt_install ca-certificates curl python3 1>&2
 
   if [ -d "$QWEN_CODEX_HOME" ]; then
     msg "Refreshing existing Local Codex home at $QWEN_CODEX_HOME"
@@ -138,8 +137,7 @@ install_qwen_cli() {
     run_as_target mkdir -p "$QWEN_CODEX_HOME" "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   fi
   run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  # Staged + swapped so a reinstall never blanks out this prefix's bin/codex.
-  npm_install_prefix_atomic "$QWEN_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" 1>&2
+  codex_fork_install_to_prefix "$QWEN_CODEX_NPM_PREFIX" >/dev/null || return 1
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \

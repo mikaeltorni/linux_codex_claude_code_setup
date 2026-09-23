@@ -49,21 +49,16 @@ ensure_nodejs_22() {
   fi
 }
 
-# Install the isolated Codex npm package and print its raw binary path. Shared by
-# the codex_cli and codex_wrapper components so either can be selected on its own
-# and still find (or install) the underlying binary. Idempotent.
+# Build the local fork into the isolated Codex prefix and print its raw binary
+# path. Shared by codex_cli and codex_wrapper so either component can be selected
+# on its own and still find (or build) the underlying binary.
 ensure_codex_binary() {
   # Callers capture this function's stdout to read the binary path, so every
   # noisy install command must write to stderr (still logged/visible) and only
   # the resolved path may reach stdout.
-  ensure_nodejs_22 1>&2 || return 1
-  run_as_target mkdir -p "$CODEX_NPM_PREFIX" 1>&2
-  # Staged + swapped rather than installed in place: a reinstall must never blank
-  # out bin/codex, because the tracking-aware wrapper execs that exact path and a
-  # concurrently launched agent would die with a bare 127. The helper also
-  # time-boxes and detaches stdin so a stalled download cannot hang install.sh.
-  npm_install_prefix_atomic "$CODEX_NPM_PREFIX" @openai/codex 1>&2
-  local raw_codex="$CODEX_NPM_PREFIX/bin/codex"
+  apt_install ca-certificates curl 1>&2
+  local raw_codex
+  raw_codex="$(codex_fork_install_to_prefix "$CODEX_NPM_PREFIX")" || return 1
   [[ -x "$raw_codex" ]] || { echo "Codex installation failed: $raw_codex" >&2; return 1; }
   printf '%s' "$raw_codex"
 }
@@ -72,7 +67,7 @@ ensure_codex_binary() {
 # a plain launcher. The tracking-aware wrapper is the separate codex_wrapper
 # component; without it the raw Codex still runs end to end.
 install_codex_cli() {
-  msg "Installing Codex CLI (@openai/codex)"
+  msg "Installing Codex CLI from the local Codex fork"
   local raw_codex
   raw_codex="$(ensure_codex_binary)" || return 1
   install_codex_plain_launcher "$raw_codex"
@@ -127,6 +122,7 @@ install_claude_code() {
 # guard satisfies that prerequisite for both standalone and master installs.
 install_cline_cli() {
   msg "Installing Cline CLI"
+  # Cline remains an npm package and still requires Node.js 22.
   ensure_nodejs_22 1>&2 || return 1
   run_as_target mkdir -p "$CLINE_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   # Staged + swapped so a reinstall never blanks out the live bin/cline.

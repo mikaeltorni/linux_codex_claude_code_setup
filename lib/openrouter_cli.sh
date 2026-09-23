@@ -134,8 +134,7 @@ install_openrouter_plugins_into_home() {
 
 install_openrouter_cli() {
   msg "Installing plain OpenRouter Codex CLI (${OPENROUTER_CODEX_PLAIN_COMMAND})"
-  ensure_nodejs_22 1>&2 || return 1
-  apt_install curl python3 1>&2
+  apt_install ca-certificates curl python3 1>&2
 
   if [ -d "$OPENROUTER_CODEX_HOME" ]; then
     msg "Refreshing existing OpenRouter Codex home at $OPENROUTER_CODEX_HOME"
@@ -143,8 +142,7 @@ install_openrouter_cli() {
     run_as_target mkdir -p "$OPENROUTER_CODEX_HOME" "$OPENROUTER_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   fi
   run_as_target mkdir -p "$OPENROUTER_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  # Staged + swapped so a reinstall never blanks out this prefix's bin/codex.
-  npm_install_prefix_atomic "$OPENROUTER_CODEX_NPM_PREFIX" "@openai/codex@${CODEX_CLI_VERSION}" 1>&2
+  codex_fork_install_to_prefix "$OPENROUTER_CODEX_NPM_PREFIX" >/dev/null || return 1
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \
