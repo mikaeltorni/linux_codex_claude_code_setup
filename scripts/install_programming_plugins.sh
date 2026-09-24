@@ -146,13 +146,20 @@ install_all_programming_plugins() {
     [[ -z "$plugin" ]] && continue
     [[ "$state" == "on" ]] || continue
     # Best-effort per prompt: one failure must not abort the rest.
-    if [[ "$kind" == "skill" ]]; then
-      install_prompt_skill "$plugin" "$skill" || \
-        msg "Skill $skill installation reported an error (continuing)"
-    else
-      install_prompt_plugin "$plugin" "$skill" || \
-        msg "Plugin $plugin installation reported an error (continuing)"
-    fi
+    case "$kind" in
+      skill)
+        install_prompt_skill "$plugin" "$skill" || \
+          msg "Skill $skill installation reported an error (continuing)"
+        ;;
+      dispatch-skill)
+        install_dispatch_skill "$plugin" "$skill" || \
+          msg "Dispatch skill $skill installation reported an error (continuing)"
+        ;;
+      plugin)
+        install_prompt_plugin "$plugin" "$skill" || \
+          msg "Plugin $plugin installation reported an error (continuing)"
+        ;;
+    esac
   done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
     --defaults "$SCRIPT_DIR/default.json" list)
   # Merge AGENTS.md/CLAUDE.md global instructions for every prompt installed

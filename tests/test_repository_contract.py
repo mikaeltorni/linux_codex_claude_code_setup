@@ -348,6 +348,8 @@ def test_entrypoint_deploys_only_default_on_prompts() -> None:
     ).read_text(encoding="utf-8")
     body = entrypoint_text.split("install_all_programming_plugins()", 1)[1]
     assert '[[ "$state" == "on" ]] || continue' in body
+    assert 'dispatch-skill)' in body
+    assert 'install_dispatch_skill "$plugin" "$skill"' in body
 
 
 def test_global_instruction_tag_reaches_every_codex_home() -> None:
