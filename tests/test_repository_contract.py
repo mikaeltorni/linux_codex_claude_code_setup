@@ -87,20 +87,18 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         "setup-repository-guidelines",
     }
     assert all(entry["skill"] for entry in defaults["plugins"])
-    # Only the general programming guidelines is deployed by default, so its
-    # complete skill payload is the sole always-on managed block. Every other
-    # instruction-merging prompt stays in the source repo as an opt-in install
-    # (default:false). Dispatch skills are exempt from this budget because they
-    # never merge into AGENTS.md/CLAUDE.md: installing one only places a SKILL.md
-    # in the harness skill directories, costing context solely when the user
-    # invokes it, so shipping them on by default keeps the menu usable without
-    # growing any instance instruction file.
+    # Only the guidelines may add an always-loaded instruction block. Native
+    # plugins and dispatch skills can be installed by default when they have
+    # no global-instructions payload and only load for relevant requests.
     always_on = {
         entry["plugin"]
         for entry in defaults["plugins"]
-        if entry["default"] is True and entry.get("kind") != "dispatch-skill"
+        if entry["default"] is True
+        and (PROMPTS / "global-instructions" / f"{entry['plugin']}.md").exists()
     }
     assert always_on == {"general-programming-guidelines"}
+    assert not (PROMPTS / "plugins/ssh-vm/install/global-instructions.md").exists()
+    assert next(entry for entry in defaults["plugins"] if entry["plugin"] == "ssh-vm")["default"] is True
     dispatch_on = {
         entry["plugin"]
         for entry in defaults["plugins"]
@@ -192,9 +190,8 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
     assert "codex_wrapper" not in states
     assert "global_instructions" not in states
     assert "qwen3_8_27b_model" not in states
-    # Opt-in prompts (everything except the always-on guidelines) are default-off
-    # so a default install deploys only the slim general-programming-guidelines
-    # tag. Every non-prompt component stays default-on.
+    # The SSH VM plugin is installed by default as a native skill without a
+    # global instruction block. The other optional prompts remain opt-in.
     opt_in_prompts = {
         "plugin-commit-guidelines",
         "plugin-linux-desktop-configuration",
@@ -208,6 +205,7 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
         else:
             assert state == "on", f"{component_id} must stay default-on"
     assert states["skill-general-programming-guidelines"] == "on"
+    assert states["plugin-ssh-vm"] == "on"
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
@@ -342,9 +340,8 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
 def test_entrypoint_deploys_only_default_on_prompts() -> None:
     """The standalone entrypoint must skip opt-in (default:false) prompts.
 
-    Only default-on prompts are deployed so the always-on set stays minimal
-    (general-programming-guidelines) and no other full-body block bloats the
-    agent instruction files.
+    The guidelines are the only default-on full-body instruction block. Native
+    SSH VM and dispatch skills are discoverable without loading every session.
     """
     entrypoint_text = (
         ROOT / "scripts" / "install_programming_plugins.sh"
