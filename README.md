@@ -92,14 +92,16 @@ and everything else is optional:
 - `plugin-*` and `skill-*` — separate **Plugins** and **Skills** menu sections,
   with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global
-  `~/.cline/skills/` directory; unrelated user-authored skills are never
-  overwritten. Cline also receives full plugin bundles under `~/.cline/plugins/`
+  `~/.cline/skills/` and Cursor's `~/.cursor/skills/` directories; unrelated
+  user-authored skills are never overwritten. Cline also receives full plugin bundles under `~/.cline/plugins/`
   so skills, hooks, agents, and MCP definitions stay discoverable in every
   session, mirroring the Grok treatment. Grok receives native `~/.grok/skills/`
   links, and full plugins are linked under `~/.grok/plugins/` so skills, hooks,
   agents, and MCP definitions remain discoverable even when Claude Code is not
   selected. opencode receives the same treatment natively under
-  `~/.config/opencode/skills/` and `~/.config/opencode/plugins/`.
+  `~/.config/opencode/skills/` and `~/.config/opencode/plugins/`. The SSH VM
+  plugin installs by default and loads only when remote SSH deployment or
+  testing is relevant.
 - The default `general-programming-guidelines` skill is merged as the complete
   current `SKILL.md` into each runtime's managed instruction block, not merely
   referenced by a short tag. Normal component installs and the standalone

@@ -175,6 +175,15 @@ install_cline_prompt_skill() {
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
 
+# Install the selected skill into Cursor's documented ~/.cursor/skills directory.
+install_cursor_prompt_skill() {
+  local plugin_name="$1" skill_name="$2" source_skill
+  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" install-cursor-skill \
+    "$TARGET_HOME" "$source_skill" "$skill_name"
+}
+
 # Link the full plugin bundle into Cline's ~/.cline/plugins directory so Cline
 # auto-discovers the plugin (skills, hooks, agents, MCP definitions) in every
 # session, mirroring the Grok plugin treatment. The per-skill symlink under
@@ -351,6 +360,7 @@ install_prompt_plugin() {
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
   fi
   install_cline_prompt_skill "$plugin_name" "$skill_name"
+  install_cursor_prompt_skill "$plugin_name" "$skill_name"
   install_cline_prompt_plugin "$plugin_name"
   install_grok_prompt_skill "$plugin_name" "$skill_name"
   install_grok_prompt_plugin "$plugin_name"
@@ -387,6 +397,7 @@ install_manifest_free_skill() {
       --codex-home "$codex_home" --source-dir "$source_dir"
   done
   install_cline_prompt_skill "$plugin_name" "$skill_name"
+  install_cursor_prompt_skill "$plugin_name" "$skill_name"
   install_grok_prompt_skill "$plugin_name" "$skill_name"
   install_opencode_prompt_skill "$plugin_name" "$skill_name"
   record_prompt_plugin "$plugin_name"
