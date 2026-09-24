@@ -10,6 +10,7 @@
     {"plugin": "general-programming-guidelines", "skill": "general-programming-guidelines", "label": "General Programming Guidelines", "default": true, "kind": "skill"},
     {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": false, "kind": "skill"},
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": false, "kind": "plugin"},
+    {"plugin": "ssh-vm", "skill": "ssh-vm", "label": "SSH VM", "default": true, "kind": "plugin"},
     {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": false, "kind": "skill"},
     {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": false, "kind": "skill"},
     {"plugin": "github-seo", "skill": "github-seo", "label": "GitHub SEO (dispatch)", "default": true, "kind": "dispatch-skill"}
