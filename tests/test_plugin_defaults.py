@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -232,6 +234,27 @@ def test_cleanup_legacy_honors_alternate_codex_home_and_broken_links(
     assert not qwen_skills.joinpath("refactoring").is_symlink()
     # The default .codex home must be untouched when an alternate home is given.
     assert not (home / ".codex").exists()
+
+
+def test_cursor_skill_installs_idempotently_and_preserves_user_content(tmp_path: Path) -> None:
+    """Cursor receives native skills, while unrelated user files stay untouched."""
+    home = tmp_path / "home"
+    source = tmp_path / "programming_prompts" / "plugins" / "ssh-vm" / "skills" / "ssh-vm"
+    source.mkdir(parents=True)
+    (source / "SKILL.md").write_text("# SSH VM\n", encoding="utf-8")
+
+    plugin_defaults.install_cursor_skill(home, source, "ssh-vm")
+    plugin_defaults.install_cursor_skill(home, source, "ssh-vm")
+    target = home / ".cursor" / "skills" / "ssh-vm"
+    assert target.is_symlink()
+    assert target.resolve() == source.resolve()
+
+    target.unlink()
+    target.mkdir()
+    (target / "SKILL.md").write_text("user skill\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="unmanaged Cursor skill"):
+        plugin_defaults.install_cursor_skill(home, source, "ssh-vm")
+    assert (target / "SKILL.md").read_text(encoding="utf-8") == "user skill\n"
 
 
 def test_cline_skill_migrates_links_within_programming_prompts(tmp_path: Path) -> None:

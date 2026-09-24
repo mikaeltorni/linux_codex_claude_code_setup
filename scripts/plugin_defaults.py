@@ -354,42 +354,46 @@ def install_direct_skill(
 
 
 @log_call(LOGGER)
-def install_cline_skill(home: Path, source_skill: Path, skill_name: str) -> None:
-    """Link one selected programming skill into Cline's global skill directory.
-
-    Args:
-        home: Target user's home directory.
-        source_skill: Skill directory containing the authoritative ``SKILL.md``.
-        skill_name: Cline skill directory name.
-
-    Raises:
-        ValueError: If the source is invalid or the target contains unmanaged
-            user content. The installer never overwrites an unrelated skill.
-    """
+def _install_user_skill_link(
+    home: Path, source_skill: Path, skill_name: str, tool_name: str
+) -> None:
+    """Link a native skill, preserving unrelated user content and managed moves."""
     if not NAME.fullmatch(skill_name):
-        raise ValueError(f"invalid Cline skill name: {skill_name!r}")
+        raise ValueError(f"invalid {tool_name} skill name: {skill_name!r}")
     source_skill = source_skill.resolve()
     if not source_skill.joinpath("SKILL.md").is_file():
-        raise ValueError(f"missing Cline skill source: {source_skill}")
-    target = home / ".cline" / "skills" / skill_name
+        raise ValueError(f"missing {tool_name} skill source: {source_skill}")
+    target = home / f".{tool_name.lower()}" / "skills" / skill_name
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.is_symlink():
         if (target.parent / os.readlink(target)).resolve() == source_skill:
-            LOGGER.info("Cline skill %s already linked", skill_name)
+            LOGGER.info("%s skill %s already linked", tool_name, skill_name)
             return
         old_source = (target.parent / os.readlink(target)).resolve()
         old_roots = [parent for parent in old_source.parents if parent.name == "programming_prompts"]
         new_roots = [parent for parent in source_skill.parents if parent.name == "programming_prompts"]
         if old_roots and new_roots and old_roots[0] == new_roots[0]:
-            LOGGER.info("Migrating managed Cline skill %s to %s", skill_name, source_skill)
+            LOGGER.info("Migrating managed %s skill %s to %s", tool_name, skill_name, source_skill)
             target.unlink()
             os.symlink(source_skill, target, target_is_directory=True)
             return
-        raise ValueError(f"refusing to replace unmanaged Cline skill link: {target}")
+        raise ValueError(f"refusing to replace unmanaged {tool_name} skill link: {target}")
     if target.exists():
-        raise ValueError(f"refusing to replace unmanaged Cline skill: {target}")
+        raise ValueError(f"refusing to replace unmanaged {tool_name} skill: {target}")
     os.symlink(source_skill, target, target_is_directory=True)
-    LOGGER.info("Installed Cline skill %s from %s", skill_name, source_skill)
+    LOGGER.info("Installed %s skill %s from %s", tool_name, skill_name, source_skill)
+
+
+@log_call(LOGGER)
+def install_cline_skill(home: Path, source_skill: Path, skill_name: str) -> None:
+    """Install a native Cline skill under the user's home."""
+    _install_user_skill_link(home, source_skill, skill_name, "Cline")
+
+
+@log_call(LOGGER)
+def install_cursor_skill(home: Path, source_skill: Path, skill_name: str) -> None:
+    """Install a native Cursor skill under the user's home."""
+    _install_user_skill_link(home, source_skill, skill_name, "Cursor")
 
 
 @log_call(LOGGER)
@@ -654,6 +658,10 @@ def main() -> None:
     cline_skill.add_argument("home", type=Path)
     cline_skill.add_argument("source_skill", type=Path)
     cline_skill.add_argument("skill_name")
+    cursor_skill = subparsers.add_parser("install-cursor-skill")
+    cursor_skill.add_argument("home", type=Path)
+    cursor_skill.add_argument("source_skill", type=Path)
+    cursor_skill.add_argument("skill_name")
     cline_plugin = subparsers.add_parser("install-cline-plugin")
     cline_plugin.add_argument("home", type=Path)
     cline_plugin.add_argument("source_plugin", type=Path)
@@ -721,6 +729,8 @@ def main() -> None:
         )
     elif args.command == "install-cline-skill":
         install_cline_skill(args.home, args.source_skill, args.skill_name)
+    elif args.command == "install-cursor-skill":
+        install_cursor_skill(args.home, args.source_skill, args.skill_name)
     elif args.command == "install-cline-plugin":
         install_cline_plugin(args.home, args.source_plugin, args.plugin_name)
     elif args.command == "install-grok-skill":
