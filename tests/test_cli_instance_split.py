@@ -112,6 +112,43 @@ def test_provider_install_resolves_exact_version_from_main(tmp_path: Path) -> No
     assert result.stdout.strip() == "@openai/codex@1.2.3"
 
 
+def test_provider_install_replaces_broken_zero_main_version(tmp_path: Path) -> None:
+    """A 0.0.0 main binary must be repaired before providers consume it."""
+    main_prefix = tmp_path / "main"
+    provider_prefix = tmp_path / "provider"
+    main_binary = main_prefix / "bin" / "codex"
+    main_binary.parent.mkdir(parents=True)
+    main_binary.write_text(
+        "#!/usr/bin/env bash\nprintf 'codex-cli 0.0.0\\n'\n",
+        encoding="utf-8",
+    )
+    main_binary.chmod(0o755)
+    result = run(
+        "bash",
+        "-c",
+        f"""
+        set -euo pipefail
+        CODEX_NPM_PREFIX={main_prefix!s}
+        run_as_target() {{ "$@"; }}
+        npm_install_prefix_atomic() {{ printf '%s\n' "$2"; }}
+        log() {{ printf '%s\n' "$*" >&2; }}
+        source lib/cli_installation.sh
+        ensure_codex_binary() {{
+          cat >{main_binary!s} <<'EOF'
+#!/usr/bin/env bash
+printf 'codex-cli 2.3.4\n'
+EOF
+          chmod +x {main_binary!s}
+          printf '%s' {main_binary!s}
+        }}
+        install_codex_main_version_to_prefix {provider_prefix!s}
+        """,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "@openai/codex@2.3.4"
+    assert "unsupported version 0.0.0" in result.stderr
+
+
 def test_acc_manifest_does_not_own_core_clis() -> None:
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     for row in ("codex_cli|", "claude_code|", "cline_cli|", "grok_cli|", "qwen_cli|", "openrouter_cli|"):

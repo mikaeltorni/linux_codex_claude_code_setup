@@ -67,7 +67,8 @@ ensure_codex_binary() {
 # codex_main_version - print the semantic package version used by main Codex.
 #
 # Installs main Codex first when a provider component is selected on its own.
-# Provider prefixes use this value verbatim so they never drift from main.
+# Provider prefixes use this value verbatim so they never drift from main. A
+# broken 0.0.0 main binary is replaced from npm before the version is returned.
 codex_main_version() {
   local raw_codex="$CODEX_NPM_PREFIX/bin/codex" version=""
   if [ ! -x "$raw_codex" ]; then
@@ -77,8 +78,20 @@ codex_main_version() {
     run_as_target env CODEX_AGENT_SKIP_TRACKER=1 "$raw_codex" --version 2>/dev/null |
       grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1
   )"
+  if [ "$version" = "0.0.0" ]; then
+    log "warn" "Main Codex reports unsupported version 0.0.0; replacing it from npm"
+    raw_codex="$(ensure_codex_binary)" || return 1
+    version="$(
+      run_as_target env CODEX_AGENT_SKIP_TRACKER=1 "$raw_codex" --version 2>/dev/null |
+        grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1
+    )"
+  fi
   if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
     log "error" "Could not resolve the main Codex version from $raw_codex"
+    return 1
+  fi
+  if [ "$version" = "0.0.0" ]; then
+    log "error" "Refusing unsupported main Codex version 0.0.0 after npm replacement"
     return 1
   fi
   printf '%s' "$version"

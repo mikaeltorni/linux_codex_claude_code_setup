@@ -48,7 +48,9 @@ and everything else is optional:
   an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
   its official `npm install -g cline` package without requiring sudo.
   `codex_cli` installs the official `@openai/codex` npm package into an
-  isolated user-owned prefix and puts a plain `codex` launcher on `PATH`.
+  isolated user-owned prefix and puts a plain `codex` launcher on `PATH`. If an
+  obsolete source build reports `0.0.0`, setup replaces it from npm and refuses
+  to propagate `0.0.0` to any provider prefix.
 - `qwen_cli` — installs the local Codex (`qwen`) CLI into its isolated home
   (`~/.codex-qwen`) using the exact npm package version reported by main
   `codex`, and puts a plain `qwen` launcher on `PATH`. Tracking-aware `qa`
