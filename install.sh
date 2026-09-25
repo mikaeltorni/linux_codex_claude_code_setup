@@ -57,6 +57,7 @@ declare -F isc_activate_components >/dev/null 2>&1 || \
 isc_load_helpers
 isc_activate_components
 source "$SCRIPT_DIR/lib/logging.sh"
+source "$SCRIPT_DIR/assets/codex_fork_install.sh"
 # Shared with the deployed auto-updater: installs npm prefixes via a staging
 # directory so a reinstall never leaves a live bin/codex missing under a
 # concurrently launched agent. run_as_target keeps sudo installs user-owned.
@@ -74,7 +75,6 @@ source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 
 agent_cli_preflight() {
-  remove_retired_codex_fork_helper
   ensure_programming_prompts
 }
 

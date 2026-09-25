@@ -222,24 +222,22 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
 
 
-def test_codex_uses_atomic_npm_install_and_nodejs_22() -> None:
-    """Main Codex and Cline use npm with the standalone Node.js fallback."""
+def test_codex_uses_local_fork_and_cline_retains_nodejs_22() -> None:
+    """Codex builds the local fork while Cline retains its npm dependency."""
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
-    assert 'npm_install_prefix_atomic "$CODEX_NPM_PREFIX" @openai/codex' in cli
-    assert "install_codex_main_version_to_prefix" in cli
+    assert "codex_fork_install_main" in cli
+    assert "@openai/codex" not in cli
     assert "ensure_nodejs_22" in cli.split("install_cline_cli()", 1)[1]
     assert "https://deb.nodesource.com/setup_22.x" in cli
 
 
-def test_installer_removes_retired_codex_fork_helper() -> None:
-    """Any component run removes the obsolete deployed source-build adapter."""
+def test_installer_publishes_the_shared_fork_helper() -> None:
+    """ACC receives the same fork build helper the CLI installer uses."""
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
-    assert "remove_retired_codex_fork_helper()" in cli
+    assert 'source "$SCRIPT_DIR/assets/codex_fork_install.sh"' in installer
     assert "codex_fork_install.sh" in cli
-    assert "remove_retired_codex_fork_helper" in installer.split(
-        "agent_cli_preflight()", 1
-    )[1]
+    assert "remove_retired_codex_fork_helper" not in installer
 
 
 def test_installer_logging_contract_is_explicit() -> None:

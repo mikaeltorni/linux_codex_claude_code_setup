@@ -16,6 +16,8 @@ plugin explicitly, and drives the component menu for both products.
 bash install.sh --list-components
 bash install.sh --default
 bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
+bash install.sh --select codex_cli,qwen_cli,openrouter_cli
+bash scripts/sync_codex_fork.sh
 ```
 
 ### Marketplace generator
@@ -47,16 +49,19 @@ and everything else is optional:
   command inherited from another home is never reused. Cline is installed into
   an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
   its official `npm install -g cline` package without requiring sudo.
-  `codex_cli` installs the official `@openai/codex` npm package into an
-  isolated user-owned prefix and puts a plain `codex` launcher on `PATH`. If an
-  obsolete source build reports `0.0.0`, setup replaces it from npm and refuses
-  to propagate `0.0.0` to any provider prefix.
+  `codex_cli` builds the checked-out `main` branch of the user's
+  `~/projects/codex` fork and installs its binary under a user-owned prefix.
+  The installer clones a missing fork but never fetches, pulls, or merges an
+  existing checkout. When `main` changes, the next install rebuilds it with
+  visible Cargo progress and records the source revision.
+  Run `bash scripts/sync_codex_fork.sh` to check and deploy that revision to
+  all four installed Codex instances without reinstalling other CLIs.
 - `qwen_cli` — installs the local Codex (`qwen`) CLI into its isolated home
-  (`~/.codex-qwen`) using the exact npm package version reported by main
+  (`~/.codex-qwen`) using the built fork binary from main
   `codex`, and puts a plain `qwen` launcher on `PATH`. Tracking-aware `qa`
   belongs to Agent Command Center.
 - `openrouter_cli` — installs the OpenRouter Codex (`openr`) CLI into
-  `~/.codex-openrouter` using the exact npm package version reported by main
+  `~/.codex-openrouter` using the same built fork binary as main
   `codex`, and puts a plain `openr` launcher on `PATH`. Tracking-aware `oa`
   belongs to Agent Command Center.
 - `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
@@ -81,9 +86,9 @@ and everything else is optional:
   `OPENCODE_CONFIG_HOME`.
 - `agent_autoupdate` — a systemd **user** timer that, at user-manager startup
   (the first user session after a system reboot) and once a day, updates every
-  installed Codex runtime (`ca`, `qa`, `oa`, and `na`), Claude Code, and Cline
-  to the newest stable npm release that has been published for at least 24
-  hours. Codex prefixes are replaced atomically. Tune the delay via
+  installed Claude Code and Cline runtime to the newest stable release that
+  has been published for at least 24 hours. Codex remains on the local fork's
+  main branch. Tune the delay via
   `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `codex_history_sync` — installs `codexsync`, a non-destructive union merge of

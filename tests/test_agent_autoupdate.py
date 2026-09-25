@@ -1,4 +1,4 @@
-"""Contract tests for the delayed Codex/Claude/Cline auto-update component."""
+"""Contract tests for the delayed Claude/Cline auto-update component."""
 
 from __future__ import annotations
 
@@ -41,12 +41,7 @@ def test_lifecycle_functions_and_units_are_defined() -> None:
     assert "agent-autoupdate.timer" in lib
     assert "agent-autoupdate.service" in lib
     assert "systemctl --user enable --now" in lib
-    for prefix in (
-        "QWEN_CODEX_NPM_PREFIX",
-        "OPENROUTER_CODEX_NPM_PREFIX",
-        "NVIDIA_CODEX_NPM_PREFIX",
-    ):
-        assert prefix in lib
+    assert "QWEN_CODEX_NPM_PREFIX" not in lib
     assert "OnStartupSec=2min" in lib
     assert "OnUnitActiveSec=1d" in lib
 
@@ -56,8 +51,8 @@ def test_updater_script_enforces_publication_delay() -> None:
     script = ROOT / "assets" / "agent-autoupdate.sh"
     assert script.is_file()
     body = script.read_text(encoding="utf-8")
-    # Resolves the target from npm publish timestamps for both packages.
-    assert "@openai/codex" in body
+    # Codex stays on the user's local fork; only the other CLIs use npm.
+    assert "@openai/codex" not in body
     assert "@anthropic-ai/claude-code" in body
     assert 'resolve_delayed_version "cline"' in body
     assert "npm view" in body and "time --json" in body
@@ -69,14 +64,14 @@ def test_updater_script_enforces_publication_delay() -> None:
     ).returncode == 0
 
 
-def test_codex_version_probe_does_not_create_a_tracked_agent_run() -> None:
-    """Raw-prefix version probes must not trigger Codex lifecycle/TTS events."""
+def test_updater_never_probes_codex() -> None:
+    """The timer cannot alter the locally built Codex fork binary."""
     body = (ROOT / "assets" / "agent-autoupdate.sh").read_text(encoding="utf-8")
-    assert 'CODEX_AGENT_SKIP_TRACKER=1 "$binary" --version' in body
+    assert "update_codex" not in body
 
 
-def test_updater_refreshes_every_installed_codex_prefix(tmp_path: Path) -> None:
-    """The startup updater must refresh main, qa, oa, and na runtimes."""
+def test_updater_preserves_every_installed_codex_prefix(tmp_path: Path) -> None:
+    """The startup updater must leave main, qa, oa, and na runtimes intact."""
     home = tmp_path / "home"
     fake_bin = home / ".local/bin"
     config_dir = tmp_path / "config/linux_codex_claude_code_setup"
@@ -162,14 +157,11 @@ fi
         for line in (home / "npm.log").read_text(encoding="utf-8").splitlines()
         if line.startswith("install -g --prefix")
     ]
-    assert len(install_lines) == len(prefixes)
+    assert not any("@openai/codex" in line for line in install_lines)
     for prefix in prefixes.values():
-        assert str(prefix) in "\n".join(install_lines)
-        assert "codex-cli 0.144.1" in (prefix / "bin/codex").read_text(encoding="utf-8")
-    assert "Updating Codex main" in result.stdout
-    assert "Updating Codex qwen" in result.stdout
-    assert "Updating Codex openrouter" in result.stdout
-    assert "Updating Codex nvidia" in result.stdout
+        assert str(prefix) not in "\n".join(install_lines)
+        assert "codex-cli 0.144.0" in (prefix / "bin/codex").read_text(encoding="utf-8")
+    assert "Updating Codex" not in result.stdout
 
 
 def test_updater_never_reuses_claude_outside_target_home(tmp_path: Path) -> None:
