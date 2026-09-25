@@ -71,7 +71,7 @@ def generate(defaults_path: Path, prompts_root: Path, output: Path) -> None:
             "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
             "name": marketplace["name"],
             "description": "Shared programming workflow skills for Claude Code and Codex",
-            "owner": {"name": "Mikael Torni"},
+            "owner": {"name": "Mikael Törni"},
             "plugins": claude_plugins,
         },
     )
