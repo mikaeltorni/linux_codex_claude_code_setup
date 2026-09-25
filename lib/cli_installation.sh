@@ -49,79 +49,23 @@ ensure_nodejs_22() {
   fi
 }
 
-# Install the main Codex npm package and print its raw binary path. Shared by
+# Install the main Codex fork binary and print its raw binary path. Shared by
 # codex_cli and codex_wrapper so either component can be selected on its own and
 # still find (or install) the underlying binary.
 ensure_codex_binary() {
   # Callers capture this function's stdout to read the binary path, so every
   # noisy install command must write to stderr (still logged/visible) and only
   # the resolved path may reach stdout.
-  ensure_nodejs_22 1>&2 || return 1
-  run_as_target mkdir -p "$CODEX_NPM_PREFIX" 1>&2
-  npm_install_prefix_atomic "$CODEX_NPM_PREFIX" @openai/codex 1>&2 || return 1
-  local raw_codex="$CODEX_NPM_PREFIX/bin/codex"
-  [[ -x "$raw_codex" ]] || { echo "Codex installation failed: $raw_codex" >&2; return 1; }
-  printf '%s' "$raw_codex"
-}
-
-# codex_main_version - print the semantic package version used by main Codex.
-#
-# Installs main Codex first when a provider component is selected on its own.
-# Provider prefixes use this value verbatim so they never drift from main. A
-# broken 0.0.0 main binary is replaced from npm before the version is returned.
-codex_main_version() {
-  local raw_codex="$CODEX_NPM_PREFIX/bin/codex" version=""
-  if [ ! -x "$raw_codex" ]; then
-    raw_codex="$(ensure_codex_binary)" || return 1
-  fi
-  version="$(
-    run_as_target env CODEX_AGENT_SKIP_TRACKER=1 "$raw_codex" --version 2>/dev/null |
-      grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1
-  )"
-  if [ "$version" = "0.0.0" ]; then
-    log "warn" "Main Codex reports unsupported version 0.0.0; replacing it from npm"
-    raw_codex="$(ensure_codex_binary)" || return 1
-    version="$(
-      run_as_target env CODEX_AGENT_SKIP_TRACKER=1 "$raw_codex" --version 2>/dev/null |
-        grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | head -1
-    )"
-  fi
-  if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
-    log "error" "Could not resolve the main Codex version from $raw_codex"
-    return 1
-  fi
-  if [ "$version" = "0.0.0" ]; then
-    log "error" "Refusing unsupported main Codex version 0.0.0 after npm replacement"
-    return 1
-  fi
-  printf '%s' "$version"
-}
-
-# install_codex_main_version_to_prefix PREFIX - atomically install the exact
-# @openai/codex package version currently used by the main Codex runtime.
-install_codex_main_version_to_prefix() {
-  local prefix="$1" version
-  version="$(codex_main_version)" || return 1
-  run_as_target mkdir -p "$prefix"
-  npm_install_prefix_atomic "$prefix" "@openai/codex@$version"
-}
-
-# remove_retired_codex_fork_helper - remove the previously deployed source-build
-# adapter. The master installer still clones the fork, but this CLI installer no
-# longer reads or mutates it.
-remove_retired_codex_fork_helper() {
-  local helper="$TARGET_HOME/.local/share/linux_codex_claude_code_setup/codex_fork_install.sh"
-  if [ -e "$helper" ]; then
-    msg "Removing retired Codex fork build helper"
-    run_as_target rm -f "$helper"
-  fi
+  run_as_target install -D -m 0644 "$SCRIPT_DIR/assets/codex_fork_install.sh" \
+    "$TARGET_HOME/.local/share/linux_codex_claude_code_setup/codex_fork_install.sh" 1>&2 || return 1
+  codex_fork_install_main
 }
 
 # Core Codex CLI component: install the raw binary and expose `codex` on PATH via
 # a plain launcher. The tracking-aware wrapper is the separate codex_wrapper
 # component; without it the raw Codex still runs end to end.
 install_codex_cli() {
-  msg "Installing Codex CLI (@openai/codex)"
+  msg "Installing Codex CLI from local fork main"
   local raw_codex
   raw_codex="$(ensure_codex_binary)" || return 1
   install_codex_plain_launcher "$raw_codex"

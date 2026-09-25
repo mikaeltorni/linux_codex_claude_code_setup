@@ -142,7 +142,7 @@ install_openrouter_cli() {
     run_as_target mkdir -p "$OPENROUTER_CODEX_HOME" "$OPENROUTER_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   fi
   run_as_target mkdir -p "$OPENROUTER_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  install_codex_main_version_to_prefix "$OPENROUTER_CODEX_NPM_PREFIX" >/dev/null || return 1
+  codex_fork_install_to_prefix "$OPENROUTER_CODEX_NPM_PREFIX" >/dev/null || return 1
 
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \

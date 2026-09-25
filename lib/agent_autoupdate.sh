@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agent_autoupdate.sh - Optional component: a systemd user timer that updates
-# every installed Codex runtime, Claude Code, and Cline to the newest stable
+# Claude Code and Cline to the newest stable
 # release published at least AGENT_AUTOUPDATE_DELAY_HOURS (default 24h) ago.
 #
 # Neither npm nor `claude install/update` exposes a native publish-delay flag, so
@@ -16,15 +16,12 @@ AGENT_AUTOUPDATE_SYSTEMD_DIR="$TARGET_HOME/.config/systemd/user"
 AGENT_AUTOUPDATE_SERVICE="agent-autoupdate.service"
 AGENT_AUTOUPDATE_TIMER="agent-autoupdate.timer"
 AGENT_AUTOUPDATE_DELAY_HOURS="${AGENT_AUTOUPDATE_DELAY_HOURS:-24}"
-AGENT_AUTOUPDATE_QWEN_NPM_PREFIX="${QWEN_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-qwen}"
-AGENT_AUTOUPDATE_OPENROUTER_NPM_PREFIX="${OPENROUTER_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-openrouter}"
-AGENT_AUTOUPDATE_NVIDIA_NPM_PREFIX="${NVIDIA_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-nvidia}"
 
 # install_agent_autoupdate - install the updater script, its env file, and the
 # user service+timer, then enable the timer. Best-effort systemctl calls so a
 # headless or session-less install still records the units for the next login.
 install_agent_autoupdate() {
-  msg "Installing delayed agent auto-update (all Codex runtimes + Claude Code + Cline, ${AGENT_AUTOUPDATE_DELAY_HOURS}h delay)"
+  msg "Installing delayed agent auto-update (Claude Code + Cline, ${AGENT_AUTOUPDATE_DELAY_HOURS}h delay)"
 
   run_as_target mkdir -p "$AGENT_AUTOUPDATE_SHARE_DIR" "$AGENT_AUTOUPDATE_CONFIG_DIR" "$AGENT_AUTOUPDATE_SYSTEMD_DIR"
   run_as_target cp "$SCRIPT_DIR/assets/agent-autoupdate.sh" "$AGENT_AUTOUPDATE_SCRIPT"
@@ -38,16 +35,12 @@ install_agent_autoupdate() {
 # Only releases published at least this many hours ago are installed, so a freshly
 # published (possibly compromised) version is never taken on its release day.
 AGENT_AUTOUPDATE_DELAY_HOURS=$AGENT_AUTOUPDATE_DELAY_HOURS
-CODEX_NPM_PREFIX=$CODEX_NPM_PREFIX
-QWEN_CODEX_NPM_PREFIX=$AGENT_AUTOUPDATE_QWEN_NPM_PREFIX
-OPENROUTER_CODEX_NPM_PREFIX=$AGENT_AUTOUPDATE_OPENROUTER_NPM_PREFIX
-NVIDIA_CODEX_NPM_PREFIX=$AGENT_AUTOUPDATE_NVIDIA_NPM_PREFIX
 CLINE_NPM_PREFIX=$CLINE_NPM_PREFIX
 EOF
 
   run_as_target tee "$AGENT_AUTOUPDATE_SYSTEMD_DIR/$AGENT_AUTOUPDATE_SERVICE" >/dev/null <<EOF
 [Unit]
-Description=Delayed auto-update for all Codex runtimes, Claude Code, and Cline
+Description=Delayed auto-update for Claude Code and Cline
 After=default.target
 [Service]
 Type=oneshot
@@ -56,7 +49,7 @@ EOF
 
   run_as_target tee "$AGENT_AUTOUPDATE_SYSTEMD_DIR/$AGENT_AUTOUPDATE_TIMER" >/dev/null <<EOF
 [Unit]
-Description=Run delayed auto-update for all Codex runtimes, Claude Code, and Cline at user startup and daily
+Description=Run delayed auto-update for Claude Code and Cline at user startup and daily
 [Timer]
 # Fire shortly after the per-user service manager starts. User managers normally
 # start at the first login after a system reboot, so this is the boot-adjacent
