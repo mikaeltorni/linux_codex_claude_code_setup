@@ -85,13 +85,10 @@ and everything else is optional:
   `OPENCODE_CONFIG_HOME`.
 - `agent_autoupdate` — a systemd **user** timer that, at user-manager startup
   (the first user session after a system reboot) and once a day, updates every
-  installed Codex runtime (`ca`, `qa`, `oa`, and `na`) from the local fork,
-  while merging the newest stable upstream Codex release that has been
-  published for at least 24 hours. The updater builds that merged source once
-  and atomically replaces each installed binary. Claude Code and Cline continue
-  to use delayed npm publication timestamps. Dirty fork source, an unmergeable
-  history, or a failed build leaves installed Codex binaries untouched. For
-  file conflicts, the updater keeps the existing fork version. Tune the delay via
+  installed Codex runtime (`ca`, `qa`, `oa`, and `na`), Claude Code, and Cline
+  to the newest stable npm release that has been published for at least 24
+  hours. Codex prefixes are replaced atomically; the updater never fetches,
+  merges, or otherwise modifies the local Codex fork. Tune the delay via
   `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `codex_history_sync` — installs `codexsync`, a non-destructive union merge of
