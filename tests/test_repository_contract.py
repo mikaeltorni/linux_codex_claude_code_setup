@@ -21,18 +21,7 @@ COMMON_DIR = Path(
 )
 PROJECTS = COMMON_DIR.parent.parent
 PROMPTS = PROJECTS / "programming_prompts"
-ACC = next(
-    (
-        candidate
-        for candidate in (
-            PROJECTS
-            / ".worktrees/agent_command_center/agent_command_center_feat-codex-fork-install",
-            PROJECTS / "agent_command_center",
-        )
-        if candidate.is_dir()
-    ),
-    PROJECTS / "agent_command_center",
-)
+ACC = PROJECTS / "agent_command_center"
 ORCHESTRATOR = PROJECTS / "installation_scripts"
 
 
@@ -228,22 +217,24 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
 
 
-def test_codex_builds_from_the_fork_while_cline_keeps_nodejs_22() -> None:
-    """Codex uses the local Rust build; Node.js remains a Cline dependency."""
+def test_codex_uses_atomic_npm_install_and_nodejs_22() -> None:
+    """Main Codex and Cline use npm with the standalone Node.js fallback."""
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
-    assert "codex_fork_install_to_prefix \"$CODEX_NPM_PREFIX\"" in cli
+    assert 'npm_install_prefix_atomic "$CODEX_NPM_PREFIX" @openai/codex' in cli
+    assert "install_codex_main_version_to_prefix" in cli
     assert "ensure_nodejs_22" in cli.split("install_cline_cli()", 1)[1]
     assert "https://deb.nodesource.com/setup_22.x" in cli
-    assert 'npm_install_prefix_atomic "$CODEX_NPM_PREFIX"' not in cli
 
 
-def test_codex_fork_helper_is_installed_for_shared_consumers() -> None:
-    """ACC and the delayed updater receive the same source-build helper."""
-    helper = (ROOT / "assets" / "codex_fork_install.sh").read_text(encoding="utf-8")
-    assert "codex_fork_publish_helper" in helper
-    assert "codex_fork_install_to_prefix" in helper
-    assert "codex-rs/target/release/codex" in helper
-    assert "codex-fork-revision" in helper
+def test_installer_removes_retired_codex_fork_helper() -> None:
+    """Any component run removes the obsolete deployed source-build adapter."""
+    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
+    cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
+    assert "remove_retired_codex_fork_helper()" in cli
+    assert "codex_fork_install.sh" in cli
+    assert "remove_retired_codex_fork_helper" in installer.split(
+        "agent_cli_preflight()", 1
+    )[1]
 
 
 def test_installer_logging_contract_is_explicit() -> None:

@@ -72,16 +72,44 @@ def test_cli_installers_do_not_emit_acc_shorthand_dispatchers() -> None:
             assert f"/.local/bin/{marker} " not in source
 
 
-def test_isolated_codex_instances_refresh_local_fork_on_rerun() -> None:
-    """Existing Qwen/OpenRouter homes receive the local fork on every rerun."""
+def test_isolated_codex_instances_refresh_main_version_on_rerun() -> None:
+    """Existing Qwen/OpenRouter homes receive main Codex's version on rerun."""
     qwen = (ROOT / "lib" / "qwen_cli.sh").read_text(encoding="utf-8")
     openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
     for source in (qwen, openrouter):
         install_body = source.split("install_", 1)[1]
-        # The source build/install must still run unconditionally after the
-        # "home already exists" branch, so a rerun refreshes the CLI.
-        assert "codex_fork_install_to_prefix \"$" in install_body
-        assert install_body.index("codex_fork_install_to_prefix") > install_body.index("fi")
+        assert 'install_codex_main_version_to_prefix "$' in install_body
+        assert install_body.index("install_codex_main_version_to_prefix") > install_body.index("fi")
+
+
+def test_provider_install_resolves_exact_version_from_main(tmp_path: Path) -> None:
+    """Provider npm specs must use the version reported by main Codex."""
+    main_prefix = tmp_path / "main"
+    provider_prefix = tmp_path / "provider"
+    main_binary = main_prefix / "bin" / "codex"
+    main_binary.parent.mkdir(parents=True)
+    main_binary.write_text(
+        "#!/usr/bin/env bash\n"
+        "[ \"$#\" -eq 1 ] && [ \"$1\" = --version ] || exit 64\n"
+        "printf 'codex-cli 1.2.3\\n'\n",
+        encoding="utf-8",
+    )
+    main_binary.chmod(0o755)
+    result = run(
+        "bash",
+        "-c",
+        f"""
+        set -euo pipefail
+        CODEX_NPM_PREFIX={main_prefix!s}
+        run_as_target() {{ "$@"; }}
+        npm_install_prefix_atomic() {{ printf '%s\\n' "$2"; }}
+        log() {{ printf '%s\\n' "$*" >&2; }}
+        source lib/cli_installation.sh
+        install_codex_main_version_to_prefix {provider_prefix!s}
+        """,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "@openai/codex@1.2.3"
 
 
 def test_acc_manifest_does_not_own_core_clis() -> None:

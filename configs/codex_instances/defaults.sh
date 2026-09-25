@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # defaults.sh — Plain Codex instance defaults for qwen and openr CLI components.
 
-# Pin isolated Codex npm installs to the same CLI version ACC uses so prompt
-# behavior stays consistent when both repositories are installed.
-CODEX_CLI_VERSION="${CODEX_CLI_VERSION:-0.144.0}"
-
 # ── Local Codex (qwen) ───────────────────────────────────────────────────────
 QWEN_CODEX_COMMAND="qwen"
 QWEN_CODEX_CONTEXT_WINDOW="40960"
