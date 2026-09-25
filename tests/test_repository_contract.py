@@ -85,6 +85,7 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         "init-project",
         "refactoring",
         "setup-repository-guidelines",
+        "ssh-vm",
     }
     assert all(entry["skill"] for entry in defaults["plugins"])
     # Only the guidelines may add an always-loaded instruction block. Native
@@ -99,6 +100,7 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     assert always_on == {"general-programming-guidelines"}
     assert not (PROMPTS / "plugins/ssh-vm/install/global-instructions.md").exists()
     assert next(entry for entry in defaults["plugins"] if entry["plugin"] == "ssh-vm")["default"] is True
+    assert next(entry for entry in defaults["plugins"] if entry["plugin"] == "ssh-vm")["kind"] == "skill"
     dispatch_on = {
         entry["plugin"]
         for entry in defaults["plugins"]
@@ -136,11 +138,12 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
         "skill-init-project",
         "skill-refactoring",
         "skill-setup-repository-guidelines",
+        "skill-ssh-vm",
     } <= ids
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
         encoding="utf-8"
     )
-    assert "plugin uninstall" not in plugin_installer
+    assert 'plugin uninstall --scope user "$selector"' in plugin_installer
 
 
 def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
@@ -154,6 +157,8 @@ def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
     assert rows["skill-init-project"][3] == "Skills"
     assert rows["skill-refactoring"][3] == "Skills"
     assert rows["skill-setup-repository-guidelines"][3] == "Skills"
+    assert rows["skill-ssh-vm"][3] == "Skills"
+    assert "plugin-ssh-vm" not in rows
     ids = list(rows)
     plugin_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("plugin-")]
     skill_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("skill-")]
@@ -205,7 +210,7 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
         else:
             assert state == "on", f"{component_id} must stay default-on"
     assert states["skill-general-programming-guidelines"] == "on"
-    assert states["plugin-ssh-vm"] == "on"
+    assert states["skill-ssh-vm"] == "on"
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
@@ -484,4 +489,4 @@ def test_dispatch_skill_source_resolution_is_shared() -> None:
     """Every harness installer resolves skill sources through one helper."""
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     assert installer.count("resolve_prompt_skill_source()") == 1
-    assert installer.count('"$(resolve_prompt_skill_source ') == 3
+    assert installer.count('"$(resolve_prompt_skill_source ') == 4

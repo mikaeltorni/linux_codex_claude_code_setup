@@ -100,8 +100,9 @@ and everything else is optional:
   agents, and MCP definitions remain discoverable even when Claude Code is not
   selected. opencode receives the same treatment natively under
   `~/.config/opencode/skills/` and `~/.config/opencode/plugins/`. The SSH VM
-  plugin installs by default and loads only when remote SSH deployment or
-  testing is relevant.
+  native skill installs by default and loads only when remote SSH deployment or
+  testing is relevant. Migrating it removes only its previous managed plugin
+  registrations and links.
 - The default `general-programming-guidelines` skill is merged as the complete
   current `SKILL.md` into each runtime's managed instruction block, not merely
   referenced by a short tag. Normal component installs and the standalone
