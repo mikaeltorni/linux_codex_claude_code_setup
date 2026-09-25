@@ -18,6 +18,22 @@ bash install.sh --default
 bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
 ```
 
+### Marketplace generator
+
+`scripts/generate_marketplaces.py` reads `default.json` and plugin manifests
+under `--prompts-root`, then writes local Claude and Codex catalogs and plugin
+links under `--output`:
+
+```bash
+python3 scripts/generate_marketplaces.py \
+  --defaults default.json \
+  --prompts-root ~/projects/programming_prompts \
+  --output ~/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace
+```
+
+All three options are required paths. Normal setup runs through `bash install.sh`,
+which invokes the generator with managed paths.
+
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
 Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
 models and tracking-aware launchers belong to Agent Command Center, not this
