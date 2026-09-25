@@ -62,9 +62,6 @@ source "$SCRIPT_DIR/lib/logging.sh"
 # concurrently launched agent. run_as_target keeps sudo installs user-owned.
 source "$SCRIPT_DIR/assets/npm_atomic_install.sh"
 NPM_ATOMIC_RUNNER=run_as_target
-# Shared source-build installer used by the native CLI components, ACC provider
-# instances, and the delayed updater.
-source "$SCRIPT_DIR/assets/codex_fork_install.sh"
 # Embedded into the generated CLI wrappers with declare -f.
 source "$SCRIPT_DIR/lib/cli_wait.sh"
 source "$SCRIPT_DIR/lib/cli_installation.sh"
@@ -77,6 +74,7 @@ source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 
 agent_cli_preflight() {
+  remove_retired_codex_fork_helper
   ensure_programming_prompts
 }
 

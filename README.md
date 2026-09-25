@@ -47,22 +47,16 @@ and everything else is optional:
   command inherited from another home is never reused. Cline is installed into
   an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
   its official `npm install -g cline` package without requiring sudo.
-  `codex_cli` builds the Rust CLI from the fork checkout at
-  `~/projects/codex` and puts a plain `codex` launcher on `PATH`. If the checkout
-  is missing, the installer clones `CODEX_FORK_REPOSITORY_URL` (defaulting to
-  `https://github.com/mikaeltorni/codex.git`). Set `CODEX_FORK_DIR` to use a
-  different local checkout. Existing checkouts are never reset or updated by
-  installation; uncommitted changes stop the build so the installed binary has
-  a clear source revision. Rustup is installed for the target user when needed,
-  and Codex's pinned toolchain is read from `codex-rs/rust-toolchain.toml`.
-  The shared root-optional package helper supplies Git, C/C++ build tools,
-  CMake, and pkg-config when needed.
+  `codex_cli` installs the official `@openai/codex` npm package into an
+  isolated user-owned prefix and puts a plain `codex` launcher on `PATH`.
 - `qwen_cli` — installs the local Codex (`qwen`) CLI into its isolated home
-  (`~/.codex-qwen`) from the same local fork build and puts a plain `qwen`
-  launcher on `PATH`. Tracking-aware `qa` belongs to Agent Command Center.
+  (`~/.codex-qwen`) using the exact npm package version reported by main
+  `codex`, and puts a plain `qwen` launcher on `PATH`. Tracking-aware `qa`
+  belongs to Agent Command Center.
 - `openrouter_cli` — installs the OpenRouter Codex (`openr`) CLI into
-  `~/.codex-openrouter` from the same local fork build and puts a plain `openr`
-  launcher on `PATH`. Tracking-aware `oa` belongs to Agent Command Center.
+  `~/.codex-openrouter` using the exact npm package version reported by main
+  `codex`, and puts a plain `openr` launcher on `PATH`. Tracking-aware `oa`
+  belongs to Agent Command Center.
 - `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
   then promotes the binary to Grok's **alpha** release channel (`grok update
   --alpha`) so clean installs track pre-stable builds. Override
@@ -87,8 +81,7 @@ and everything else is optional:
   (the first user session after a system reboot) and once a day, updates every
   installed Codex runtime (`ca`, `qa`, `oa`, and `na`), Claude Code, and Cline
   to the newest stable npm release that has been published for at least 24
-  hours. Codex prefixes are replaced atomically; the updater never fetches,
-  merges, or otherwise modifies the local Codex fork. Tune the delay via
+  hours. Codex prefixes are replaced atomically. Tune the delay via
   `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `codex_history_sync` — installs `codexsync`, a non-destructive union merge of
