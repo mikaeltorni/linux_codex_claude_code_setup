@@ -12,7 +12,7 @@ ISC_COMPONENTS=(
   "qwen_cli|Local Codex (qwen) CLI|on|install_qwen_cli|detect_qwen_cli|uninstall_qwen_cli|CLIs"
   "openrouter_cli|OpenRouter Codex (openr) CLI|on|install_openrouter_cli|detect_openrouter_cli|uninstall_openrouter_cli|CLIs"
   "opencode_cli|opencode CLI|on|install_opencode_cli|detect_opencode_cli|uninstall_opencode_cli|CLIs"
-  "agent_autoupdate|Delayed CLI auto-update timer (24h supply-chain delay)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate|Configuration"
+  "agent_autoupdate|Delayed Claude/Cline auto-update timer (24h supply-chain delay)|on|install_agent_autoupdate|detect_agent_autoupdate|uninstall_agent_autoupdate|Configuration"
   "codex_history_sync|codexsync cross-provider chat-history merge|on|install_codex_history_sync|detect_codex_history_sync|uninstall_codex_history_sync|Configuration"
 )
 

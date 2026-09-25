@@ -5,11 +5,10 @@
 # Why this exists: `npm install -g --prefix <live-prefix> <pkg>` mutates the
 # prefix in place. While npm removes and re-extracts the package, both
 # <prefix>/bin/<cmd> and its link target are absent for seconds at a time. The
-# tracking-aware `codex` wrapper execs that path directly, so any agent launched
-# during an install.sh run or an auto-update run died with:
+# Cline launcher execs that path directly, so a launch during installation or
+# auto-update could die with:
 #
-#   ~/.local/bin/codex: line NN: .../npm/bin/codex: No such file or directory
-#   [acc] Agent exited (127)
+#   ~/.local/bin/cline: .../cline-npm/bin/cline: No such file or directory
 #
 # Instead we install into a sibling staging prefix and swap it in with renames,
 # so the live path flips from the old tree straight to the new one and a
@@ -18,8 +17,8 @@
 # Each managed prefix is dedicated to exactly one package, so replacing the
 # whole prefix directory is equivalent to replacing that package.
 #
-# Sourced by lib/cli_installation.sh, lib/qwen_cli.sh, lib/openrouter_cli.sh and
-# by the deployed assets/agent-autoupdate.sh.
+# Sourced by install.sh for Cline installation and by the deployed
+# assets/agent-autoupdate.sh for Cline updates.
 #
 # Optional caller hooks:
 #   NPM_ATOMIC_RUNNER - command prefix used to run every step (the installer
@@ -89,7 +88,7 @@ npm_atomic_exchange() {
 #
 # Args:
 #   prefix - the live npm prefix directory to end up holding the package.
-#   spec   - the npm package spec (e.g. "@openai/codex" or "cline@3.0.61").
+#   spec   - the npm package spec (e.g. "cline@3.0.61").
 #
 # Returns 0 when <prefix> holds the newly installed package. On any failure the
 # previous installation is left untouched and 1 is returned, so a broken network

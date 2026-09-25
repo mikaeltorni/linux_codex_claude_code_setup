@@ -28,8 +28,7 @@ export PATH="$HOME/.local/bin:$CLINE_NPM_PREFIX/bin:$PATH"
 log() { printf '%s agent-autoupdate: %s\n' "$(date -Is)" "$*"; }
 
 # Staged npm installs, deployed next to this script by install_agent_autoupdate.
-# Without it an update would blank out a live bin/codex mid-extraction and any
-# agent launched in that window would die with a bare 127.
+# Without it an update could blank out the live Cline launcher mid-extraction.
 # shellcheck source=/dev/null
 NPM_ATOMIC_INSTALL_LIB="${NPM_ATOMIC_INSTALL_LIB:-$(dirname "$(readlink -f "$0")")/npm_atomic_install.sh}"
 if [ -r "$NPM_ATOMIC_INSTALL_LIB" ]; then

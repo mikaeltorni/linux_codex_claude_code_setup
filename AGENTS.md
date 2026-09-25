@@ -12,7 +12,8 @@ of truth for per-skill defaults and must never be gitignored. opencode provider
 authentication is not managed here — it is left to opencode's own
 `opencode auth login`; no API key is read or written by the installer.
 
-This repository owns the raw Codex and Cline npm installations, the Grok CLI,
+This repository builds the raw Codex CLI from the local fork's checked-out
+`main` branch and owns the Cline npm installation, the Grok CLI,
 the opencode CLI (official installer, `~/.config/opencode` model/variant
 defaults, `permission: allow` yolo mode),
 generated
