@@ -236,6 +236,37 @@ def test_cleanup_legacy_honors_alternate_codex_home_and_broken_links(
     assert not (home / ".codex").exists()
 
 
+def test_native_skill_migration_removes_only_managed_plugin_state(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    prompts = tmp_path / "programming_prompts"
+    old_bundle = prompts / "plugins" / "ssh-vm"
+    settings = home / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(
+        json.dumps({"theme": "dark", "enabledPlugins": {
+            "ssh-vm@programming-prompts": True,
+            "other@programming-prompts": True,
+        }}),
+        encoding="utf-8",
+    )
+    for relative in (".cline/plugins", ".grok/plugins", ".config/opencode/plugins"):
+        target = home / relative / "ssh-vm"
+        target.parent.mkdir(parents=True)
+        os.symlink(old_bundle, target)
+    unrelated = home / ".grok" / "plugins" / "other"
+    os.symlink(tmp_path / "other", unrelated)
+
+    plugin_defaults.cleanup_migrated_plugin(home, prompts, "ssh-vm", "programming-prompts")
+    plugin_defaults.cleanup_migrated_plugin(home, prompts, "ssh-vm", "programming-prompts")
+
+    for relative in (".cline/plugins", ".grok/plugins", ".config/opencode/plugins"):
+        assert not (home / relative / "ssh-vm").is_symlink()
+    assert unrelated.is_symlink()
+    result = json.loads(settings.read_text(encoding="utf-8"))
+    assert result == {"theme": "dark", "enabledPlugins": {"other@programming-prompts": True}}
+    assert settings.stat().st_mode & 0o777 == 0o600
+
+
 def test_cursor_skill_installs_idempotently_and_preserves_user_content(tmp_path: Path) -> None:
     """Cursor receives native skills, while unrelated user files stay untouched."""
     home = tmp_path / "home"

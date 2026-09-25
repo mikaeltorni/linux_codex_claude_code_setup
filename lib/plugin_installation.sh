@@ -297,7 +297,7 @@ install_plugin_global_instructions() {
 }
 
 remove_marketplace_plugin_installations() {
-  local plugin_name="$1" codex_bin selector codex_home
+  local plugin_name="$1" codex_bin claude_bin selector codex_home
   codex_bin="$(resolve_target_binary codex)"
   selector="$plugin_name@$PROGRAMMING_PROMPTS_MARKETPLACE"
   for codex_home in $(target_codex_homes); do
@@ -307,6 +307,12 @@ remove_marketplace_plugin_installations() {
       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
     fi
   done
+  claude_bin="$(resolve_target_binary claude)"
+  if [[ -x "$claude_bin" ]] &&
+     run_as_target "$claude_bin" plugin list --json |
+       python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("id")==s for x in json.load(sys.stdin)))' "$selector"; then
+    run_target_claude_plugin "$claude_bin" plugin uninstall --scope user "$selector"
+  fi
 }
 
 remove_legacy_plugin_installations() {
@@ -390,6 +396,10 @@ install_manifest_free_skill() {
   ensure_programming_prompts
   remove_marketplace_plugin_installations "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
+  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    --defaults "$SCRIPT_DIR/default.json" cleanup-migrated-plugin \
+    "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" \
+    "$PROGRAMMING_PROMPTS_MARKETPLACE"
   for codex_home in $(target_codex_homes); do
     run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
       --defaults "$SCRIPT_DIR/default.json" install-direct-skill \

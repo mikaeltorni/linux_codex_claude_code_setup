@@ -292,6 +292,38 @@ def cleanup_legacy_plugin_files(
 
 
 @log_call(LOGGER)
+def cleanup_migrated_plugin(
+    home: Path, prompts_root: Path, plugin_name: str, marketplace_name: str
+) -> None:
+    """Remove a native skill's former managed bundle links and Claude selection.
+
+    Args:
+        home: Target user's home directory.
+        prompts_root: Root of the programming_prompts checkout.
+        plugin_name: Former plugin identifier.
+        marketplace_name: Marketplace that supplied the former Claude plugin.
+    """
+    if not NAME.fullmatch(plugin_name) or not NAME.fullmatch(marketplace_name):
+        raise ValueError("invalid migrated plugin or marketplace name")
+    old_bundle = (prompts_root / "plugins" / plugin_name).resolve(strict=False)
+    for parent in (".cline/plugins", ".grok/plugins", ".config/opencode/plugins"):
+        link = home / parent / plugin_name
+        if link.is_symlink() and link.resolve(strict=False) == old_bundle:
+            link.unlink()
+            LOGGER.info("Removed migrated plugin link %s", link)
+
+    settings_path = home / ".claude" / "settings.json"
+    if settings_path.is_file():
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        enabled = settings.get("enabledPlugins")
+        selector = f"{plugin_name}@{marketplace_name}"
+        if isinstance(enabled, dict) and selector in enabled:
+            del enabled[selector]
+            atomic_json(settings_path, settings)
+            LOGGER.info("Removed migrated Claude plugin selection %s", selector)
+
+
+@log_call(LOGGER)
 def install_direct_skill(
     home: Path,
     prompts_root: Path,
@@ -647,6 +679,11 @@ def main() -> None:
     cleanup.add_argument("plugin_name")
     cleanup.add_argument("skill_name")
     cleanup.add_argument("--codex-home", type=Path, default=None)
+    migrated = subparsers.add_parser("cleanup-migrated-plugin")
+    migrated.add_argument("home", type=Path)
+    migrated.add_argument("prompts_root", type=Path)
+    migrated.add_argument("plugin_name")
+    migrated.add_argument("marketplace_name")
     direct_skill = subparsers.add_parser("install-direct-skill")
     direct_skill.add_argument("home", type=Path)
     direct_skill.add_argument("prompts_root", type=Path)
@@ -717,6 +754,10 @@ def main() -> None:
             args.plugin_name,
             args.skill_name,
             args.codex_home,
+        )
+    elif args.command == "cleanup-migrated-plugin":
+        cleanup_migrated_plugin(
+            args.home, args.prompts_root, args.plugin_name, args.marketplace_name
         )
     elif args.command == "install-direct-skill":
         install_direct_skill(
