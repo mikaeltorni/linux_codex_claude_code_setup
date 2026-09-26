@@ -95,7 +95,7 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         for entry in defaults["plugins"]
         if entry.get("kind") == "dispatch-skill"
     }
-    assert dispatch_on == {"github-seo"}
+    assert dispatch_on == {"github-seo", "github-portfolio-scan"}
 
 
 def test_programming_prompts_is_content_only() -> None:
@@ -449,8 +449,10 @@ def test_dispatch_skills_are_configured_and_present() -> None:
         if entry.get("kind") == "dispatch-skill"
     }
     assert "github-seo" in dispatch
+    assert "github-portfolio-scan" in dispatch
     assert dispatch <= dispatch_skill_names()
     assert (PROMPTS / "dispatch-skills" / "github-seo" / "SKILL.md").is_file()
+    assert (PROMPTS / "dispatch-skills" / "github-portfolio-scan" / "SKILL.md").is_file()
 
 
 def test_dispatch_skills_get_their_own_menu_section() -> None:
@@ -464,6 +466,8 @@ def test_dispatch_skills_get_their_own_menu_section() -> None:
     }
     assert "dispatch-skill-github-seo" in rows
     assert rows["dispatch-skill-github-seo"][3] == "Dispatch Skills"
+    assert "dispatch-skill-github-portfolio-scan" in rows
+    assert rows["dispatch-skill-github-portfolio-scan"][3] == "Dispatch Skills"
 
 
 def test_dispatch_skills_never_merge_into_instruction_files() -> None:

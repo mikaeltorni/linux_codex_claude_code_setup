@@ -13,6 +13,7 @@
     {"plugin": "ssh-vm", "skill": "ssh-vm", "label": "SSH VM", "default": true, "kind": "skill"},
     {"plugin": "refactoring", "skill": "refactoring", "label": "Refactoring", "default": false, "kind": "skill"},
     {"plugin": "setup-repository-guidelines", "skill": "setup-repository-guidelines", "label": "Setup Repository Guidelines", "default": false, "kind": "skill"},
-    {"plugin": "github-seo", "skill": "github-seo", "label": "GitHub SEO (dispatch)", "default": true, "kind": "dispatch-skill"}
+    {"plugin": "github-seo", "skill": "github-seo", "label": "GitHub SEO (dispatch)", "default": true, "kind": "dispatch-skill"},
+    {"plugin": "github-portfolio-scan", "skill": "github-portfolio-scan", "label": "GitHub Portfolio Scan (dispatch)", "default": true, "kind": "dispatch-skill"}
   ]
 }
