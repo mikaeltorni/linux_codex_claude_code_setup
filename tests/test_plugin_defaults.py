@@ -437,3 +437,12 @@ def test_committed_defaults_ship_the_seo_dispatch_skill() -> None:
     seo = entries["github-seo"]
     assert seo["kind"] == "dispatch-skill"
     assert seo["default"] is True
+
+
+def test_committed_defaults_ship_the_portfolio_scan_dispatch_skill() -> None:
+    """The repository default catalog exposes the GitHub portfolio-scan dispatch skill."""
+    entries = {entry["plugin"]: entry for entry in defaults()["plugins"]}
+    scan = entries["github-portfolio-scan"]
+    assert scan["kind"] == "dispatch-skill"
+    assert scan["skill"] == "github-portfolio-scan"
+    assert scan["default"] is True
