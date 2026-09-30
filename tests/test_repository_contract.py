@@ -86,7 +86,7 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         if entry["default"] is True
         and (PROMPTS / "global-instructions" / f"{entry['plugin']}.md").exists()
     }
-    assert always_on == {"general-programming-guidelines"}
+    assert always_on == set()
     assert not (PROMPTS / "plugins/ssh-vm/install/global-instructions.md").exists()
     assert next(entry for entry in defaults["plugins"] if entry["plugin"] == "ssh-vm")["default"] is True
     assert next(entry for entry in defaults["plugins"] if entry["plugin"] == "ssh-vm")["kind"] == "skill"
@@ -192,13 +192,14 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
         "skill-init-project",
         "skill-refactoring",
         "skill-setup-repository-guidelines",
+        "skill-general-programming-guidelines",
     }
     for component_id, state in pairs:
         if component_id in opt_in_prompts:
             assert state == "off", f"{component_id} must be opt-in"
         else:
             assert state == "on", f"{component_id} must stay default-on"
-    assert states["skill-general-programming-guidelines"] == "on"
+    assert states["skill-general-programming-guidelines"] == "off"
     assert states["skill-ssh-vm"] == "on"
 
 

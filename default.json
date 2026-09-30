@@ -7,7 +7,7 @@
   },
   "plugins": [
     {"plugin": "commit-guidelines", "skill": "commit", "label": "Commit Guidelines", "default": false, "kind": "plugin"},
-    {"plugin": "general-programming-guidelines", "skill": "general-programming-guidelines", "label": "General Programming Guidelines", "default": true, "kind": "skill"},
+    {"plugin": "general-programming-guidelines", "skill": "general-programming-guidelines", "label": "General Programming Guidelines (retired)", "default": false, "kind": "skill"},
     {"plugin": "init-project", "skill": "init-project", "label": "Init Project", "default": false, "kind": "skill"},
     {"plugin": "linux-desktop-configuration", "skill": "linux-configuration", "label": "Linux Desktop Configuration", "default": false, "kind": "plugin"},
     {"plugin": "ssh-vm", "skill": "ssh-vm", "label": "SSH VM", "default": true, "kind": "skill"},

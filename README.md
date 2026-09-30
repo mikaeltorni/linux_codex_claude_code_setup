@@ -116,15 +116,11 @@ and everything else is optional:
   native skill installs by default and loads only when remote SSH deployment or
   testing is relevant. Migrating it removes only its previous managed plugin
   registrations and links.
-- The default `general-programming-guidelines` skill is merged as the complete
-  current `SKILL.md` into each runtime's managed instruction block, not merely
-  referenced by a short tag. Normal component installs and the standalone
-  `scripts/install_programming_plugins.sh` path both apply it. The same body is
-  verified in every configured Codex home, `~/.claude/CLAUDE.md`, the shared
-  `~/.agents/AGENTS.md`, opencode's `~/.config/opencode/AGENTS.md`, and Cline's
-  `~/Documents/Cline/Rules/general-programming-guidelines.md`.
-- Verify the installed fleet without reinstalling CLIs:
-  `bash scripts/install_programming_plugins.sh verify`.
+- The generic `general-programming-guidelines` prompt is disabled by default.
+  Agent Command Center selects independent V2 workflow, commits, worktree,
+  docs, and testing skills, and removes legacy generic instruction blocks
+  during its installer postflight. User-selected skills remain intact.
+
 Agent Command Center's Claude integration loads project `AGENTS.md` files at
 session start.
 
