@@ -39,46 +39,17 @@ declare -F isc_load_helpers >/dev/null 2>&1 || \
 isc_load_helpers
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 
-# verify_instruction_payload — Prove that one runtime instruction file carries
-# the exact complete skill body between its managed markers.
-#
-# Args:
-#   $1: AGENTS.md/CLAUDE.md/Rules file to inspect.
-#   $2: Authoritative SKILL.md source.
-#   $3: Human-readable runtime label for diagnostics.
-verify_instruction_payload() {
-  local target="$1" source_skill="$2" label="$3"
-  if ! python3 - "$target" "$source_skill" "$label" <<'PY'
-import pathlib
-import sys
-
-target, source, label = map(pathlib.Path, sys.argv[1:])
-if not target.is_file():
-    print(f"{label}: missing instruction file {target}", file=sys.stderr)
-    raise SystemExit(1)
-if not source.is_file():
-    print(f"{label}: missing source skill {source}", file=sys.stderr)
-    raise SystemExit(1)
-text = target.read_text(encoding="utf-8")
-body = source.read_text(encoding="utf-8").strip()
-start = "<!-- programming-prompts:general-programming-guidelines:start -->"
-end = "<!-- programming-prompts:general-programming-guidelines:end -->"
-if text.count(start) != 1 or text.count(end) != 1:
-    print(f"{label}: managed instruction markers are not unique", file=sys.stderr)
-    raise SystemExit(1)
-payload = text.split(start, 1)[1].split(end, 1)[0].strip()
-if payload != body:
-    print(f"{label}: managed payload is not the complete current skill", file=sys.stderr)
-    raise SystemExit(1)
-PY
-  then
-    msg "Instruction verification failed for $label"
+# verify_retired_instruction — Flag legacy managed generic guidance without
+# requiring its deleted source. Missing instruction files are valid.
+verify_retired_instruction() {
+  local target="$1"
+  if [[ -f "$target" ]] && grep -q '<!-- programming-prompts:general-programming-guidelines:' "$target"; then
+    msg "Retired generic instructions remain in $target; run acc pp disable --skill general-programming-guidelines"
     return 1
   fi
 }
 
-# verify_skill_copy — Prove that a native skill directory points to or contains
-# the same source body used in the global instruction payload.
+# verify_skill_copy — Compare a current native skill with its authoritative source.
 verify_skill_copy() {
   local target="$1" source_skill="$2" label="$3"
   if [[ ! -f "$target" ]] || ! cmp -s "$target" "$source_skill"; then
@@ -87,56 +58,49 @@ verify_skill_copy() {
   fi
 }
 
-# verify_programming_instructions — Validate every configured Codex home and
-# every other supported runtime surface after installation. This is deliberately
-# executable rather than a filesystem-only test: it catches stale tags, stale
-# skill links, and partial installer exits before they are mistaken for success.
+# Verify default-on native skills on every runtime and retired instruction cleanup.
 verify_programming_instructions() {
-  local source_skill="$PROGRAMMING_PROMPTS_DIR/skills/general-programming-guidelines/SKILL.md"
-  local failures=0 codex_home
-  [[ -f "$source_skill" ]] || {
-    msg "Instruction verification failed: source skill is missing ($source_skill)"
+  local failures=0 codex_home plugin skill label state kind source_dir source_skill target catalog
+  catalog="$(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list)" || {
+    msg "Programming prompt catalog could not be read"
     return 1
   }
+  while IFS=$'\t' read -r plugin skill label state kind; do
+    [[ "$state" == "on" ]] || continue
+    case "$kind" in
+      skill) source_dir="skills" ;;
+      dispatch-skill) source_dir="dispatch-skills" ;;
+      *) continue ;;
+    esac
+    source_skill="$PROGRAMMING_PROMPTS_DIR/$source_dir/$plugin/SKILL.md"
+    for codex_home in $(target_codex_homes); do
+      verify_skill_copy "$codex_home/skills/$skill/SKILL.md" "$source_skill" "Codex $codex_home" || failures=1
+    done
+    for target in "$TARGET_HOME/.claude" "$TARGET_HOME/.cline" "$TARGET_HOME/.cursor" \
+      "$TARGET_HOME/.grok" "$OPENCODE_CONFIG_HOME"; do
+      verify_skill_copy "$target/skills/$skill/SKILL.md" "$source_skill" "$target" || failures=1
+    done
+  done <<< "$catalog"
 
   for codex_home in $(target_codex_homes); do
-    verify_instruction_payload "$codex_home/AGENTS.md" "$source_skill" \
-      "Codex home $codex_home" || failures=1
-    verify_skill_copy "$codex_home/skills/general-programming-guidelines/SKILL.md" \
-      "$source_skill" "Codex home $codex_home" || failures=1
+    verify_retired_instruction "$codex_home/AGENTS.md" || failures=1
   done
-
-  verify_instruction_payload "$TARGET_HOME/.claude/CLAUDE.md" "$source_skill" \
-    "Claude Code" || failures=1
-  verify_skill_copy "$TARGET_HOME/.claude/skills/general-programming-guidelines/SKILL.md" \
-    "$source_skill" "Claude Code" || failures=1
-  verify_instruction_payload "$TARGET_HOME/.agents/AGENTS.md" "$source_skill" \
-    "shared agents" || failures=1
-  verify_instruction_payload "$TARGET_HOME/Documents/Cline/Rules/general-programming-guidelines.md" \
-    "$source_skill" "Cline rules" || failures=1
-  verify_skill_copy "$TARGET_HOME/.cline/skills/general-programming-guidelines/SKILL.md" \
-    "$source_skill" "Cline" || failures=1
-  verify_instruction_payload "$OPENCODE_CONFIG_HOME/AGENTS.md" "$source_skill" \
-    "opencode" || failures=1
-  verify_skill_copy "$OPENCODE_CONFIG_HOME/skills/general-programming-guidelines/SKILL.md" \
-    "$source_skill" "opencode" || failures=1
-  verify_instruction_payload "$TARGET_HOME/.grok/AGENTS.md" \
-    "$source_skill" "Grok instructions" || failures=1
-  verify_skill_copy "$TARGET_HOME/.grok/skills/general-programming-guidelines/SKILL.md" \
-    "$source_skill" "Grok" || failures=1
-
+  for target in "$TARGET_HOME/.claude/CLAUDE.md" "$TARGET_HOME/.agents/AGENTS.md" \
+    "$TARGET_HOME/Documents/Cline/Rules/general-programming-guidelines.md" \
+    "$OPENCODE_CONFIG_HOME/AGENTS.md" "$TARGET_HOME/.grok/AGENTS.md"; do
+    verify_retired_instruction "$target" || failures=1
+  done
   if (( failures != 0 )); then
-    msg "Programming instruction verification failed"
+    msg "Programming prompt verification failed"
     return 1
   fi
-  msg "Verified complete programming guidelines across all configured runtimes"
+  msg "Verified current default skills and retired generic instructions across configured runtimes"
 }
 
 # Install the default-on prompts into the configured Codex homes/Claude.
 #
 # Only prompts marked default:true in default.json are deployed here, so the
-# always-on set stays minimal (general-programming-guidelines only) and its slim
-# tag is the sole managed block merged into AGENTS.md/CLAUDE.md. Prompts marked
+# native default set follows the current catalog. Prompts marked
 # default:false remain in the source repo and the component menu as opt-in
 # installs; they are intentionally skipped by this standalone entrypoint so they
 # never bloat the agent instruction files by default.

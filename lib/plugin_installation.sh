@@ -248,15 +248,6 @@ install_global_instructions_component() {
 install_plugin_global_instructions() {
   local plugin_name="$1"
   local instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
-  local complete_skill="$PROGRAMMING_PROMPTS_DIR/skills/$plugin_name/SKILL.md"
-  # The managed global block is the instruction payload seen at session start.
-  # For direct skills, embed the complete source skill instead of asking a weak
-  # model to discover and open a second file after the session has begun. The
-  # source tag remains the fallback for plugin prompts and standalone repairs.
-  if [[ "$plugin_name" == "general-programming-guidelines" && -f "$complete_skill" ]]; then
-    instructions="$complete_skill"
-    msg "Embedding complete $plugin_name skill in global agent instructions"
-  fi
   [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
   [[ -f "$instructions" ]] || return 0
   # Codex reads AGENTS.md from each CODEX_HOME, so every configured Codex home

@@ -70,14 +70,13 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     assert plugin_defaults == plugin_names()
     assert skill_defaults <= direct_skill_names()
     assert skill_defaults == {
-        "general-programming-guidelines",
         "init-project",
         "refactoring",
         "setup-repository-guidelines",
         "ssh-vm",
     }
     assert all(entry["skill"] for entry in defaults["plugins"])
-    # Only the guidelines may add an always-loaded instruction block. Native
+    # No default prompt adds an always-loaded instruction block. Native
     # plugins and dispatch skills can be installed by default when they have
     # no global-instructions payload and only load for relevant requests.
     always_on = {
@@ -123,7 +122,6 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     assert {f"plugin-{name}" for name in plugin_names()} <= ids
     assert {
         "plugin-commit-guidelines",
-        "skill-general-programming-guidelines",
         "skill-init-project",
         "skill-refactoring",
         "skill-setup-repository-guidelines",
@@ -142,7 +140,7 @@ def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
     rows = {fields[0]: fields for line in result.stdout.splitlines() if (fields := line.split("\t"))}
     assert rows["plugin-commit-guidelines"][3] == "Plugins"
     assert rows["plugin-linux-desktop-configuration"][3] == "Plugins"
-    assert rows["skill-general-programming-guidelines"][3] == "Skills"
+    assert "skill-general-programming-guidelines" not in rows
     assert rows["skill-init-project"][3] == "Skills"
     assert rows["skill-refactoring"][3] == "Skills"
     assert rows["skill-setup-repository-guidelines"][3] == "Skills"
@@ -192,14 +190,13 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
         "skill-init-project",
         "skill-refactoring",
         "skill-setup-repository-guidelines",
-        "skill-general-programming-guidelines",
     }
     for component_id, state in pairs:
         if component_id in opt_in_prompts:
             assert state == "off", f"{component_id} must be opt-in"
         else:
             assert state == "on", f"{component_id} must stay default-on"
-    assert states["skill-general-programming-guidelines"] == "off"
+    assert "skill-general-programming-guidelines" not in states
     assert states["skill-ssh-vm"] == "on"
 
 
@@ -365,15 +362,12 @@ def test_global_instruction_tag_reaches_every_codex_home() -> None:
     assert '"$TARGET_HOME/.claude/CLAUDE.md"' in body
 
 
-def test_global_instruction_install_uses_the_complete_guidelines_skill() -> None:
-    """Global instruction files must contain the full skill, not only its tag."""
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    body = installer.split("install_plugin_global_instructions()", 1)[1].split(
-        "\n}", 1
-    )[0]
-    assert 'skills/$plugin_name/SKILL.md' in body
-    assert '[[ "$plugin_name" == "general-programming-guidelines"' in body
-    assert "complete" in body.lower()
+def test_global_instruction_install_does_not_require_retired_generic_source() -> None:
+    """Only explicit instruction payloads may be merged into runtime files."""
+    installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
+    body = installer.split("install_plugin_global_instructions()", 1)[1].split("\n}", 1)[0]
+    assert "general-programming-guidelines" not in body
+    assert "complete_skill" not in body
     assert "global-instructions/$1.md" in body
 
 

@@ -116,10 +116,14 @@ and everything else is optional:
   native skill installs by default and loads only when remote SSH deployment or
   testing is relevant. Migrating it removes only its previous managed plugin
   registrations and links.
-- The generic `general-programming-guidelines` prompt is disabled by default.
+- The retired `general-programming-guidelines` prompt has been removed from
+  the source catalog and installation menu.
   Agent Command Center selects independent V2 workflow, commits, worktree,
   docs, and testing skills, and removes legacy generic instruction blocks
   during its installer postflight. User-selected skills remain intact.
+  `bash scripts/install_programming_plugins.sh verify` checks current default
+  native skills and flags leftover managed generic instructions without
+  requiring the deleted source.
 
 Agent Command Center's Claude integration loads project `AGENTS.md` files at
 session start.
