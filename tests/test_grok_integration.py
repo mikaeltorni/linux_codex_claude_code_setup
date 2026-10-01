@@ -49,15 +49,16 @@ def test_every_selected_prompt_is_exposed_natively_to_grok() -> None:
     assert 'home / ".grok" / "skills"' in helper
 
 
-def test_grok_global_instructions_embed_the_always_on_guidelines() -> None:
-    """Grok must receive the full mandatory body, not only a selectable skill."""
+def test_grok_instruction_verification_checks_retired_generic_cleanup() -> None:
+    """Grok must flag retired managed generic guidance."""
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(
         encoding="utf-8"
     )
 
     assert '"$TARGET_HOME/.grok/AGENTS.md"' in installer
-    assert 'verify_instruction_payload "$TARGET_HOME/.grok/AGENTS.md"' in entrypoint
+    assert '"$TARGET_HOME/.grok/AGENTS.md"' in entrypoint
+    assert "verify_retired_instruction" in entrypoint
 
 
 def test_grok_model_customization_is_merged_without_overwriting_config() -> None:
