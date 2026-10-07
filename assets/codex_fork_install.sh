@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
-# Build the locally maintained Codex main branch and publish its CLI to
+# Build the selected local Codex branch (main by default) and publish its CLI to
 # isolated provider prefixes without changing the source checkout.
 
-# codex_fork_main_revision - Validate the local main checkout and print HEAD.
+# Resolve a persistent branch selection without changing the user's checkout.
+# Parameters: none; CODEX_FORK_REF overrides the target user's saved branch.
+# Returns: the validated local branch name on stdout.
+codex_fork_selected_branch() {
+  printf '%s\n' 'parameters=none' >&2
+  local selected="${CODEX_FORK_REF:-}" selection_file="$TARGET_HOME/.config/linux_codex_claude_code_setup/codex-fork-ref"
+  if [[ -z "$selected" && -f "$selection_file" ]]; then
+    selected="$(run_as_target cat "$selection_file")" || return 1
+  fi
+  selected="${selected:-main}"
+  if ! run_as_target git check-ref-format --branch "$selected" >/dev/null 2>&1; then
+    log error "Invalid Codex fork branch selection"
+    return 1
+  fi
+  printf '%s\n' "$selected"
+}
+
+# Validate the selected local checkout and print its committed revision.
+# Parameters: none; source and branch selection come from installer environment.
+# Returns: selected commit on stdout, or nonzero for an unavailable/dirty checkout.
 codex_fork_main_revision() {
-  local source_dir="${CODEX_FORK_DIR:-$TARGET_HOME/projects/codex}" branch revision
+  printf '%s\n' 'parameters=none' >&2
+  local source_dir="${CODEX_FORK_DIR:-$TARGET_HOME/projects/codex}" branch revision selected
+  selected="$(codex_fork_selected_branch)" || return 1
   if [ ! -d "$source_dir/.git" ] && [ ! -f "$source_dir/.git" ]; then
     if [ -e "$source_dir" ]; then
       log error "Codex source path is not a Git checkout: $source_dir"
@@ -12,16 +33,16 @@ codex_fork_main_revision() {
     fi
     msg "Cloning the Codex fork into $source_dir"
     run_as_target mkdir -p "$(dirname "$source_dir")" || return 1
-    run_as_target git clone --branch main --single-branch \
+    run_as_target git clone --branch "$selected" --single-branch \
       "${CODEX_FORK_REPOSITORY_URL:-https://github.com/mikaeltorni/codex.git}" "$source_dir" >&2 || return 1
   fi
   branch="$(run_as_target git -C "$source_dir" symbolic-ref --quiet --short HEAD)" || {
-    log error "Codex fork must have its main branch checked out at $source_dir"
+    log error "Codex fork must have its selected branch checked out at $source_dir"
     return 1
   }
-  if [ "$branch" != main ] || [ ! -f "$source_dir/codex-rs/Cargo.toml" ] \
+  if [ "$branch" != "$selected" ] || [ ! -f "$source_dir/codex-rs/Cargo.toml" ] \
       || ! run_as_target git -C "$source_dir" diff --quiet HEAD -- codex-rs; then
-    log error "Codex fork must have a clean codex-rs tree on main: $source_dir"
+    log error "Codex fork must have a clean codex-rs tree on $selected: $source_dir"
     return 1
   fi
   revision="$(run_as_target git -C "$source_dir" rev-parse --verify HEAD)" || return 1
