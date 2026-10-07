@@ -4,6 +4,7 @@
 ISC_REPO_NAME="linux_codex_claude_code_setup"
 ISC_REPO_LABEL="Codex, Claude Code, Cline, Grok, and opencode setup"
 ISC_PREFLIGHT="agent_cli_preflight"
+ISC_POSTFLIGHT="configure_codex_reserve_switch"
 ISC_COMPONENTS=(
   "codex_cli|Codex CLI|on|install_codex_cli|detect_codex_cli|uninstall_codex_cli|CLIs"
   "claude_code|Claude Code CLI|on|install_claude_code|detect_claude_code|uninstall_claude_code|CLIs"

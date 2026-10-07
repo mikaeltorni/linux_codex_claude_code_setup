@@ -71,6 +71,7 @@ source "$SCRIPT_DIR/lib/openrouter_cli.sh"
 source "$SCRIPT_DIR/lib/plugin_installation.sh"
 source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/history_sync.sh"
+source "$SCRIPT_DIR/lib/codex_reserve_policy.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 

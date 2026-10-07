@@ -187,3 +187,19 @@ You are solely responsible for determining whether this software is suitable, sa
 The authors and copyright holders make no guarantees regarding security, reliability, availability, correctness, compliance, non-infringement, or fitness for any particular purpose.
 
 This notice is intended to clarify the nature of the project and does not impose additional restrictions beyond the MIT License.
+
+## Automatic GPT Reserve switching
+
+The installer postflight sets `[features] luna_reserve_auto_switch = false` in
+`~/.codex/config.toml`, every existing `~/.codex-*` home, and each separate
+`*.config.toml` profile. It uses the native Codex TOML editor on private copies
+and preserves unrelated settings/comments. Repeated installs keep the opt-out.
+The runtime must contain the Reserve opt-out feature (the local patched 0.160.1
+fork); restart/resume existing CLI sessions after rebuilding that runtime.
+
+Use `bash install.sh --select codex_cli` to install the native runtime and apply
+the policy. Its standalone configuration entrypoint is
+`python3 scripts/codex_reserve_policy.py --home /path/to/home --codex /path/to/native/codex`.
+It accepts those two required path options and `--help`. The regression runner
+is `python3 -m unittest discover -s tests -p test_codex_reserve_policy.py -v`;
+see [coverage](tests/reserve_policy_coverage.md) for isolated native-RPC checks.
