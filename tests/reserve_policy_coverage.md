@@ -11,3 +11,7 @@ Run `python3 -m unittest discover -s tests -p test_codex_reserve_policy.py -v` f
 | Shared installer integration | test_installer_postflight: sourced postflight writes temporary home false and manifest names the hook. |
 
 Text path operands have no numeric conversion/domain requirements. Generic argparse owns missing/extra/unknown argument validation; the operation validates all TOML before writing. Each independent test has a fresh temporary home.
+
+## Fork branch selection
+
+Runner: `bash tests/test_codex_fork_selection.sh`. Its fresh fixture creates distinct `main` and `newTest1601` commits. The public `codex_fork_main_revision` must return main by default, the integration commit when saved or explicitly selected, and main when explicitly overriding that saved selection. Missing refs and option-like invalid names must fail before changing Git HEAD; the saved selection remains newTest1601. `bash tests/test_codex_fork_install.sh` retains the existing publish/build-cache regression. Shell path/branch operands require no numeric conversion.

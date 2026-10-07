@@ -203,3 +203,16 @@ the policy. Its standalone configuration entrypoint is
 It accepts those two required path options and `--help`. The regression runner
 is `python3 -m unittest discover -s tests -p test_codex_reserve_policy.py -v`;
 see [coverage](tests/reserve_policy_coverage.md) for isolated native-RPC checks.
+
+### Selecting the local fork branch
+
+`CODEX_FORK_REF` selects a local branch for native/provider builds. When unset,
+the installer reads `~/.config/linux_codex_claude_code_setup/codex-fork-ref`;
+without either selection it uses `main`. Branch names are validated, missing
+branches are rejected, and selection never changes the source checkout.
+For this machine, the saved selection is `newTest1601` so all provider copies
+retain the Reserve opt-out alongside the existing usage-limit features.
+
+Check selection with `bash tests/test_codex_fork_selection.sh`; the fixture
+covers default/saved/explicit choices, invalid/missing refs, and unchanged Git
+state after failures. `bash tests/test_codex_fork_install.sh` verifies publishing.
