@@ -1,5 +1,6 @@
 //! Installer command helpers for Codex and Claude Code setup.
 
+pub mod defaults;
 pub mod history;
 pub mod marketplace;
 pub mod model_catalog;
