@@ -20,5 +20,10 @@ path = "src/bin/codex-history-sync.rs"
 name = "plugin-defaults"
 path = "src/bin/plugin-defaults.rs"
 
+[[bin]]
+name = "codex-reserve-policy"
+path = "src/bin/codex-reserve-policy.rs"
+
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
+toml = { version = "0.9.11", default-features = false, features = ["parse", "std", "serde"] }
