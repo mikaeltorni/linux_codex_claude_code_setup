@@ -38,6 +38,19 @@ All three options are required paths. A missing plugin manifest exits 1.
 Omitting an option exits 2. Normal setup runs through `bash install.sh`, which
 invokes the generator with managed paths.
 
+### Model catalog
+
+`generate-model-catalog` writes `model-catalog.json` for a plain Codex home.
+The model argument may end in `@variant`; that suffix is not part of the slug.
+`QWEN_CODEX_CONTEXT_WINDOW` sets the context size, and a non-numeric value uses
+40960. The qwen and OpenRouter CLI installers run this command. Without Cargo
+they run `scripts/generate_model_catalog.py`.
+
+```bash
+generate-model-catalog ~/.codex-qwen qwen3.8-27b
+QWEN_CODEX_CONTEXT_WINDOW=131072 generate-model-catalog ~/.codex-openrouter stealth/ox-alpha
+```
+
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
 Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
 models and tracking-aware launchers belong to Agent Command Center, not this

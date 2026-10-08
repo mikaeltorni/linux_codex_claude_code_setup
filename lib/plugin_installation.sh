@@ -46,14 +46,15 @@ build_setup_generators() {
   cargo_home="$(cd "$(dirname "$cargo_bin")/.." && pwd)"
   rustup_home="$(cd "$(dirname "$cargo_home")" && pwd)/.rustup"
   env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
-    cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml" \
-      --bin generate-marketplaces
-  install -D -m 0755 "$SCRIPT_DIR/target/release/generate-marketplaces" \
-    "$SCRIPT_DIR/dist/generate-marketplaces"
-  if [[ -n "${TARGET_HOME:-}" ]]; then
-    install -D -m 0755 "$SCRIPT_DIR/target/release/generate-marketplaces" \
-      "$TARGET_HOME/.local/bin/generate-marketplaces"
-  fi
+    cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
+  local name
+  for name in generate-marketplaces generate-model-catalog; do
+    install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name"
+    if [[ -n "${TARGET_HOME:-}" ]]; then
+      install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
+        "$TARGET_HOME/.local/bin/$name"
+    fi
+  done
 }
 
 # Print the built generator path when Cargo is available and the ELF exists.
