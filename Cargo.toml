@@ -8,5 +8,9 @@ publish = false
 name = "generate-marketplaces"
 path = "src/bin/generate-marketplaces.rs"
 
+[[bin]]
+name = "generate-model-catalog"
+path = "src/bin/generate-model-catalog.rs"
+
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }

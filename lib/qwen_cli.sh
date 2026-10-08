@@ -139,10 +139,16 @@ install_qwen_cli() {
   run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   codex_fork_install_to_prefix "$QWEN_CODEX_NPM_PREFIX" >/dev/null || return 1
 
+  local catalog_bin=()
+  if catalog_bin=("$(generators_release_bin generate-model-catalog)"); then
+    :
+  else
+    catalog_bin=(python3 "$SCRIPT_DIR/scripts/generate_model_catalog.py")
+  fi
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \
     QWEN_CODEX_CONTEXT_WINDOW="${QWEN_CODEX_CONTEXT_WINDOW:-40960}" \
-    python3 "$SCRIPT_DIR/scripts/generate_model_catalog.py" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
+    "${catalog_bin[@]}" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
 
   write_qwen_config_toml "$QWEN_CODEX_HOME"
   write_qwen_plain_wrapper
