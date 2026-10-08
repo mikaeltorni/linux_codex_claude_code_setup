@@ -36,12 +36,55 @@ target_codex_homes() {
   discover_codex_homes
 }
 
+# Build the Rust setup commands with the invoker's Cargo, not run_as_target.
+# Parameters: none. SCRIPT_DIR is the repository root and TARGET_HOME receives the ELF.
+# Returns: 0 when Cargo is absent or the release binary is installed.
+build_setup_generators() {
+  command -v cargo >/dev/null 2>&1 || return 0
+  local cargo_bin cargo_home rustup_home
+  cargo_bin="$(command -v cargo)"
+  cargo_home="$(cd "$(dirname "$cargo_bin")/.." && pwd)"
+  rustup_home="$(cd "$(dirname "$cargo_home")" && pwd)/.rustup"
+  env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
+    cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml" \
+      --bin generate-marketplaces
+  install -D -m 0755 "$SCRIPT_DIR/target/release/generate-marketplaces" \
+    "$SCRIPT_DIR/dist/generate-marketplaces"
+  if [[ -n "${TARGET_HOME:-}" ]]; then
+    install -D -m 0755 "$SCRIPT_DIR/target/release/generate-marketplaces" \
+      "$TARGET_HOME/.local/bin/generate-marketplaces"
+  fi
+}
+
+# Print the built generator path when Cargo is available and the ELF exists.
+# Parameters: name - binary name. Returns: 0 and the path, or 1 when Python should run.
+generators_release_bin() {
+  local name="$1" candidate
+  command -v cargo >/dev/null 2>&1 || return 1
+  for candidate in \
+    "$SCRIPT_DIR/target/release/$name" \
+    "$SCRIPT_DIR/dist/$name" \
+    "${TARGET_HOME:-$HOME}/.local/bin/$name"
+  do
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  return 1
+}
+
 generate_programming_prompts_marketplace() {
+  local bin
   run_as_target rm -rf "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  run_as_target python3 "$SCRIPT_DIR/scripts/generate_marketplaces.py" \
-    --defaults "$SCRIPT_DIR/default.json" \
-    --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
-    --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+  if bin="$(generators_release_bin generate-marketplaces)"; then
+    run_as_target "$bin" \
+      --defaults "$SCRIPT_DIR/default.json" \
+      --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
+      --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+  else
+    run_as_target python3 "$SCRIPT_DIR/scripts/generate_marketplaces.py" \
+      --defaults "$SCRIPT_DIR/default.json" \
+      --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
+      --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
+  fi
 }
 
 resolve_target_binary() {

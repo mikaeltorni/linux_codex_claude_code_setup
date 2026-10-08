@@ -22,19 +22,21 @@ bash scripts/sync_codex_fork.sh
 
 ### Marketplace generator
 
-`scripts/generate_marketplaces.py` reads `default.json` and plugin manifests
-under `--prompts-root`, then writes local Claude and Codex catalogs and plugin
-links under `--output`:
+`generate-marketplaces` reads `default.json` and plugin manifests under
+`--prompts-root`, then writes local Claude and Codex catalogs and plugin links
+under `--output`. `bash install.sh` builds that command and runs it. When Cargo
+is not on `PATH`, the installer runs `scripts/generate_marketplaces.py` instead.
 
 ```bash
-python3 scripts/generate_marketplaces.py \
+generate-marketplaces \
   --defaults default.json \
   --prompts-root ~/projects/programming_prompts \
   --output ~/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace
 ```
 
-All three options are required paths. Normal setup runs through `bash install.sh`,
-which invokes the generator with managed paths.
+All three options are required paths. A missing plugin manifest exits 1.
+Omitting an option exits 2. Normal setup runs through `bash install.sh`, which
+invokes the generator with managed paths.
 
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
 Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
