@@ -32,6 +32,9 @@ install_codex_history_sync() {
 # codexsync — union-merge Codex chat history across all provider homes so a
 # session started on one provider can be resumed from another. Non-destructive.
 set -euo pipefail
+if [[ -x "$bin_dir/codex-history-sync" ]]; then
+  exec "$bin_dir/codex-history-sync" sync "\$@"
+fi
 exec python3 "$CODEX_HISTORY_SYNC_SCRIPT" sync "\$@"
 EOF
   run_as_target chmod +x "$bin_dir/$CODEX_HISTORY_SYNC_COMMAND"

@@ -12,5 +12,9 @@ path = "src/bin/generate-marketplaces.rs"
 name = "generate-model-catalog"
 path = "src/bin/generate-model-catalog.rs"
 
+[[bin]]
+name = "codex-history-sync"
+path = "src/bin/codex-history-sync.rs"
+
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }

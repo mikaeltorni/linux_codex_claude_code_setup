@@ -51,6 +51,21 @@ generate-model-catalog ~/.codex-qwen qwen3.8-27b
 QWEN_CODEX_CONTEXT_WINDOW=131072 generate-model-catalog ~/.codex-openrouter stealth/ox-alpha
 ```
 
+### History sync
+
+`codex-history-sync sync` copies missing `sessions/**/*.jsonl` rollouts between
+Codex homes and appends unique `history.jsonl` lines. Existing session files are
+left in place. `--home` may be repeated; without it, the command uses
+`CODEX_SYNC_HOMES` or the default provider homes under the current home.
+`--quiet` suppresses the progress lines. Fewer than two existing homes exits 0
+without copying. The `codexsync` launcher runs this command when it is installed,
+and otherwise runs `scripts/codex_history_sync.py`.
+
+```bash
+codex-history-sync sync --home ~/.codex --home ~/.codex-qwen
+codexsync --quiet
+```
+
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
 Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
 models and tracking-aware launchers belong to Agent Command Center, not this
