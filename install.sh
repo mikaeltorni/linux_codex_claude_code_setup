@@ -73,6 +73,14 @@ source "$SCRIPT_DIR/lib/agent_autoupdate.sh"
 source "$SCRIPT_DIR/lib/history_sync.sh"
 source "$SCRIPT_DIR/lib/codex_reserve_policy.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
+# Discovery stays read-only even on an unbuilt checkout. Installation builds
+# first so locally edited default.json can be parsed before component registration.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  case "${1:-}" in
+    --list-components|--export-selection|--detect|--help|-h) ;;
+    *) build_setup_generators ;;
+  esac
+fi
 source "$SCRIPT_DIR/installer/components.sh"
 
 agent_cli_preflight() {

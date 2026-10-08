@@ -1,0 +1,8 @@
+commit-guidelines	commit	Commit Guidelines	off	plugin
+init-project	init-project	Init Project	off	skill
+linux-desktop-configuration	linux-configuration	Linux Desktop Configuration	off	plugin
+ssh-vm	ssh-vm	SSH VM	on	skill
+refactoring	refactoring	Refactoring	off	skill
+setup-repository-guidelines	setup-repository-guidelines	Setup Repository Guidelines	off	skill
+github-seo	github-seo	GitHub SEO (dispatch)	on	dispatch-skill
+github-portfolio-scan	github-portfolio-scan	GitHub Portfolio Scan (dispatch)	on	dispatch-skill

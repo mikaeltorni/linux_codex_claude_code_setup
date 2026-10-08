@@ -1,25 +1,52 @@
 #!/usr/bin/env bash
 # Shared Rust generator build/resolution and defaults invocation for standalone callers.
 
-# Build the Rust setup commands with the invoker's Cargo, not run_as_target.
-# Parameters: none. SCRIPT_DIR is the repository root and TARGET_HOME receives the ELF.
-# Returns: 0 when Cargo is absent or the release binary is installed.
-build_setup_generators() {
-  command -v cargo >/dev/null 2>&1 || return 0
-  local cargo_bin cargo_home rustup_home
-  cargo_bin="$(command -v cargo)"
-  cargo_home="$(cd "$(dirname "$cargo_bin")/.." && pwd)"
-  rustup_home="$(cd "$(dirname "$cargo_home")" && pwd)/.rustup"
-  env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
+# Compile with the invoker's configured Rust, bootstrapping target Rust if absent.
+# Parameters: none; SCRIPT_DIR and TARGET_HOME identify source and toolchain homes.
+# Returns: the compiler/bootstrap status; never succeeds merely because Cargo is absent.
+compile_setup_generators() {
+  if command -v cargo >/dev/null 2>&1; then
     cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
+    return
+  fi
+  local build_path bootstrap status
+  build_path="$TARGET_HOME/.cargo/bin:$PATH"
+  if ! run_as_target env PATH="$build_path" CARGO_HOME="$TARGET_HOME/.cargo" \
+      RUSTUP_HOME="$TARGET_HOME/.rustup" sh -c 'command -v cargo >/dev/null'; then
+    bootstrap="$(mktemp)" || return
+    if ! curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$bootstrap"; then
+      rm -f "$bootstrap"
+      return 1
+    fi
+    chmod 644 "$bootstrap"
+    if run_as_target env CARGO_HOME="$TARGET_HOME/.cargo" RUSTUP_HOME="$TARGET_HOME/.rustup" \
+        sh "$bootstrap" -y --profile minimal --no-modify-path; then
+      rm -f "$bootstrap"
+    else
+      status=$?
+      rm -f "$bootstrap"
+      return "$status"
+    fi
+  fi
+  env PATH="$build_path" CARGO_HOME="$TARGET_HOME/.cargo" RUSTUP_HOME="$TARGET_HOME/.rustup" \
+    cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
+}
+
+# Compile and install every native setup helper; user files go through the target runner.
+# Parameters: none; SCRIPT_DIR owns distribution files, TARGET_HOME owns commands.
+# Returns: zero after all installations, or the build/install failure status.
+build_setup_generators() {
+  [[ "${SETUP_GENERATORS_BUILT:-0}" == 1 ]] && return 0
+  compile_setup_generators || return $?
   local name
   for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json; do
-    install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name"
+    install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name" || return $?
     if [[ -n "${TARGET_HOME:-}" ]]; then
-      install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
-        "$TARGET_HOME/.local/bin/$name"
+      run_as_target install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
+        "$TARGET_HOME/.local/bin/$name" || return $?
     fi
   done
+  SETUP_GENERATORS_BUILT=1
 }
 
 # Print a compiled generator path without requiring Cargo at runtime.
@@ -33,29 +60,42 @@ generators_release_bin() {
   do
     [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
   done
+  printf 'Missing native setup helper %s; build with cargo build --locked --release in %s or run the installer.\n' "$name" "$SCRIPT_DIR" >&2
   return 1
 }
 
-# Run plugin-defaults, preferring the Rust binary.
-# Parameters: the same arguments as scripts/plugin_defaults.py. Returns: the helper status.
+# Run the native defaults command with no interpreter fallback.
+# Parameters: plugin-defaults CLI tokens. Returns: the helper status/output.
 run_plugin_defaults() {
   local bin
-  if bin="$(generators_release_bin plugin-defaults)"; then
-    "$bin" "$@"
-  else
-    python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" "$@"
-  fi
+  bin="$(generators_release_bin plugin-defaults)" || return 1
+  "$bin" "$@"
 }
 
-# Run plugin-defaults as the target user.
-# Parameters: the same arguments as scripts/plugin_defaults.py. Returns: the helper status.
+# Run native plugin-defaults as the target user.
+# Parameters: plugin-defaults CLI tokens. Returns: the helper status/output.
 run_as_target_plugin_defaults() {
   local bin
-  if bin="$(generators_release_bin plugin-defaults)"; then
-    run_as_target "$bin" "$@"
-  else
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" "$@"
+  bin="$(generators_release_bin plugin-defaults)" || return 1
+  run_as_target "$bin" "$@"
+}
+
+# Read component metadata without build/network/file mutation during discovery.
+# Parameters: none; default.json is authoritative and generated rows are checksum-bound.
+# Returns: native rows when built, otherwise committed rows only for matching defaults.
+prompt_component_rows() {
+  local bin expected actual
+  if bin="$(generators_release_bin plugin-defaults 2>/dev/null)"; then
+    "$bin" --defaults "$SCRIPT_DIR/default.json" list
+    return
   fi
+  expected="$(cat "$SCRIPT_DIR/installer/prompt_components.sha256")" || return 1
+  actual="$(sha256sum "$SCRIPT_DIR/default.json")" || return 1
+  if [[ "${actual%% *}" != "$expected" ]]; then
+    printf 'Default JSON changed; build plugin-defaults or run the installer before listing components.\n' >&2
+    return 1
+  fi
+  cat "$SCRIPT_DIR/installer/prompt_components.tsv"
 }
 
 # Invoke the Rust JSON query while retaining the caller's pipeline stdin.

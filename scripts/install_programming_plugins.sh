@@ -135,6 +135,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   if [[ "${1:-}" == "verify" ]]; then
     verify_programming_instructions
   else
+    build_setup_generators
     install_all_programming_plugins
     verify_programming_instructions
   fi

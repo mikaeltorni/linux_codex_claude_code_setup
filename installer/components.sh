@@ -41,9 +41,8 @@ register_dispatch_skill_component() {
 
 # Group component rows by install type so each menu heading is rendered once.
 # Preserve default.json ordering within each group.
-mapfile -t PROMPT_COMPONENT_ROWS < <(
-  run_plugin_defaults --defaults "$SCRIPT_DIR/default.json" list
-)
+PROMPT_COMPONENT_TEXT="$(prompt_component_rows)" || return 1
+mapfile -t PROMPT_COMPONENT_ROWS <<< "$PROMPT_COMPONENT_TEXT"
 for desired_kind in plugin skill dispatch-skill; do
   for row in "${PROMPT_COMPONENT_ROWS[@]}"; do
     IFS=$'\t' read -r plugin skill label state kind <<<"$row"
