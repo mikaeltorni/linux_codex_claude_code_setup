@@ -13,7 +13,7 @@ build_setup_generators() {
   env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
     cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name"
     if [[ -n "${TARGET_HOME:-}" ]]; then
       install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
@@ -58,3 +58,18 @@ run_as_target_plugin_defaults() {
   fi
 }
 
+# Invoke the Rust JSON query while retaining the caller's pipeline stdin.
+# Parameters: CLI tokens for setup-json. Returns: the exact query status/output.
+run_setup_json() {
+  local bin
+  bin="$(generators_release_bin setup-json)" || return 1
+  "$bin" "$@"
+}
+
+# Read a target user's registry through the shared Rust query owner.
+# Parameters: CLI tokens for setup-json. Returns: the exact query status/output.
+run_as_target_setup_json() {
+  local bin
+  bin="$(generators_release_bin setup-json)" || return 1
+  run_as_target "$bin" "$@"
+}

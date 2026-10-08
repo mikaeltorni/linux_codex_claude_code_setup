@@ -79,7 +79,7 @@ prepare_codex_marketplace() {
   [[ -x "$codex_bin" ]] || { msg "Codex is unavailable; skipping Codex plugin installation"; return 1; }
   local registered_root
   registered_root="$(run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin marketplace list --json |
-    python3 -c 'import json,sys; name=sys.argv[1]; print(next((x.get("root", "") for x in json.load(sys.stdin).get("marketplaces", []) if x.get("name") == name), ""))' "$PROGRAMMING_PROMPTS_MARKETPLACE")"
+    run_setup_json marketplace-root "$PROGRAMMING_PROMPTS_MARKETPLACE")"
   if [[ -n "$registered_root" && "$registered_root" != "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" ]]; then
     run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
   fi
@@ -89,20 +89,12 @@ prepare_codex_marketplace() {
   CODEX_MARKETPLACE_READY_HOMES="$CODEX_MARKETPLACE_READY_HOMES $codex_home"
 }
 
+# Parameters: none; target registry and catalog come from the installer environment.
+# Returns: zero when Claude's registered directory matches the generated catalog.
 claude_marketplace_matches_checkout() {
-  run_as_target python3 - "$TARGET_HOME/.claude/plugins/known_marketplaces.json" \
-    "$PROGRAMMING_PROMPTS_MARKETPLACE" "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" <<'PY'
-import json
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-if not path.exists():
-    raise SystemExit(1)
-entry = json.loads(path.read_text()).get(sys.argv[2], {})
-source = entry.get("source", {})
-raise SystemExit(0 if source.get("source") == "directory" and source.get("path") == sys.argv[3] else 1)
-PY
+  run_as_target_setup_json claude-marketplace \
+    "$TARGET_HOME/.claude/plugins/known_marketplaces.json" \
+    "$PROGRAMMING_PROMPTS_MARKETPLACE" "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
 }
 
 # run_target_claude_plugin — run a Claude Code CLI plugin command with a
@@ -113,7 +105,7 @@ PY
 # update or while installing a plugin. Routing stdout/stderr through a pipe makes
 # Claude Code detect a non-interactive environment and skip the raw-mode setup,
 # while `cat` still surfaces the output and the original exit code is preserved.
-# (The `| python3` reader calls above are already safe: their stdout is a pipe.)
+# The JSON query readers above also consume pipes without terminal setup.
 run_target_claude_plugin() {
   run_as_target "$@" </dev/null 2>&1 | cat
   return "${PIPESTATUS[0]}"
@@ -128,7 +120,7 @@ prepare_claude_marketplace() {
     run_target_claude_plugin "$claude_bin" plugin marketplace update "$PROGRAMMING_PROMPTS_MARKETPLACE"
   else
     if run_as_target "$claude_bin" plugin marketplace list --json |
-       python3 -c 'import json,sys; n=sys.argv[1]; raise SystemExit(not any(x.get("name")==n for x in json.load(sys.stdin)))' "$PROGRAMMING_PROMPTS_MARKETPLACE"; then
+       run_setup_json contains - name "$PROGRAMMING_PROMPTS_MARKETPLACE"; then
       run_target_claude_plugin "$claude_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
     fi
     run_target_claude_plugin "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
@@ -304,14 +296,14 @@ remove_marketplace_plugin_installations() {
   for codex_home in $(target_codex_homes); do
     if [[ -x "$codex_bin" ]] &&
        run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin list --json |
-         python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("pluginId")==s for x in json.load(sys.stdin).get("installed", [])))' "$selector"; then
+         run_setup_json contains installed pluginId "$selector"; then
       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
     fi
   done
   claude_bin="$(resolve_target_binary claude)"
   if [[ -x "$claude_bin" ]] &&
      run_as_target "$claude_bin" plugin list --json |
-       python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("id")==s for x in json.load(sys.stdin)))' "$selector"; then
+       run_setup_json contains - id "$selector"; then
     run_target_claude_plugin "$claude_bin" plugin uninstall --scope user "$selector"
   fi
 }
@@ -323,7 +315,7 @@ remove_legacy_plugin_installations() {
   for codex_home in $(target_codex_homes); do
     if [[ -x "$codex_bin" ]] &&
        run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin list --json |
-         python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("pluginId")==s for x in json.load(sys.stdin).get("installed", [])))' "$selector"; then
+         run_setup_json contains installed pluginId "$selector"; then
       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
     fi
 
@@ -354,7 +346,7 @@ install_prompt_plugin() {
   if [[ -x "$claude_bin" ]]; then
     prepare_claude_marketplace
     if run_as_target "$claude_bin" plugin list --json |
-       python3 -c 'import json,sys; s=sys.argv[1]; raise SystemExit(not any(x.get("id")==s for x in json.load(sys.stdin)))' "$selector"; then
+       run_setup_json contains - id "$selector"; then
       run_target_claude_plugin "$claude_bin" plugin update --scope user "$selector"
     else
       run_target_claude_plugin "$claude_bin" plugin install --scope user "$selector"
