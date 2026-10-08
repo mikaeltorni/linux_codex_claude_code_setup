@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Plain Local Codex (qwen) CLI provisioning for standalone installs.
 
+source "$(dirname "${BASH_SOURCE[0]}")/status_bar_selection.sh"
+
 CLI_INSTANCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=/dev/null
 source "$CLI_INSTANCES_DIR/configs/codex_instances/defaults.sh"
@@ -15,17 +17,10 @@ source "$CLI_INSTANCES_DIR/lib/cli_wait.sh"
 # selections (same source of truth as the ca/oa/claude bars) so a default
 # installation_scripts run keeps the qa status bar visible; fall back to a
 # built-in rich default when that repository is unavailable.
+# Parameters: none; TARGET_HOME supplies the user's saved selection.
+# Returns: the owning status-bar Rust command's TOML array or default fields.
 _qwen_status_line_toml() {
-  local status_bar_dir="${CLAUDE_CODE_STATUS_BAR_DIR:-$TARGET_HOME/projects/claude_code_status_bar}"
-  local helper="$status_bar_dir/agent_field_selection.py"
-  if [ -f "$helper" ]; then
-    python3 "$helper" toml-array qwen "$TARGET_HOME" 2>/dev/null && return 0
-  fi
-  # Keep this list inside the Codex TUI field catalog owned by
-  # claude_code_status_bar (git-branch was dropped there in favour of the
-  # worktree segment), so a machine without that checkout still gets a status
-  # line Codex actually renders.
-  printf '["model-with-reasoning","current-dir","context-remaining","branch-changes","used-tokens","total-input-tokens","total-output-tokens"]'
+  setup_status_line_toml qwen
 }
 
 write_qwen_config_toml() {

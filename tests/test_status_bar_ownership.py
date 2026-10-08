@@ -15,19 +15,9 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# The sibling checkout lives next to this repo, or one level further up when
-# the suite runs from a git worktree (projects/worktrees/<repo>-wt-<task>).
-STATUS_BAR_DIR = next(
-    (
-        candidate
-        for candidate in (
-            ROOT.parent / "claude_code_status_bar",
-            ROOT.parent.parent / "claude_code_status_bar",
-        )
-        if candidate.is_dir()
-    ),
-    ROOT.parent / "claude_code_status_bar",
-)
+from repository_paths import sibling_checkout
+
+STATUS_BAR_DIR = sibling_checkout(ROOT, "claude_code_status_bar")
 OPENROUTER_LIB = ROOT / "lib" / "openrouter_cli.sh"
 QWEN_LIB = ROOT / "lib" / "qwen_cli.sh"
 
@@ -40,6 +30,12 @@ RICH_DEFAULT = [
 
 
 def _write_openrouter(dest: Path, tmp_path: Path, status_bar_dir=None) -> subprocess.CompletedProcess:
+    """Run the OpenRouter config writer in a fresh temporary home.
+
+    Parameters: dest - temporary config destination; tmp_path - isolated pytest directory; status_bar_dir - status-bar owning checkout.
+    Returns: the captured shell process.
+    """
+    print(f"dest={dest} tmp_path={tmp_path} status_bar_dir={status_bar_dir}")
     env_exports = [f"export TARGET_HOME={tmp_path}"]
     if status_bar_dir is not None:
         env_exports.append(f"export CLAUDE_CODE_STATUS_BAR_DIR={status_bar_dir}")
@@ -64,10 +60,18 @@ def _write_openrouter(dest: Path, tmp_path: Path, status_bar_dir=None) -> subpro
             f'write_openrouter_config_toml "{dest}"',
         ]
     )
-    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+    result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+    print(result)
+    return result
 
 
 def _write_qwen(dest: Path, tmp_path: Path, status_bar_dir=None) -> subprocess.CompletedProcess:
+    """Run the Qwen config writer in a fresh temporary home.
+
+    Parameters: dest - temporary config destination; tmp_path - isolated pytest directory; status_bar_dir - status-bar owning checkout.
+    Returns: the captured shell process.
+    """
+    print(f"dest={dest} tmp_path={tmp_path} status_bar_dir={status_bar_dir}")
     env_exports = [f"export TARGET_HOME={tmp_path}"]
     if status_bar_dir is not None:
         env_exports.append(f"export CLAUDE_CODE_STATUS_BAR_DIR={status_bar_dir}")
@@ -88,10 +92,18 @@ def _write_qwen(dest: Path, tmp_path: Path, status_bar_dir=None) -> subprocess.C
             f'write_qwen_config_toml "{dest}"',
         ]
     )
-    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+    result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+    print(result)
+    return result
 
 
 def test_openrouter_writer_emits_tui_status_line(tmp_path: Path) -> None:
+    """Check that openrouter writer emits tui status line.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     dest = tmp_path / ".codex-openrouter"
     dest.mkdir()
     proc = _write_openrouter(dest, tmp_path)
@@ -102,9 +114,16 @@ def test_openrouter_writer_emits_tui_status_line(tmp_path: Path) -> None:
     # Without the status-bar repo present, the built-in rich default applies.
     for token in RICH_DEFAULT:
         assert f'"{token}"' in text
+    print(None)
 
 
 def test_openrouter_writer_honors_status_bar_selections(tmp_path: Path) -> None:
+    """Check that openrouter writer honors status bar selections.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     if not STATUS_BAR_DIR.exists():
         import pytest
 
@@ -127,9 +146,16 @@ def test_openrouter_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     # (git-branch, dropped upstream) is filtered out instead of written through.
     assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
     assert "git-branch" not in text
+    print(None)
 
 
 def test_qwen_writer_emits_tui_status_line_in_both_configs(tmp_path: Path) -> None:
+    """Check that qwen writer emits tui status line in both configs.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     dest = tmp_path / ".codex-qwen"
     dest.mkdir()
     proc = _write_qwen(dest, tmp_path)
@@ -140,9 +166,16 @@ def test_qwen_writer_emits_tui_status_line_in_both_configs(tmp_path: Path) -> No
         assert "status_line =" in text
         for token in RICH_DEFAULT:
             assert f'"{token}"' in text
+    print(None)
 
 
 def test_qwen_writer_honors_status_bar_selections(tmp_path: Path) -> None:
+    """Check that qwen writer honors status bar selections.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     if not STATUS_BAR_DIR.exists():
         import pytest
 
@@ -165,3 +198,4 @@ def test_qwen_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     # (git-branch, dropped upstream) is filtered out instead of written through.
     assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
     assert "git-branch" not in text
+    print(None)
