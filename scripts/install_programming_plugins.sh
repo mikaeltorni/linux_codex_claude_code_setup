@@ -61,7 +61,7 @@ verify_skill_copy() {
 # Verify default-on native skills on every runtime and retired instruction cleanup.
 verify_programming_instructions() {
   local failures=0 codex_home plugin skill label state kind source_dir source_skill target catalog
-  catalog="$(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list)" || {
+  catalog="$(run_plugin_defaults --defaults "$SCRIPT_DIR/default.json" list)" || {
     msg "Programming prompt catalog could not be read"
     return 1
   }
@@ -124,7 +124,7 @@ install_all_programming_plugins() {
           msg "Plugin $plugin installation reported an error (continuing)"
         ;;
     esac
-  done < <(python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  done < <(run_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" list)
   # Merge AGENTS.md/CLAUDE.md global instructions for every prompt installed
   # above (default-on only), so only the minimal always-on set is tagged.

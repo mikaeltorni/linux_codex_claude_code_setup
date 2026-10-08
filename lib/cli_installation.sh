@@ -110,7 +110,7 @@ install_claude_code() {
   # its native, documented CLAUDE_CODE_HIDE_ACCOUNT_INFO=1 env var, merged into
   # settings.json without disturbing other user settings. Codex has no equivalent
   # mechanism, so it is intentionally left unwired.
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" claude-hide-account \
     "$TARGET_HOME/.claude/settings.json"
 }
@@ -144,7 +144,7 @@ configure_grok_model() {
     log "error" "GROK_MODEL_NAME, GROK_MODEL_ID, and GROK_MODEL_BASE_URL must be set together"
     return 1
   fi
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-grok-config \
     "$GROK_HOME/config.toml" "$GROK_MODEL_NAME" "$GROK_MODEL_ID" \
     "$GROK_MODEL_BASE_URL" "$GROK_API_KEY_ENV"
@@ -181,7 +181,7 @@ install_grok_cli() {
 # unrelated keys. Provider authentication is left to `opencode auth login`; no
 # API key is managed here.
 configure_opencode_config() {
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-opencode-config \
     "$OPENCODE_CONFIG_HOME/opencode.json" "$OPENCODE_MODEL" "$OPENCODE_VARIANT"
 }

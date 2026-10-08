@@ -42,7 +42,7 @@ register_dispatch_skill_component() {
 # Group component rows by install type so each menu heading is rendered once.
 # Preserve default.json ordering within each group.
 mapfile -t PROMPT_COMPONENT_ROWS < <(
-  python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" --defaults "$SCRIPT_DIR/default.json" list
+  run_plugin_defaults --defaults "$SCRIPT_DIR/default.json" list
 )
 for desired_kind in plugin skill dispatch-skill; do
   for row in "${PROMPT_COMPONENT_ROWS[@]}"; do

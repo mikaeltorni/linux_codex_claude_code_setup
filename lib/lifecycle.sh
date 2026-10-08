@@ -81,7 +81,7 @@ uninstall_claude_code() {
   msg "Removing Claude Code binary (leaving ~/.claude config intact)"
   run_as_target rm -f "$TARGET_HOME/.local/bin/claude"
   if [ -f "$TARGET_HOME/.claude/settings.json" ]; then
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    run_as_target_plugin_defaults \
       --defaults "$SCRIPT_DIR/default.json" claude-hide-account --disable \
       "$TARGET_HOME/.claude/settings.json" || true
   fi

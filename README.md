@@ -66,6 +66,21 @@ codex-history-sync sync --home ~/.codex --home ~/.codex-qwen
 codexsync --quiet
 ```
 
+### Plugin defaults
+
+`plugin-defaults` reads `default.json`. `list` prints one tab-separated catalog
+row per prompt. `validate` checks that row against a prompts checkout.
+`merge-claude`, `claude-hide-account`, `merge-instructions`,
+`merge-opencode-config`, and `merge-grok-config` update settings without
+dropping unrelated keys. The install commands link or copy a skill and refuse
+to replace an unmanaged directory. Without Cargo, the installer runs
+`scripts/plugin_defaults.py`.
+
+```bash
+plugin-defaults --defaults default.json list
+plugin-defaults --defaults default.json validate ~/projects/programming_prompts
+```
+
 The menu starts with a **CLIs** section containing Codex, Claude Code, Cline,
 Grok, local Codex (`qwen`), OpenRouter Codex (`openr`), and opencode. Local
 models and tracking-aware launchers belong to Agent Command Center, not this

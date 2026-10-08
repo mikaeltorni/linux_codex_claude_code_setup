@@ -48,7 +48,7 @@ build_setup_generators() {
   env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
     cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name"
     if [[ -n "${TARGET_HOME:-}" ]]; then
       install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
@@ -70,6 +70,28 @@ generators_release_bin() {
     [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
   done
   return 1
+}
+
+# Run plugin-defaults, preferring the Rust binary.
+# Parameters: the same arguments as scripts/plugin_defaults.py. Returns: the helper status.
+run_plugin_defaults() {
+  local bin
+  if bin="$(generators_release_bin plugin-defaults)"; then
+    "$bin" "$@"
+  else
+    python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" "$@"
+  fi
+}
+
+# Run plugin-defaults as the target user.
+# Parameters: the same arguments as scripts/plugin_defaults.py. Returns: the helper status.
+run_as_target_plugin_defaults() {
+  local bin
+  if bin="$(generators_release_bin plugin-defaults)"; then
+    run_as_target "$bin" "$@"
+  else
+    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" "$@"
+  fi
 }
 
 generate_programming_prompts_marketplace() {
@@ -99,7 +121,7 @@ ensure_programming_prompts() {
     "programming_prompts" \
     "$PROGRAMMING_PROMPTS_DIR" \
     "https://github.com/${PROGRAMMING_PROMPTS_REPOSITORY}.git"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" validate "$PROGRAMMING_PROMPTS_DIR"
   generate_programming_prompts_marketplace
   PROMPTS_READY=1
@@ -214,7 +236,7 @@ resolve_prompt_skill_source() {
 install_cline_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
   source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-cline-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
@@ -223,7 +245,7 @@ install_cline_prompt_skill() {
 install_cursor_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
   source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-cursor-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
@@ -235,7 +257,7 @@ install_cursor_prompt_skill() {
 install_cline_prompt_plugin() {
   local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
   [[ -d "$source_plugin/skills" ]] || return 0
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-cline-plugin \
     "$TARGET_HOME" "$source_plugin" "$plugin_name"
 }
@@ -244,7 +266,7 @@ install_cline_prompt_plugin() {
 install_grok_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
   source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-grok-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
@@ -253,7 +275,7 @@ install_grok_prompt_skill() {
 # in addition to the currently selected skill.
 install_grok_prompt_plugin() {
   local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-grok-plugin \
     "$TARGET_HOME" "$source_plugin" "$plugin_name"
 }
@@ -262,7 +284,7 @@ install_grok_prompt_plugin() {
 install_opencode_prompt_skill() {
   local plugin_name="$1" skill_name="$2" source_skill
   source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-opencode-skill \
     "$TARGET_HOME" "$source_skill" "$skill_name"
 }
@@ -272,7 +294,7 @@ install_opencode_prompt_skill() {
 install_opencode_prompt_plugin() {
   local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
   [[ -d "$source_plugin/skills" ]] || return 0
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" install-opencode-plugin \
     "$TARGET_HOME" "$source_plugin" "$plugin_name"
 }
@@ -299,34 +321,34 @@ install_plugin_global_instructions() {
   # na/.codex-nvidia) needs the managed tag — not just the default .codex home.
   local codex_home
   for codex_home in $(target_codex_homes); do
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    run_as_target_plugin_defaults \
       --defaults "$SCRIPT_DIR/default.json" merge-instructions \
       "$codex_home/AGENTS.md" "$plugin_name" "$instructions"
   done
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"
   # Cline loads Rules into every session's system prompt. It reads the
   # cross-tool agents.md standard at ~/.agents/AGENTS.md and its native global
   # rules directory at ~/Documents/Cline/Rules/. Merging both keeps the
   # guidelines always-on for Cline, not just available as an invokable skill.
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.agents/AGENTS.md" "$plugin_name" "$instructions"
   local cline_rules="$TARGET_HOME/Documents/Cline/Rules"
   run_as_target mkdir -p "$cline_rules"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$cline_rules/$plugin_name.md" "$plugin_name" "$instructions"
   # opencode reads global agent instructions from ~/.config/opencode/AGENTS.md in
   # every session, so merge the same managed block there to keep the guidelines
   # always-on for opencode, not just available as an invokable skill.
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$OPENCODE_CONFIG_HOME/AGENTS.md" "$plugin_name" "$instructions"
   # Grok also reads its global AGENTS.md. Keep the complete mandatory body
   # there so Grok cannot depend on choosing the native skill explicitly.
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" merge-instructions \
     "$TARGET_HOME/.grok/AGENTS.md" "$plugin_name" "$instructions"
 }
@@ -363,7 +385,7 @@ remove_legacy_plugin_installations() {
 
     # Remove legacy flat skill symlinks (including stale/broken ones) from each
     # Codex home as the plugins move to the marketplace model.
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    run_as_target_plugin_defaults \
       --defaults "$SCRIPT_DIR/default.json" cleanup-legacy \
       "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
       --codex-home "$codex_home"
@@ -395,7 +417,7 @@ install_prompt_plugin() {
     fi
     # Keep Claude pointed at the installer-owned generated marketplace. The
     # source content remains programming_prompts; only the catalog is generated.
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    run_as_target_plugin_defaults \
       --defaults "$SCRIPT_DIR/default.json" merge-claude \
       "$TARGET_HOME/.claude/settings.json" \
       --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
@@ -431,12 +453,12 @@ install_manifest_free_skill() {
   ensure_programming_prompts
   remove_marketplace_plugin_installations "$plugin_name"
   remove_legacy_plugin_installations "$plugin_name" "$skill_name"
-  run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+  run_as_target_plugin_defaults \
     --defaults "$SCRIPT_DIR/default.json" cleanup-migrated-plugin \
     "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" \
     "$PROGRAMMING_PROMPTS_MARKETPLACE"
   for codex_home in $(target_codex_homes); do
-    run_as_target python3 "$SCRIPT_DIR/scripts/plugin_defaults.py" \
+    run_as_target_plugin_defaults \
       --defaults "$SCRIPT_DIR/default.json" install-direct-skill \
       "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
       --codex-home "$codex_home" --source-dir "$source_dir"
