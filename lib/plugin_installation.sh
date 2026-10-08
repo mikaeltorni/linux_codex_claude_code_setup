@@ -48,7 +48,7 @@ build_setup_generators() {
   env CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
     cargo build --locked --release --manifest-path "$SCRIPT_DIR/Cargo.toml"
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name"
     if [[ -n "${TARGET_HOME:-}" ]]; then
       install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
