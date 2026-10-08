@@ -5,6 +5,8 @@
 # install_* functions created. The shared runtime clears each component's receipt
 # after a successful uninstall.
 
+source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
+
 # detect_codex_cli - true when a `codex` launcher is on the user's PATH dir or
 # the isolated Codex binary exists.
 detect_codex_cli() {

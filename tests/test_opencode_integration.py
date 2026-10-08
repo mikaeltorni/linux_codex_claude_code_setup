@@ -6,23 +6,18 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# The sibling checkout lives next to this repo, or one level further up when
-# the suite runs from a git worktree (projects/worktrees/<repo>-wt-<task>).
-ACC = next(
-    (
-        candidate
-        for candidate in (
-            ROOT.parent / "agent_command_center",
-            ROOT.parent.parent / "agent_command_center",
-        )
-        if candidate.is_dir()
-    ),
-    ROOT.parent / "agent_command_center",
-)
+from repository_paths import sibling_checkout
+
+ACC = sibling_checkout(ROOT, "agent_command_center")
 
 
 def test_opencode_is_default_on_and_uses_official_customizable_installer() -> None:
-    """Clean installs expose opencode and keep its installer contract overridable."""
+    """Clean installs expose opencode and keep its installer contract overridable.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     manifest = (ROOT / "installer/components.sh").read_text(encoding="utf-8")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
@@ -42,17 +37,29 @@ def test_opencode_is_default_on_and_uses_official_customizable_installer() -> No
         assert f'{variable}="${{{variable}:-' in install
     assert 'curl -fsSL --max-time 300 "$OPENCODE_INSTALL_URL"' in cli
     assert '"$OPENCODE_COMMAND" --version' in cli
+    print(None)
 
 
 def test_opencode_default_model_is_glm_52_with_configurable_variant() -> None:
-    """The default model is glm-5.2 and the reasoning variant stays tunable."""
+    """The default model is glm-5.2 and the reasoning variant stays tunable.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert 'OPENCODE_MODEL="${OPENCODE_MODEL:-opencode-go/glm-5.2}"' in install
     assert 'OPENCODE_VARIANT="${OPENCODE_VARIANT:-high}"' in install
+    print(None)
 
 
 def test_opencode_manages_no_api_key() -> None:
-    """The API key wiring was removed entirely; auth is opencode's own concern."""
+    """The API key wiring was removed entirely; auth is opencode's own concern.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
     helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
@@ -63,18 +70,30 @@ def test_opencode_manages_no_api_key() -> None:
     assert "OPENCODE_API_KEY" not in helper
     assert not (ROOT / ".env").exists()
     assert ".env" not in gitignore.split()
+    print(None)
 
 
 def test_opencode_has_detection_and_non_destructive_uninstall() -> None:
-    """Lifecycle support removes the managed binary but preserves user config."""
+    """Lifecycle support removes the managed binary but preserves user config.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     lifecycle = (ROOT / "lib/lifecycle.sh").read_text(encoding="utf-8")
     assert "detect_opencode_cli()" in lifecycle
     assert "uninstall_opencode_cli()" in lifecycle
     assert 'rm -rf "$OPENCODE_CONFIG_HOME"' not in lifecycle
+    print(None)
 
 
 def test_every_selected_prompt_is_exposed_natively_to_opencode() -> None:
-    """opencode should receive skills without relying on Claude being installed."""
+    """opencode should receive skills without relying on Claude being installed.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
     helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
     assert installer.count("install_opencode_prompt_skill") >= 3
@@ -82,12 +101,18 @@ def test_every_selected_prompt_is_exposed_natively_to_opencode() -> None:
     assert "install-opencode-skill" in helper
     assert "install-opencode-plugin" in helper
     assert '".config" / "opencode" / "skills"' in helper
+    print(None)
 
 
 def test_opencode_config_merge_is_idempotent_and_preserves_user_keys(
     tmp_path: Path,
 ) -> None:
-    """merge-opencode-config wires model/variant/yolo without clobbering settings."""
+    """merge-opencode-config wires model/variant/yolo without clobbering settings.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     helper = ROOT / "scripts/plugin_defaults.py"
     defaults = ROOT / "default.json"
     config = tmp_path / "opencode.json"
@@ -106,10 +131,16 @@ def test_opencode_config_merge_is_idempotent_and_preserves_user_keys(
     for agent in ("build", "plan"):
         assert data["agent"][agent]["model"] == "opencode-go/glm-5.2"
         assert data["agent"][agent]["variant"] == "high"
+    print(None)
 
 
 def test_opencode_variant_default_clears_and_rejects_invalid(tmp_path: Path) -> None:
-    """The 'default' variant clears the managed key; unknown variants are rejected."""
+    """The 'default' variant clears the managed key; unknown variants are rejected.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     helper = ROOT / "scripts/plugin_defaults.py"
     defaults = ROOT / "default.json"
     config = tmp_path / "opencode.json"
@@ -122,10 +153,17 @@ def test_opencode_variant_default_clears_and_rejects_invalid(tmp_path: Path) -> 
     subprocess.run(base + ["default"], check=True)
     assert "variant" not in json.loads(config.read_text())["agent"]["build"]
     assert subprocess.run(base + ["low"]).returncode != 0  # not a glm-5.2 variant
+    assert json.loads(config.read_text()) == {"$schema": "https://opencode.ai/config.json", "model": "opencode-go/glm-5.2", "permission": "allow", "agent": {"build": {"model": "opencode-go/glm-5.2"}, "plan": {"model": "opencode-go/glm-5.2"}}}
+    print(None)
 
 
 def test_opencode_skill_link_is_idempotent(tmp_path: Path) -> None:
-    """The helper reuses a managed skill link on repeat installs."""
+    """The helper reuses a managed skill link on repeat installs.
+
+    Parameters: tmp_path - isolated pytest directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     home = tmp_path / "home"
     skill = tmp_path / "prompts" / "skills" / "commit"
     skill.mkdir(parents=True)
@@ -138,10 +176,16 @@ def test_opencode_skill_link_is_idempotent(tmp_path: Path) -> None:
     subprocess.run(command, check=True)
     subprocess.run(command, check=True)
     assert (home / ".config/opencode/skills/commit").resolve() == skill.resolve()
+    print(None)
 
 
 def test_acc_exposes_opencode_launcher_family_in_yolo_mode() -> None:
-    """ACC wires oca/ocr/ocac driving opencode with --auto (yolo) and no API key."""
+    """ACC wires oca/ocr/ocac driving opencode with --auto (yolo) and no API key.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     tracker = (ACC / "lib/codex_agent_tracker.sh").read_text(encoding="utf-8")
     dispatcher = (ACC / "scripts/codex-agent-tracker").read_text(encoding="utf-8")
     assert " oca " in tracker
@@ -158,3 +202,4 @@ def test_acc_exposes_opencode_launcher_family_in_yolo_mode() -> None:
     # The API-key wiring is gone.
     assert "OPENCODE_API_KEY" not in tracker
     assert "./.env" not in tracker
+    print(None)

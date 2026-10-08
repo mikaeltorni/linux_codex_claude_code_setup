@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Codex, Claude Code, Cline, Grok, and opencode CLI installation functions.
 
+source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
+
 # Ensure ~/.local/bin is on the target user's PATH via .bashrc (idempotent).
 # The user-local launchers and tracking wrapper live there, so every CLI
 # entrypoint is reachable in new shells regardless of which is installed.

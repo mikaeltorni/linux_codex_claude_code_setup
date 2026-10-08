@@ -10,6 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.mark.parametrize('defect', ['none', 'missing-copy', 'stale-copy', 'retired-block', 'invalid-catalog'])
 def test_verifier_uses_current_defaults_without_generic_source(tmp_path, defect):
+    """Check installed programming-prompt copies against their current defaults.
+
+    Parameters: tmp_path - isolated pytest directory; defect - requested fixture defect.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path} defect={defect}")
     home = tmp_path / 'home'
     prompts = tmp_path / 'prompts'
     source = prompts / 'skills/current/SKILL.md'
@@ -18,6 +24,7 @@ def test_verifier_uses_current_defaults_without_generic_source(tmp_path, defect)
     setup = tmp_path / 'setup'
     setup.mkdir()
     (setup / 'scripts').symlink_to(ROOT / 'scripts', target_is_directory=True)
+    (setup / 'dist').symlink_to(ROOT / 'target/release', target_is_directory=True)
     (setup / 'default.json').write_text(json.dumps({'marketplace': {'name': 'programming-prompts', 'repository': 'example/prompts', 'checkout': 'projects/prompts'}, 'plugins': [
         {'plugin': 'current', 'skill': 'current', 'label': 'Current', 'default': True, 'kind': 'skill'}
     ]}))
@@ -44,9 +51,11 @@ PROGRAMMING_PROMPTS_DIR="$2"
 SCRIPT_DIR="$3"
 OPENCODE_CONFIG_HOME="$TARGET_HOME/.config/opencode"
 msg() { printf '%s\\n' "$*"; }
+source "$4/lib/plugin_installation.sh"
 target_codex_homes() { printf '%s\\n' "$TARGET_HOME/.codex"; }
 '''
     result = subprocess.run(['bash', '-c', env_script + functions + '\nverify_programming_instructions',
-                             'fixture', str(home), str(prompts), str(setup)],
+                             'fixture', str(home), str(prompts), str(setup), str(ROOT)],
                             text=True, capture_output=True)
     assert (result.returncode == 0) == (defect == 'none'), result.stdout + result.stderr
+    print(None)
