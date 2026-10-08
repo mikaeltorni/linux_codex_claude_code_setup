@@ -1,0 +1,12 @@
+[package]
+name = "codex-claude-setup"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "generate-marketplaces"
+path = "src/bin/generate-marketplaces.rs"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }

@@ -76,6 +76,7 @@ source "$SCRIPT_DIR/lib/lifecycle.sh"
 source "$SCRIPT_DIR/installer/components.sh"
 
 agent_cli_preflight() {
+  build_setup_generators
   ensure_programming_prompts
 }
 
