@@ -24,6 +24,10 @@ path = "src/bin/plugin-defaults.rs"
 name = "codex-reserve-policy"
 path = "src/bin/codex-reserve-policy.rs"
 
+[[bin]]
+name = "setup-json"
+path = "src/bin/setup-json.rs"
+
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = { version = "0.9.11", default-features = false, features = ["parse", "std", "serde"] }

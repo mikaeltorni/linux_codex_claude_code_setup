@@ -51,3 +51,43 @@ def test_provider_status_line_uses_rust_and_retains_saved_fields(tmp_path):
         assert "unexpected Python launch" not in result.stderr
         assert json.loads(selected.read_text())[kind] == ["model-with-reasoning", "used-tokens", "git-branch"]
     print(None)
+
+
+def test_marketplace_shell_pipeline_uses_native_json_queries(tmp_path):
+    """Route fake native plugin state through the actual shell and Rust query owners.
+
+    Parameters: tmp_path - isolated home and native CLI fixture directory.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
+    native = tmp_path / "codex-fixture"
+    native.write_text('''#!/bin/bash
+printf '%s\\n' "$*" >> "$QUERY_FIXTURE_CALLS"
+if [[ "$*" == 'plugin marketplace list --json' ]]; then
+  printf '%s\\n' '{"marketplaces":[{"name":"programming-prompts","root":"/old/catalog"}]}'
+fi
+''')
+    native.chmod(0o755)
+    calls = tmp_path / "calls.txt"
+    script = '''set -euo pipefail
+source "$SCRIPT_DIR/lib/plugin_installation.sh"
+run_as_target() { "$@"; }
+resolve_target_binary() { printf '%s\\n' "$QUERY_FIXTURE_NATIVE"; }
+prepare_codex_marketplace "$TARGET_HOME/.codex"
+prepare_codex_marketplace "$TARGET_HOME/.codex"
+'''
+    env = dict(os.environ, SCRIPT_DIR=str(ROOT), TARGET_HOME=str(tmp_path), QUERY_FIXTURE_CALLS=str(calls), QUERY_FIXTURE_NATIVE=str(native), PROGRAMMING_PROMPTS_MARKETPLACE="programming-prompts", PROGRAMMING_PROMPTS_MARKETPLACE_DIR="/new/catalog")
+    result = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert calls.read_text().splitlines() == ["plugin marketplace list --json", "plugin marketplace remove programming-prompts", "plugin marketplace add /new/catalog"]
+    registry = tmp_path / ".claude/plugins/known_marketplaces.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(json.dumps({"programming-prompts": {"source": {"source": "directory", "path": "/new/catalog"}}}))
+    check = 'source "$SCRIPT_DIR/lib/plugin_installation.sh"; run_as_target() { "$@"; }; claude_marketplace_matches_checkout'
+    matched = subprocess.run(["bash", "-c", check], env=env, capture_output=True, text=True)
+    assert matched.returncode == 0, matched.stderr
+    before = registry.read_bytes()
+    mismatched = subprocess.run(["bash", "-c", check], env=dict(env, PROGRAMMING_PROMPTS_MARKETPLACE_DIR="/other/catalog"), capture_output=True, text=True)
+    assert mismatched.returncode == 1, mismatched.stderr
+    assert registry.read_bytes() == before
+    print(None)
