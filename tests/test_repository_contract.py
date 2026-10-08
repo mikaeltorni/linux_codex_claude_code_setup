@@ -26,24 +26,54 @@ ORCHESTRATOR = PROJECTS / "installation_scripts"
 
 
 def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, cwd=cwd, text=True, capture_output=True, check=False)
+    """Run a repository command and capture its public output.
+
+    Parameters: cwd - command working directory; args - command tokens.
+    Returns: captured command status and output.
+    """
+    print(f"cwd={cwd}, args={args}")
+    result = subprocess.run(args, cwd=cwd, text=True, capture_output=True, check=False)
+    print(result)
+    return result
 
 
 def plugin_names() -> set[str]:
-    return {
+    """Return plugin names from the prompt manifests.
+
+    Parameters: none.
+    Returns: the plugin identifier set.
+    """
+    print("parameters=none")
+    result = {
         path.parent.parent.name
         for path in PROMPTS.glob("plugins/*/.codex-plugin/plugin.json")
     }
+    print(result)
+    return result
 
 
 def direct_skill_names() -> set[str]:
-    return {
+    """Return direct skill names from the prompt sources.
+
+    Parameters: none.
+    Returns: the direct skill identifier set.
+    """
+    print("parameters=none")
+    result = {
         path.parent.name
         for path in PROMPTS.glob("skills/*/SKILL.md")
     }
+    print(result)
+    return result
 
 
 def manifest_array(name: str) -> list[str]:
+    """Read an orchestrator repository array through its shell owner.
+
+    Parameters: name - shell manifest array identifier.
+    Returns: ordered repository names.
+    """
+    print(f"name={name}")
     result = run(
         "bash",
         "-c",
@@ -51,11 +81,18 @@ def manifest_array(name: str) -> list[str]:
         cwd=ORCHESTRATOR,
     )
     assert result.returncode == 0, result.stderr
-    return result.stdout.splitlines()
+    result = result.stdout.splitlines()
+    print(result)
+    return result
 
 
 def test_committed_defaults_cover_every_prompt_plugin() -> None:
-    """default.json should point at programming_prompts and list every prompt."""
+    """default.json should point at programming_prompts and list every prompt.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     defaults_path = ROOT / "default.json"
     assert defaults_path.is_file()
     assert "default.json" not in (ROOT / ".gitignore").read_text(encoding="utf-8")
@@ -95,10 +132,16 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
         if entry.get("kind") == "dispatch-skill"
     }
     assert dispatch_on == {"github-seo", "github-portfolio-scan"}
+    print(None)
 
 
 def test_programming_prompts_is_content_only() -> None:
-    """Prompt content has per-plugin manifests but no generated marketplaces."""
+    """Prompt content has per-plugin manifests but no generated marketplaces.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     assert not (PROMPTS / "install.sh").exists()
     assert not (PROMPTS / "installer").exists()
     assert not (PROMPTS / "lib" / "plugin_installer.sh").exists()
@@ -109,10 +152,16 @@ def test_programming_prompts_is_content_only() -> None:
     ).is_file()
     assert (PROMPTS / "skills" / "setup-repository-guidelines" / "SKILL.md").is_file()
     assert (PROMPTS / "skills" / "refactoring" / "SKILL.md").is_file()
+    print(None)
 
 
 def test_installer_exposes_clis_and_each_plugin() -> None:
-    """The standalone installer exposes all CLIs and per-plugin selection."""
+    """The standalone installer exposes all CLIs and per-plugin selection.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     ids = {line.split("\t", 1)[0] for line in result.stdout.splitlines()}
@@ -131,10 +180,16 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
         encoding="utf-8"
     )
     assert 'plugin uninstall --scope user "$selector"' in plugin_installer
+    print(None)
 
 
 def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
-    """The standalone and aggregate menus must visibly separate install types."""
+    """The standalone and aggregate menus must visibly separate install types.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     rows = {fields[0]: fields for line in result.stdout.splitlines() if (fields := line.split("\t"))}
@@ -150,31 +205,50 @@ def test_plugins_and_direct_skills_have_distinct_menu_sections() -> None:
     plugin_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("plugin-")]
     skill_positions = [index for index, component_id in enumerate(ids) if component_id.startswith("skill-")]
     assert max(plugin_positions) < min(skill_positions)
+    print(None)
 
 
 def test_models_and_tracking_wrapper_are_owned_by_acc() -> None:
-    """The CLI installer must not expose ACC runtime or local-model rows."""
+    """The CLI installer must not expose ACC runtime or local-model rows.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
     assert "qwen3_8_27b_model|" not in components
     assert "codex_wrapper|" not in components
     acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     assert "qwen3_8_27b_model|" in acc_components
     assert "codex_wrapper|" in acc_components
+    print(None)
 
 
 def list_components() -> list[tuple[str, str]]:
-    """Return (id, default-state) pairs from the installer component listing."""
+    """Return (id, default-state) pairs from the installer component listing.
+
+    Parameters: none.
+    Returns: component identifier/default-state pairs.
+    """
+    print("parameters=none")
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     pairs: list[tuple[str, str]] = []
     for line in result.stdout.splitlines():
         fields = line.split("\t")
         pairs.append((fields[0], fields[2]))
-    return pairs
+    result = pairs
+    print(result)
+    return result
 
 
 def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
-    """ACC runtime, models, and global instruction mutation stay out of setup."""
+    """ACC runtime, models, and global instruction mutation stay out of setup.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     pairs = list_components()
     states = dict(pairs)
     # The tracking wrapper and global-instruction merge are no longer bundled
@@ -198,10 +272,16 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
             assert state == "on", f"{component_id} must stay default-on"
     assert "skill-general-programming-guidelines" not in states
     assert states["skill-ssh-vm"] == "on"
+    print(None)
 
 
 def test_core_clis_do_not_bundle_optional_modules() -> None:
-    """Selecting only a CLI must not drag in the wrapper or instruction merge."""
+    """Selecting only a CLI must not drag in the wrapper or instruction merge.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
@@ -218,28 +298,46 @@ def test_core_clis_do_not_bundle_optional_modules() -> None:
     assert "record_prompt_plugin" in plugin_installer
     assert "install_global_instructions_component" in plugin_installer
     assert plugin_installer.count("install_plugin_global_instructions") >= 1
+    print(None)
 
 
 def test_codex_uses_local_fork_and_cline_retains_nodejs_22() -> None:
-    """Codex builds the local fork while Cline retains its npm dependency."""
+    """Codex builds the local fork while Cline retains its npm dependency.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     assert "codex_fork_install_main" in cli
     assert "@openai/codex" not in cli
     assert "ensure_nodejs_22" in cli.split("install_cline_cli()", 1)[1]
     assert "https://deb.nodesource.com/setup_22.x" in cli
+    print(None)
 
 
 def test_installer_publishes_the_shared_fork_helper() -> None:
-    """ACC receives the same fork build helper the CLI installer uses."""
+    """ACC receives the same fork build helper the CLI installer uses.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     assert 'source "$SCRIPT_DIR/assets/codex_fork_install.sh"' in installer
     assert "codex_fork_install.sh" in cli
     assert "remove_retired_codex_fork_helper" not in installer
+    print(None)
 
 
 def test_installer_logging_contract_is_explicit() -> None:
-    """Installer runs should log to .log without making listing commands noisy."""
+    """Installer runs should log to .log without making listing commands noisy.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
@@ -258,6 +356,7 @@ def test_installer_logging_contract_is_explicit() -> None:
     assert "configure_logger" not in python_logging
     assert "Claude Code install latest failed" in cli
     assert "Claude Code update failed" in cli
+    print(None)
 
 
 def test_acc_delegates_before_installing_its_own_components() -> None:
@@ -267,7 +366,11 @@ def test_acc_delegates_before_installing_its_own_components() -> None:
     fires in front of the first component that actually runs, so a blank
     selection (``--select ''``) skipped it and left ACC's wrappers with no CLIs
     to wrap. ISC_CORE always runs, first.
+
+    Parameters: none.
+    Returns: None.
     """
+    print("parameters=none")
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     installer = (ACC / "scripts" / "install_standalone.sh").read_text(encoding="utf-8")
     qwen = (ACC / "lib" / "qwen_codex.sh").read_text(encoding="utf-8")
@@ -292,31 +395,50 @@ def test_acc_delegates_before_installing_its_own_components() -> None:
     assert "local acc_front_ends=(ca cx cap cca cla qa ga oa na" in tracker
     assert 'for command_name in "${acc_front_ends[@]}"' in tracker
     assert "sync_programming_plugin" not in tracker
+    print(None)
 
 
 def test_setup_owns_generated_marketplaces_and_codex_wrapper() -> None:
-    """Marketplace catalogs and the tracking wrapper belong to this installer."""
+    """Marketplace catalogs and the tracking wrapper belong to this installer.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     wrapper = (ROOT / "lib" / "codex_wrapper.sh").read_text(encoding="utf-8")
-    assert "generate_marketplaces.py" in installer
+    assert "generators_release_bin generate-marketplaces" in installer
+    assert "generate_marketplaces.py" not in installer
     assert "PROGRAMMING_PROMPTS_MARKETPLACE_DIR" in installer
     assert "install_codex_wrapper" in cli
     assert '"\\$real_codex" "\\$@"' in wrapper
     assert '"\\$real_codex" --yolo' not in wrapper
+    print(None)
 
 
 def test_programming_prompts_checkout_uses_shared_auth_gate() -> None:
-    """Private prompt repository clone/update should use the shared helper."""
+    """Private prompt repository clone/update should use the shared helper.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
 
     assert "ensure_linked_repository" in installer
     assert '"programming_prompts" \\' in installer
     assert "run_as_target git clone" not in installer
+    print(None)
 
 
 def test_plugins_install_into_every_configured_codex_home() -> None:
-    """The plugin install iterates CODEX_HOMES so every Codex instance is covered."""
+    """The plugin install iterates CODEX_HOMES so every Codex instance is covered.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     main = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert "target_codex_homes" in installer
@@ -327,6 +449,7 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     entrypoint_text = entrypoint.read_text(encoding="utf-8")
     assert "install_prompt_plugin" in entrypoint_text
     assert "install_prompt_skill" in entrypoint_text
+    print(None)
 
 
 def test_entrypoint_deploys_only_default_on_prompts() -> None:
@@ -334,7 +457,11 @@ def test_entrypoint_deploys_only_default_on_prompts() -> None:
 
     The guidelines are the only default-on full-body instruction block. Native
     SSH VM and dispatch skills are discoverable without loading every session.
+
+    Parameters: none.
+    Returns: None.
     """
+    print("parameters=none")
     entrypoint_text = (
         ROOT / "scripts" / "install_programming_plugins.sh"
     ).read_text(encoding="utf-8")
@@ -342,6 +469,7 @@ def test_entrypoint_deploys_only_default_on_prompts() -> None:
     assert '[[ "$state" == "on" ]] || continue' in body
     assert 'dispatch-skill)' in body
     assert 'install_dispatch_skill "$plugin" "$skill"' in body
+    print(None)
 
 
 def test_global_instruction_tag_reaches_every_codex_home() -> None:
@@ -350,7 +478,11 @@ def test_global_instruction_tag_reaches_every_codex_home() -> None:
     Codex reads AGENTS.md from its own CODEX_HOME, so tagging only the default
     ~/.codex would leave ca/qa/oa/na untagged. The merge must iterate
     target_codex_homes and write "$codex_home/AGENTS.md".
+
+    Parameters: none.
+    Returns: None.
     """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     body = installer.split("install_plugin_global_instructions()", 1)[1].split(
         "\n}", 1
@@ -360,27 +492,45 @@ def test_global_instruction_tag_reaches_every_codex_home() -> None:
     assert '"$TARGET_HOME/.codex/AGENTS.md"' not in body
     # Claude keeps its guidance in CLAUDE.md, not AGENTS.md.
     assert '"$TARGET_HOME/.claude/CLAUDE.md"' in body
+    print(None)
 
 
 def test_global_instruction_install_does_not_require_retired_generic_source() -> None:
-    """Only explicit instruction payloads may be merged into runtime files."""
+    """Only explicit instruction payloads may be merged into runtime files.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
     body = installer.split("install_plugin_global_instructions()", 1)[1].split("\n}", 1)[0]
     assert "general-programming-guidelines" not in body
     assert "complete_skill" not in body
     assert "global-instructions/$1.md" in body
+    print(None)
 
 
 def test_prompt_components_apply_global_instructions_during_normal_install() -> None:
-    """The component installer must not leave the always-on tag to a side path."""
+    """The component installer must not leave the always-on tag to a side path.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     for function_name in ("install_prompt_plugin()", "install_prompt_skill()"):
         body = installer.split(function_name, 1)[1].split("\n}", 1)[0]
         assert "install_plugin_global_instructions" in body
+    print(None)
 
 
 def test_programming_prompt_verifier_checks_each_runtime_surface() -> None:
-    """The standalone verifier must prove skill and instruction delivery."""
+    """The standalone verifier must prove skill and instruction delivery.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(
         encoding="utf-8"
     )
@@ -391,6 +541,7 @@ def test_programming_prompt_verifier_checks_each_runtime_surface() -> None:
     assert "CLAUDE.md" in entrypoint
     assert "Documents/Cline/Rules" in entrypoint
     assert "OPENCODE_CONFIG_HOME" in entrypoint
+    print(None)
 
 
 def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:
@@ -401,8 +552,13 @@ def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:
     in a background process group, so that tcsetattr raises SIGTTOU and stops the
     whole install (it hangs after a marketplace update). Non-piped invocations
     must therefore go through run_target_claude_plugin, which detaches stdin and
-    pipes stdout so Claude Code stays non-interactive. The `| python3` readers are
-    already safe because their stdout is a pipe."""
+    pipes stdout so Claude Code stays non-interactive. The JSON query readers are
+    already safe because their stdout is a pipe.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
 
     assert "run_target_claude_plugin()" in installer
@@ -418,25 +574,44 @@ def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:
             assert stripped.endswith("--json |"), (
                 f"non-piped claude plugin command must use run_target_claude_plugin: {stripped}"
             )
+    print(None)
 
 
 def test_master_installs_standalone_repo_before_acc() -> None:
-    """Clean setup should clone and run the standalone repository before ACC."""
+    """Clean setup should clone and run the standalone repository before ACC.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     name = "linux_codex_claude_code_setup"
     clone_repos = manifest_array("CLONE_REPOS")
     install_repos = manifest_array("INSTALL_REPOS")
     assert clone_repos.index("programming_prompts") < clone_repos.index(name)
     assert clone_repos.index(name) < clone_repos.index("agent_command_center")
     assert install_repos.index(name) < install_repos.index("agent_command_center")
+    print(None)
 
 
 def dispatch_skill_names() -> set[str]:
-    """Return every dispatch skill discoverable in the prompts checkout."""
-    return {path.parent.name for path in PROMPTS.glob("dispatch-skills/*/SKILL.md")}
+    """Return every dispatch skill discoverable in the prompts checkout.
+
+    Parameters: none.
+    Returns: dispatch skill identifiers.
+    """
+    print("parameters=none")
+    result = {path.parent.name for path in PROMPTS.glob("dispatch-skills/*/SKILL.md")}
+    print(result)
+    return result
 
 
 def test_dispatch_skills_are_configured_and_present() -> None:
-    """Every dispatch-skill default resolves to a dispatch-skills/ body."""
+    """Every dispatch-skill default resolves to a dispatch-skills/ body.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     defaults = json.loads((ROOT / "default.json").read_text(encoding="utf-8"))
     dispatch = {
         entry["skill"]
@@ -448,10 +623,16 @@ def test_dispatch_skills_are_configured_and_present() -> None:
     assert dispatch <= dispatch_skill_names()
     assert (PROMPTS / "dispatch-skills" / "github-seo" / "SKILL.md").is_file()
     assert (PROMPTS / "dispatch-skills" / "github-portfolio-scan" / "SKILL.md").is_file()
+    print(None)
 
 
 def test_dispatch_skills_get_their_own_menu_section() -> None:
-    """Dispatch skills are separately selectable, under their own heading."""
+    """Dispatch skills are separately selectable, under their own heading.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     result = run("bash", "install.sh", "--list-components")
     assert result.returncode == 0, result.stderr
     rows = {
@@ -463,18 +644,31 @@ def test_dispatch_skills_get_their_own_menu_section() -> None:
     assert rows["dispatch-skill-github-seo"][3] == "Dispatch Skills"
     assert "dispatch-skill-github-portfolio-scan" in rows
     assert rows["dispatch-skill-github-portfolio-scan"][3] == "Dispatch Skills"
+    print(None)
 
 
 def test_dispatch_skills_never_merge_into_instruction_files() -> None:
-    """Dispatch skill installs must not bloat AGENTS.md/CLAUDE.md."""
+    """Dispatch skill installs must not bloat AGENTS.md/CLAUDE.md.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     body = installer.split("install_dispatch_skill() {", 1)[1].split("\n}", 1)[0]
     assert "install_plugin_global_instructions" not in body
     assert "dispatch-skills" in body
+    print(None)
 
 
 def test_dispatch_skill_source_resolution_is_shared() -> None:
-    """Every harness installer resolves skill sources through one helper."""
+    """Every harness installer resolves skill sources through one helper.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     assert installer.count("resolve_prompt_skill_source()") == 1
     assert installer.count('"$(resolve_prompt_skill_source ') == 4
+    print(None)

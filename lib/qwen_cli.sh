@@ -122,9 +122,12 @@ install_qwen_plugins_into_home() {
     msg "Plugin installation into $QWEN_CODEX_HOME failed (non-fatal)"
 }
 
+# Install local-provider Codex and its native model catalog.
+# Parameters: none; QWEN_CODEX variables configure the target installation.
+# Returns: the installation status.
 install_qwen_cli() {
   msg "Installing plain Local Codex CLI (${QWEN_CODEX_COMMAND})"
-  apt_install curl python3 1>&2
+  apt_install curl 1>&2
 
   if [ -d "$QWEN_CODEX_HOME" ]; then
     msg "Refreshing existing Local Codex home at $QWEN_CODEX_HOME"
@@ -134,16 +137,12 @@ install_qwen_cli() {
   run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   codex_fork_install_to_prefix "$QWEN_CODEX_NPM_PREFIX" >/dev/null || return 1
 
-  local catalog_bin=()
-  if catalog_bin=("$(generators_release_bin generate-model-catalog)"); then
-    :
-  else
-    catalog_bin=(python3 "$SCRIPT_DIR/scripts/generate_model_catalog.py")
-  fi
+  local catalog_bin
+  catalog_bin="$(generators_release_bin generate-model-catalog)" || return 1
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \
     QWEN_CODEX_CONTEXT_WINDOW="${QWEN_CODEX_CONTEXT_WINDOW:-40960}" \
-    "${catalog_bin[@]}" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
+    "$catalog_bin" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
 
   write_qwen_config_toml "$QWEN_CODEX_HOME"
   write_qwen_plain_wrapper

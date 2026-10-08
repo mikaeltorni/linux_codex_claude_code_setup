@@ -127,9 +127,12 @@ install_openrouter_plugins_into_home() {
     msg "Plugin installation into $OPENROUTER_CODEX_HOME failed (non-fatal)"
 }
 
+# Install OpenRouter Codex and its native model catalog.
+# Parameters: none; OPENROUTER_CODEX variables configure the target installation.
+# Returns: the installation status.
 install_openrouter_cli() {
   msg "Installing plain OpenRouter Codex CLI (${OPENROUTER_CODEX_PLAIN_COMMAND})"
-  apt_install curl python3 1>&2
+  apt_install curl 1>&2
 
   if [ -d "$OPENROUTER_CODEX_HOME" ]; then
     msg "Refreshing existing OpenRouter Codex home at $OPENROUTER_CODEX_HOME"
@@ -139,16 +142,12 @@ install_openrouter_cli() {
   run_as_target mkdir -p "$OPENROUTER_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
   codex_fork_install_to_prefix "$OPENROUTER_CODEX_NPM_PREFIX" >/dev/null || return 1
 
-  local catalog_bin=()
-  if catalog_bin=("$(generators_release_bin generate-model-catalog)"); then
-    :
-  else
-    catalog_bin=(python3 "$SCRIPT_DIR/scripts/generate_model_catalog.py")
-  fi
+  local catalog_bin
+  catalog_bin="$(generators_release_bin generate-model-catalog)" || return 1
   run_as_target env \
     TARGET_HOME="$TARGET_HOME" \
     QWEN_CODEX_CONTEXT_WINDOW="${OPENROUTER_CODEX_CONTEXT_WINDOW:-131072}" \
-    "${catalog_bin[@]}" "$OPENROUTER_CODEX_HOME" "$OPENROUTER_CODEX_MODEL"
+    "$catalog_bin" "$OPENROUTER_CODEX_HOME" "$OPENROUTER_CODEX_MODEL"
 
   write_openrouter_config_toml "$OPENROUTER_CODEX_HOME"
   write_openrouter_plain_wrapper

@@ -38,20 +38,17 @@ target_codex_homes() {
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
 
+# Generate the native catalogs only after resolving the required executable.
+# Parameters: none; defaults/source/output paths come from installer variables.
+# Returns: generator status; missing executable preserves the existing catalog.
 generate_programming_prompts_marketplace() {
   local bin
+  bin="$(generators_release_bin generate-marketplaces)" || return 1
   run_as_target rm -rf "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  if bin="$(generators_release_bin generate-marketplaces)"; then
-    run_as_target "$bin" \
-      --defaults "$SCRIPT_DIR/default.json" \
-      --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
-      --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  else
-    run_as_target python3 "$SCRIPT_DIR/scripts/generate_marketplaces.py" \
-      --defaults "$SCRIPT_DIR/default.json" \
-      --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
-      --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  fi
+  run_as_target "$bin" \
+    --defaults "$SCRIPT_DIR/default.json" \
+    --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
+    --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
 }
 
 resolve_target_binary() {
