@@ -1,0 +1,3 @@
+setup-install --barebones [--select codex_cli,claude_code,agent_instances] [--codex-instances COUNT] [--claude-instances COUNT] [--home PATH]
+--list-components lists the barebones components; --help prints this help.
+Without --select, installs Codex and Claude. Counts are optional and include account 1.
