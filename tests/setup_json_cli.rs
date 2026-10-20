@@ -8,6 +8,7 @@ use std::process::{Command, Output, Stdio};
 /// Parameters: args - command tokens; input - JSON stdin text.
 /// Returns: captured exit code, stdout and stderr.
 fn run(args: &[&str], input: &str) -> Output {
+    println!("args={args:?}, input={input:?}");
     let mut process = Command::new(env!("CARGO_BIN_EXE_setup-json"))
         .args(args)
         .stdin(Stdio::piped())
@@ -15,13 +16,17 @@ fn run(args: &[&str], input: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("setup-json starts");
-    process
+    let sent = process
         .stdin
         .take()
         .unwrap()
-        .write_all(input.as_bytes())
-        .unwrap();
-    process.wait_with_output().unwrap()
+        .write_all(input.as_bytes());
+    if let Err(error) = sent {
+        assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe, "{error}");
+    }
+    let result = process.wait_with_output().unwrap();
+    println!("{result:?}");
+    result
 }
 
 #[test]
@@ -137,4 +142,16 @@ fn argument_and_document_rejections_are_observable() {
         assert_eq!(result.status.code(), Some(1), "{:?}", result);
         assert!(result.stdout.is_empty());
     }
+}
+
+#[test]
+/// Retain the usage result when a rejecting child closes stdin before a write.
+/// Parameters: none.
+/// Returns: None.
+fn early_rejection_does_not_fail_the_test_pipe() {
+    println!("parameters=none");
+    let result = run(&["unknown"], &" ".repeat(65_536));
+    assert_eq!(result.status.code(), Some(2), "{result:?}");
+    assert!(result.stdout.is_empty());
+    println!("None");
 }

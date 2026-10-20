@@ -36,10 +36,14 @@ compile_setup_generators() {
 # Parameters: none; SCRIPT_DIR owns distribution files, TARGET_HOME owns commands.
 # Returns: zero after all installations, or the build/install failure status.
 build_setup_generators() {
-  [[ "${SETUP_GENERATORS_BUILT:-0}" == 1 ]] && return 0
+  printf 'parameters=none\n' >&2
+  if [[ "${SETUP_GENERATORS_BUILT:-0}" == 1 ]]; then
+    printf '0\n' >&2
+    return 0
+  fi
   compile_setup_generators || return $?
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name" || return $?
     if [[ -n "${TARGET_HOME:-}" ]]; then
       run_as_target install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
@@ -47,6 +51,7 @@ build_setup_generators() {
     fi
   done
   SETUP_GENERATORS_BUILT=1
+  printf '0\n' >&2
 }
 
 # Print a compiled generator path without requiring Cargo at runtime.
