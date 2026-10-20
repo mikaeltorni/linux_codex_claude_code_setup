@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 const DISPATCH: &str = "dispatch-skills";
 
 /// One plugin-defaults invocation.
+#[derive(Debug)]
 pub struct DefaultsArgs {
     /// Committed defaults document.
     pub defaults: PathBuf,
@@ -17,6 +18,7 @@ pub struct DefaultsArgs {
 }
 
 /// Subcommands accepted by `plugin-defaults`.
+#[derive(Debug)]
 pub enum Command {
     /// Print the catalog as tab-separated rows.
     List,
@@ -72,7 +74,7 @@ pub enum Command {
 }
 
 /// Native tool whose skill directory this command updates.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Tool {
     /// Cline's `~/.cline` tree.
     Cline,
@@ -115,11 +117,13 @@ impl Tool {
 
 /// Parse plugin-defaults arguments.
 ///
-/// `args` excludes the program name. A missing command is a usage error.
+/// Parameters: args - command tokens excluding the program name.
+/// Returns: converted defaults path and operation, or a usage error.
 pub fn parse_defaults_args(args: &[String]) -> Result<DefaultsArgs, String> {
+    eprintln!("args={args:?}");
     let mut defaults = PathBuf::from("default.json");
     let mut index = 0;
-    if args.get(0).map(String::as_str) == Some("--defaults") {
+    if args.first().map(String::as_str) == Some("--defaults") {
         defaults = PathBuf::from(args.get(1).ok_or_else(|| "missing value for --defaults".to_string())?);
         index = 2;
     }
@@ -150,7 +154,9 @@ pub fn parse_defaults_args(args: &[String]) -> Result<DefaultsArgs, String> {
             )
         }
     };
-    Ok(DefaultsArgs { defaults, command })
+    let result = DefaultsArgs { defaults, command };
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
 /// Run the parsed plugin-defaults command.

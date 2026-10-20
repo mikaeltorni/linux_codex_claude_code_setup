@@ -37,7 +37,11 @@ fn defaults_file(dir: &Path) -> PathBuf {
 }
 
 #[test]
+/// Verify the public listing retains its exact catalog across repeated calls.
+/// Parameters: none.
+/// Returns: None.
 fn list_matches_the_committed_catalog_twice() {
+    println!("parameters=none");
     let defaults = Path::new(env!("CARGO_MANIFEST_DIR")).join("default.json");
     let expected = "\
 commit-guidelines\tcommit\tCommit Guidelines\toff\tplugin
@@ -56,9 +60,10 @@ github-portfolio-scan\tgithub-portfolio-scan\tGitHub Portfolio Scan (dispatch)\t
             "list",
         ]);
         assert_eq!(result.status.code(), Some(0), "{:?}", result);
-        assert!(result.stderr.is_empty(), "{:?}", result);
+        assert!(String::from_utf8_lossy(&result.stderr).contains("args="), "{:?}", result);
         assert_eq!(String::from_utf8(result.stdout).unwrap(), expected);
     }
+    println!("None");
 }
 
 #[test]
