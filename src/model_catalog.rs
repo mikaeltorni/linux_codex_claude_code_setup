@@ -57,18 +57,24 @@ fn catalog_display_name(base_model: &str) -> String {
     }
 }
 
+/// Format an unrecognized provider/model slug for display.
+/// Parameters: base_model - model slug, optionally ending in :free.
+/// Returns: title with separator spaces and an optional free suffix.
 fn titled_model(base_model: &str) -> String {
+    eprintln!("base_model={base_model:?}");
     let (core, free) = match base_model.strip_suffix(":free") {
         Some(core) => (core, true),
         None => (base_model, false),
     };
     let core = core.split_once('/').map(|(_, name)| name).unwrap_or(core);
-    let label = python_title(&core.replace('-', " ").replace('_', " "));
-    if free {
+    let label = python_title(&core.replace(['-', '_'], " "));
+    let result = if free {
         format!("{label} (free)")
     } else {
         label
-    }
+    };
+    eprintln!("{result:?}");
+    result
 }
 
 fn python_title(text: &str) -> String {
