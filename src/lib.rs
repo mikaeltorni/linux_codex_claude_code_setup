@@ -2,6 +2,7 @@
 
 pub mod defaults;
 pub mod history;
+pub mod instances;
 pub mod marketplace;
 pub mod model_catalog;
 pub mod python_json;

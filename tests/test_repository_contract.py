@@ -259,6 +259,7 @@ def test_setup_exposes_only_cli_configuration_and_prompt_components() -> None:
     # The SSH VM plugin is installed by default as a native skill without a
     # global instruction block. The other optional prompts remain opt-in.
     opt_in_prompts = {
+        "agent_instances",
         "plugin-commit-guidelines",
         "plugin-linux-desktop-configuration",
         "skill-init-project",
