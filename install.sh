@@ -3,6 +3,14 @@
 
 set -euo pipefail
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  for setup_option in "$@"; do
+    if [[ "$setup_option" == --barebones ]]; then
+      exec bash "$(dirname "${BASH_SOURCE[0]}")/scripts/bootstrap_native.sh" "$@"
+    fi
+  done
+fi
+
 TARGET_USER="${SUDO_USER:-$USER}"
 TARGET_UID="$(id -u "$TARGET_USER")"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
@@ -84,9 +92,15 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 fi
 source "$SCRIPT_DIR/installer/components.sh"
 
+# Build native helpers before applying the selected components.
+# Parameters: none; target and build paths come from installer variables.
+# Returns: the native helper build status.
 agent_cli_preflight() {
+  printf 'parameters=none\n' >&2
   build_setup_generators
-  ensure_programming_prompts
+  local status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 run_installer() {

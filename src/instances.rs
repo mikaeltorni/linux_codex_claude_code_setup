@@ -1,10 +1,10 @@
 //! Standalone account homes and native launchers; no tracker or credentials needed.
 
+use crate::files::{publish, write_generated};
 use serde_json::{json, Value};
 use std::ffi::OsString;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::os::unix::fs::{symlink, OpenOptionsExt, PermissionsExt};
+use std::fs;
+use std::os::unix::fs::{symlink, PermissionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -116,7 +116,7 @@ pub fn parse(argv: &[OsString], default_home: PathBuf) -> Result<Invocation, Str
 /// Accept an existing absolute user home without creating target directories.
 /// Parameters: home - converted target path.
 /// Returns: None on acceptance, or a domain error.
-fn require_home(home: &Path) -> Result<(), String> {
+pub(crate) fn require_home(home: &Path) -> Result<(), String> {
     eprintln!("home={home:?}");
     if !home.is_absolute() || !home.is_dir() {
         return Err("target home must be an existing absolute directory".into());
@@ -254,59 +254,12 @@ fn require_managed_alias(path: &Path, engine: &Path) -> Result<bool, String> {
     Ok(result)
 }
 
-/// Atomically publish a private file without truncating a running executable.
-/// Parameters: path - destination; source - complete source file; mode - Unix permissions.
-/// Returns: None after replacement, or an I/O error.
-fn publish(path: &Path, source: &Path, mode: u32) -> Result<(), String> {
-    eprintln!("path={path:?}, source={source:?}, mode={mode:o}");
-    let directory = path.parent().ok_or("destination needs a parent")?;
-    fs::create_dir_all(directory).map_err(|e| e.to_string())?;
-    let temp = directory.join(format!(
-        ".setup-{}-{}",
-        std::process::id(),
-        path.file_name().unwrap().to_string_lossy()
-    ));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .mode(mode)
-            .open(&temp)?;
-        let mut input = fs::File::open(source)?;
-        std::io::copy(&mut input, &mut file)?;
-        file.sync_all()?;
-        fs::rename(&temp, path)
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temp);
-    }
-    result.map_err(|e: std::io::Error| e.to_string())?;
-    eprintln!("None");
-    Ok(())
-}
-
 /// Atomically save count configuration, preserving an earlier valid registry.
 /// Parameters: path - registry destination; state - complete count configuration.
 /// Returns: None on successful replacement, or an I/O error.
 fn publish_state(path: &Path, state: &Value) -> Result<(), String> {
     eprintln!("path={path:?}, state={state}");
-    let directory = path.parent().ok_or("registry needs a parent")?;
-    fs::create_dir_all(directory).map_err(|e| e.to_string())?;
-    let temp = directory.join(format!(".instances-{}.json", std::process::id()));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .mode(0o600)
-            .open(&temp)?;
-        writeln!(file, "{state}")?;
-        file.sync_all()?;
-        fs::rename(&temp, path)
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temp);
-    }
-    result.map_err(|e: std::io::Error| e.to_string())?;
+    write_generated(path, &format!("{state}\n"), 0o600)?;
     eprintln!("None");
     Ok(())
 }

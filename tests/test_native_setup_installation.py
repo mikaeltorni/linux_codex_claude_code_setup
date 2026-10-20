@@ -9,7 +9,7 @@ import subprocess
 from repository_paths import sibling_checkout
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = ("generate-marketplaces", "generate-model-catalog", "codex-history-sync", "plugin-defaults", "codex-reserve-policy", "setup-json", "agent-instances")
+NAMES = ("generate-marketplaces", "generate-model-catalog", "codex-history-sync", "plugin-defaults", "codex-reserve-policy", "setup-json", "agent-instances", "setup-install")
 
 
 def isolated_checkout(tmp_path):
@@ -129,7 +129,7 @@ def test_builder_preserves_invoker_toolchain_and_installs_via_target(tmp_path):
     cargo.write_text('''#!/bin/bash
 [[ "$CARGO_HOME" == "$EXPECTED_CARGO_HOME" && "$RUSTUP_HOME" == "$EXPECTED_RUSTUP_HOME" ]] || exit 83
 mkdir -p "$SCRIPT_DIR/target/release"
-cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances} "$SCRIPT_DIR/target/release/"
+cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install} "$SCRIPT_DIR/target/release/"
 ''')
     cargo.chmod(0o755)
     env.update(CARGO_HOME=str(tmp_path / "custom-cargo"), RUSTUP_HOME=str(tmp_path / "custom-rustup"), EXPECTED_CARGO_HOME=str(tmp_path / "custom-cargo"), EXPECTED_RUSTUP_HOME=str(tmp_path / "custom-rustup"), TARGET_CALLS=str(tmp_path / "target-calls"))
@@ -160,7 +160,7 @@ mkdir -p "$CARGO_HOME/bin"
 cat > "$CARGO_HOME/bin/cargo" <<'CARGO'
 #!/bin/bash
 mkdir -p "$SCRIPT_DIR/target/release"
-cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances} "$SCRIPT_DIR/target/release/"
+cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install} "$SCRIPT_DIR/target/release/"
 CARGO
 chmod +x "$CARGO_HOME/bin/cargo"
 BOOTSTRAP
@@ -229,4 +229,55 @@ def test_history_installs_native_engine_and_preserves_data_on_uninstall(tmp_path
     assert not (home / ".local/bin/codexsync").exists()
     assert (a / "history.jsonl").read_text() == "left\nright\n"
     assert (b / "history.jsonl").read_text() == "left\nright\n"
+    print(None)
+
+
+def test_barebones_discovery_needs_no_build_or_framework(tmp_path):
+    """Discover the native core from an archive without Cargo, Python or siblings.
+
+    Parameters: tmp_path - clean source and home fixture.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
+    checkout, home, env = isolated_checkout(tmp_path)
+    (checkout.parent / "linux_installation_scripts_functions").unlink()
+    for option, name in (("--list-components", "barebones_components.tsv"), ("--help", "barebones_help.txt")):
+        result = subprocess.run(["bash", "install.sh", "--barebones", option], cwd=checkout, env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == (ROOT / "installer" / name).read_text()
+        assert not list(home.rglob("*"))
+        assert not (checkout / "target").exists()
+        assert "unexpected" not in result.stderr
+    print(None)
+
+
+def test_barebones_installer_uses_native_distribution_without_siblings(tmp_path):
+    """Install native instance commands via install.sh with no framework or compiler.
+
+    Parameters: tmp_path - clean source, native distribution and target home.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
+    checkout, home, env = isolated_checkout(tmp_path)
+    (checkout.parent / "linux_installation_scripts_functions").unlink()
+    (checkout / "dist").mkdir()
+    for name in ("setup-install", "agent-instances"):
+        shutil.copy2(ROOT / "target/release" / name, checkout / "dist" / name)
+    bad = subprocess.run(["bash", "install.sh", "--barebones", "--select", "unknown"], cwd=checkout, env=env, capture_output=True, text=True)
+    assert bad.returncode != 0
+    assert not list(home.rglob("*"))
+    command = ["bash", "install.sh", "--barebones", "--select", "agent_instances", "--codex-instances", "3", "--claude-instances", "2"]
+    for _ in range(2):
+        result = subprocess.run(command, cwd=checkout, env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert "unexpected" not in result.stderr
+        for name in ("cx1", "cx2", "cx3", "cc1", "cc2"):
+            assert (home / ".local/bin" / name).is_symlink()
+        assert not (home / "projects").exists()
+    for name in (".bashrc", ".profile"):
+        assert (home / name).read_text().count('export PATH="$HOME/.local/bin:$PATH"') == 1
+    result = subprocess.run([str(home / ".local/bin/setup-install"), "--barebones", "--select", "agent_instances"], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert (home / ".local/bin/cx3").is_symlink()
+    assert (home / ".local/bin/cc2").is_symlink()
     print(None)
