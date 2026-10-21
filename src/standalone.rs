@@ -2,6 +2,7 @@
 
 use crate::files::{publish, write_generated};
 use crate::instances::require_home;
+use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{symlink, OpenOptionsExt};
@@ -220,7 +221,7 @@ fn require_codex_launcher(launcher: &Path, raw: &Path) -> Result<(), String> {
 
 /// Install one local fork revision without touching optional repositories or credentials.
 /// Parameters: home - accepted target home.
-/// Returns: installed raw Codex path, or a build/publish error.
+/// Returns: installed raw Codex path, or a fork artifact preparation/build/publish error.
 fn install_codex(home: &Path) -> Result<PathBuf, String> {
     eprintln!("home={home:?}");
     require_tools(&["git", "cargo", "cc", "cmake", "pkg-config"])?;
@@ -265,6 +266,7 @@ fn install_codex(home: &Path) -> Result<PathBuf, String> {
         let mut build = Command::new("cargo");
         if needs_host {
             require_tools(&["python3"])?;
+            build.envs(v8_environment(&source, home)?);
         }
         build
             .current_dir(source.join("codex-rs"))
@@ -316,6 +318,43 @@ fn install_codex(home: &Path) -> Result<PathBuf, String> {
     }
     eprintln!("{raw:?}");
     Ok(raw)
+}
+
+/// Parse the host tuple printed by the selected fork's Rust toolchain.
+/// Parameters: output - complete rustc verbose version output.
+/// Returns: the host tuple, or a malformed tool-output error.
+fn parse_rust_host(output: &str) -> Result<&str, String> {
+    eprintln!("output={output:?}");
+    let result = output
+        .lines()
+        .find_map(|line| line.strip_prefix("host: "))
+        .ok_or("rustc -vV did not report its host target")?;
+    eprintln!("{result:?}");
+    Ok(result)
+}
+
+/// Ask the fork's existing V8 owner to resolve verified artifacts and explicit build overrides.
+/// Parameters: source - selected fork checkout; home - accepted installation home and artifact-cache owner.
+/// Returns: converted Cargo environment overrides, empty for forks without this helper, or a preparation error.
+fn v8_environment(source: &Path, home: &Path) -> Result<BTreeMap<String, String>, String> {
+    eprintln!("source={source:?}, home={home:?}");
+    let mut result = BTreeMap::new();
+    if source.join("scripts/codex_package/v8.py").is_file() {
+        require_tools(&["python3", "rustc"])?;
+        let version = capture(Command::new("rustc").arg("-vV").current_dir(source.join("codex-rs")).env("HOME", home))?;
+        let target = parse_rust_host(&version)?;
+        let output = capture(Command::new("python3")
+            .current_dir(source)
+            .env("HOME", home)
+            .env("PYTHONPATH", source)
+            .env("CODEX_REPO_ROOT", source)
+            .env("CODEX_TARGET", target)
+            .env("CODEX_V8_CACHE_ROOT", home.join(".cache/linux_codex_claude_code_setup/v8"))
+            .args(["-c", "import json, os; from pathlib import Path; from scripts.codex_package.targets import TARGET_SPECS; from scripts.codex_package.v8 import resolve_codex_v8_cargo_env; print(json.dumps(resolve_codex_v8_cargo_env(TARGET_SPECS[os.environ['CODEX_TARGET']], cache_root=Path(os.environ['CODEX_V8_CACHE_ROOT']))))"]))?;
+        result = serde_json::from_str(&output).map_err(|error| format!("invalid Codex V8 environment: {error}"))?;
+    }
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
 /// Install Claude through its official user installer and preserve its configuration.
