@@ -29,7 +29,7 @@ run_prompt_owner() {
   claude_bin="$(resolve_target_binary claude)" || return 1
   local -a prompt_runner=()
   if declare -F run_as_target >/dev/null 2>&1; then prompt_runner=(run_as_target); fi
-  "${prompt_runner[@]}" env SETUP_SOURCE_DIR="$SCRIPT_DIR" CODEX_HOMES="${CODEX_HOMES:-}" \
+  "${prompt_runner[@]}" env PROGRAMMING_PROMPTS_REPOSITORY="${PROGRAMMING_PROMPTS_REPOSITORY:-}" SETUP_SOURCE_DIR="$SCRIPT_DIR" CODEX_HOMES="${CODEX_HOMES:-}" \
     "$bin" "$@" --home "$TARGET_HOME" \
     --defaults "${PROMPT_DEFAULTS_FILE:-$SCRIPT_DIR/default.json}" \
     --prompts-root "${PROGRAMMING_PROMPTS_DIR:-$TARGET_HOME/projects/programming_prompts}" \

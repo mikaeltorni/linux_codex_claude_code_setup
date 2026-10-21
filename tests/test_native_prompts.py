@@ -202,9 +202,10 @@ isc_load_helpers() {
   printf '0\\n' >&2
 }
 ''')
-    result = invoke(home, prompts, defaults, dict(env, SETUP_SOURCE_DIR=str(source)), "ensure")
-    assert result.returncode == 0, result.stderr
-    assert (home / "checkout-calls").read_text().splitlines() == ["programming_prompts", str(prompts), "https://github.com/example/prompts.git"]
+    for repository in ("example/prompts", "company/private-prompts"):
+        result = invoke(home, prompts, defaults, dict(env, SETUP_SOURCE_DIR=str(source), PROGRAMMING_PROMPTS_REPOSITORY=repository), "ensure")
+        assert result.returncode == 0, result.stderr
+        assert (home / "checkout-calls").read_text().splitlines() == ["programming_prompts", str(prompts), f"https://github.com/{repository}.git"]
     print(None)
 
 
