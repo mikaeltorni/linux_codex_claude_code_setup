@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="20" role="img" aria-labelledby="title">
+  <title id="title">0 open issues on 2026-10-21</title>
+  <rect width="86" height="20" fill="#555" />
+  <rect x="86" width="64" height="20" fill="#1a7f37" />
+  <text x="43" y="14" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#fff">Open issues</text>
+  <text x="118" y="14" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#fff">0</text>
+</svg>

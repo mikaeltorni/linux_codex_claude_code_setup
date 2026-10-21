@@ -1,21 +1,56 @@
-# Linux Codex, Claude Code, Cline, Grok, and opencode Setup
+# Linux Codex and Claude Code Setup — Linux CLI Installer
 
-> Part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts) — installs and configures the **Claude Code**, **Codex**, **Cline**, **Grok**, and **opencode** CLIs plus shared programming plugins and skills.
+Linux Codex and Claude Code Setup is a Linux CLI installer for developers who need isolated accounts, selectable Codex sources, and programming-prompts plugins.
 
-Installs the Codex, Claude Code, and Cline CLIs and registers every configured
-`programming_prompts` plugin or direct skill as an independently selectable component.
+It installs and configures vendor CLIs on Linux, with optional Cline, Grok, and opencode components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
 
-Installed management commands, account launchers, provider launchers, and the
-delayed updater are Rust binaries. Shell files retain Rust bootstrapping, the shared installer
-UI/authentication bridges, and the shared Codex fork-build integration. Legacy
-Python implementations live only under `tests/reference` as parity oracles.
+[![Last commit: 2026-10-21](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commit activity: 90 commits in 30 days on 2026-10-21](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 on 2026-10-21](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
 
-`default.json` is the committed source of truth for the programming-prompts
-marketplace and per-skill default selections. It points Claude Code at
-`mikaeltorni/programming_prompts` through `extraKnownMarketplaces`, enables each
-plugin explicitly, and drives the component menu for both products.
+[Features](#features) · [Installation](#linux-codex-and-claude-code-installation) · [Quick start](#quick-start) · [Configuration](#linux-codex-and-claude-code-configuration) · [FAQ](#faq) · [Usage](#linux-cli-usage-and-examples) · [Contributing](#contributing) · [License](#license)
 
-## Usage
+![Diagram showing Linux CLI setup flow from selecting Codex and Claude Code components through user-local installation, account and plugin configuration, and launching the selected CLIs.](docs/linux-cli-setup-flow.svg)
+
+## Features
+
+- Install Codex from the local `~/projects/codex` fork or OpenAI's npm package.
+- Install Claude Code and keep separate account launchers under the user's home.
+- Select Cline, Grok, opencode, local Qwen Codex, and OpenRouter Codex components.
+- Register selected `programming_prompts` plugins and per-skill defaults for Claude Code and Codex.
+- Use native Rust management commands for marketplaces, model catalogs, account instances, and history sync.
+
+The installed management commands, account launchers, provider launchers, and delayed updater are Rust binaries. Shell files retain Rust bootstrapping and the shared installer/authentication bridges; legacy Python implementations remain under `tests/reference` as parity oracles.
+
+## Linux Codex and Claude Code installation
+
+Run the barebones installer from a Linux user account with network access. It builds the native management tools and installs selected commands under the user's home; the npm Codex source also requires Node.js and npm.
+
+```bash
+bash install.sh --barebones --select codex_cli,claude_code
+```
+
+After installation, check the CLI versions and command paths:
+
+```bash
+codex --version
+claude --version
+command -v codex claude
+```
+
+### Quick start
+
+To install Codex directly from npm rather than building the local fork, select that source:
+
+```bash
+bash install.sh --barebones --codex-source npm --select codex_cli,claude_code
+```
+
+See [OpenAI's Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) and [Anthropic's Claude Code setup guide](https://code.claude.com/docs/en/getting-started) for upstream sign-in and product usage.
+
+## Linux Codex and Claude Code configuration
+
+`default.json` is the committed source of truth for the programming-prompts marketplace and per-skill defaults. Claude Code registers the owner's [programming-prompts plugin catalog](https://github.com/mikaeltorni/programming_prompts) through `extraKnownMarketplaces`, and the installer enables plugins explicitly for both products. The local Codex fork is the default source; use `--codex-source npm` for the prebuilt package or `CODEX_INSTALL_SOURCE=npm` with the full installer.
+
+## Linux CLI usage and examples
 
 ```bash
 bash install.sh --barebones --codex-instances 3 --claude-instances 2
@@ -276,7 +311,7 @@ Rich Codex, Claude Code, and Cline display integration belongs in the sibling
 `claude_code_status_bar` repository. Cline already supplies its rich native TUI;
 there is no unsupported settings rewrite here.
 
-## Tests
+## Linux setup verification commands
 
 ```bash
 python3 -m pytest -q
@@ -295,7 +330,7 @@ local home on 2026-10-21. Codex `0.163.0`, `cx1`/`cx2`/`cx3`, saved hook
 preferences, unchanged fixture credentials/configuration and shell PATH all
 passed. This npm run was local; the VM result below covers the fork source.
 
-## Detect, reconfigure, and uninstall
+## Detecting, reconfiguring, and uninstalling CLI components
 
 This installer tracks what it has installed and can re-apply or remove it, so you
 can refresh configuration after a repo update or cleanly back a feature out.
@@ -314,7 +349,7 @@ uses a live check where deterministic and otherwise an install receipt under
 `${XDG_STATE_HOME:-~/.local/state}/isc/receipts/`; a component without a reversal
 step simply clears that receipt on uninstall.
 
-## Disclaimer
+## Project scope and MIT disclaimer
 
 This software is provided under the MIT License on an **“as is”** basis, without warranties of any kind. To the maximum extent permitted by applicable law, the authors and copyright holders shall not be liable for any claims, damages, losses, or other liability arising from the use of this software.
 
@@ -324,7 +359,7 @@ The authors and copyright holders make no guarantees regarding security, reliabi
 
 This notice is intended to clarify the nature of the project and does not impose additional restrictions beyond the MIT License.
 
-## Automatic GPT Reserve switching
+## Codex GPT Reserve switching
 
 For the fork source, the installer postflight sets `[features] luna_reserve_auto_switch = false` in
 `~/.codex/config.toml`, every existing `~/.codex-*` home, and each separate
@@ -340,7 +375,7 @@ It accepts those two required path options and `--help`. The regression runner
 is `python3 -m unittest discover -s tests -p test_codex_reserve_policy.py -v`;
 see [coverage](tests/reserve_policy_coverage.md) for isolated native-RPC checks.
 
-### Selecting the local fork branch
+### Selecting a branch in the local Codex fork
 
 `CODEX_FORK_REF` selects a local branch for native/provider builds. When unset,
 the installer reads `~/.config/linux_codex_claude_code_setup/codex-fork-ref`;
@@ -352,7 +387,7 @@ covers default/saved/explicit choices, invalid/missing refs, and unchanged Git
 state after failures. `bash tests/test_codex_fork_install.sh` verifies publishing.
 
 
-## Standalone installation and accounts
+## Installing standalone Linux CLI accounts
 
 `bash install.sh --barebones` installs Codex and Claude without ACC, the shared
 installer framework, or a programming-prompts checkout. It runs `setup-install`,
@@ -424,7 +459,7 @@ through sudo, the bootstrap hands user work back to the desktop user. Installed
 commands live under `~/.local/bin`; add it to the current shell's `PATH` after
 installation. Future Bash/login shells receive the PATH entry automatically.
 
-### Hook trust preference
+### Configuring the Codex hook trust preference
 
 Hook-trust skipping is enabled in the committed defaults and can be controlled
 independently of account counts:
@@ -452,7 +487,7 @@ wrappers for either Codex source. The payload is retained as `bin/codex-native`
 (a package-relative link for npm); each entrypoint is published through an atomic
 replacement. This preference controls hook review only.
 
-## Native management commands
+## Native Rust management commands for Codex and plugins
 
 The full installer and master installer keep their existing selection,
 detection, reconfigure, and uninstall interfaces. Their optional component
@@ -491,7 +526,7 @@ failures during a scheduled update preserve the existing installation.
 `npm-prefix` stages the package and uses Linux atomic directory exchange;
 unsupported exchanges fail while retaining the previous tree.
 
-### Prompt installation and verification
+### Installing and verifying programming-prompts components
 
 ```bash
 bash scripts/install_programming_plugins.sh
@@ -547,7 +582,7 @@ homes and Claude, Cline, Cursor, Grok, and opencode, and rejects retired generic
 instruction blocks. Verification and query actions do not modify those files.
 `claude-marketplace-matches` returns 1 for a different/missing registration.
 
-### Low-level defaults operations
+### Low-level Linux CLI defaults operations
 
 Use `plugin-defaults --defaults FILE` followed by one of these forms:
 
@@ -572,7 +607,7 @@ without operands is also supported; `--quiet` requires its `sync` selector.
 `plugin-defaults --defaults` precedes the operation. Native trace diagnostics go
 to stderr while query output remains on stdout.
 
-## VM smoke verification
+## Verifying the Linux CLI installation in a clean Ubuntu VM
 
 Run the saved smoke test inside the intended test VM after installing build
 prerequisites and making the source checkout available:
@@ -598,3 +633,41 @@ was enabled, and numbered account directories had mode 0700. Installed native
 binaries matched the VM build artifacts; neither ACC nor programming-prompts
 was cloned. This verifies installation and CLI startup; account authentication
 and model/API calls were not exercised.
+
+## FAQ
+
+### Does this installer replace the official Codex or Claude Code tools?
+
+No. It installs and configures vendor CLIs on Linux, including the official Claude Code installer and either the upstream Codex npm package or the local Codex fork. The setup repository provides account, source, and plugin management around those tools.
+
+### How do I choose the Codex installation source?
+
+Use `--codex-source npm` with the barebones installer or `CODEX_INSTALL_SOURCE=npm` with the full installer to select OpenAI's npm package. The checked-out local Codex fork remains the default when no source override is supplied.
+
+### Can I install only Claude Code or Codex?
+
+Yes. Pass `--select claude_code` or `--select codex_cli` to the barebones installer to install only that CLI. Add `--codex-source npm` when selecting Codex if you do not want to build the local fork.
+
+### Can I keep separate Codex and Claude Code accounts?
+
+Yes. The installer supports multiple Codex and Claude Code instances and creates separate account launchers under the target user's home. Set the requested counts with `--codex-instances` and `--claude-instances`.
+
+### Does the barebones Linux installation require sudo?
+
+The barebones installer runs as the target user and installs its commands under that user's home. Installing missing operating-system build prerequisites through a package manager may require administrator access.
+
+### Where are programming-prompts plugin defaults configured?
+
+The repository's `default.json` controls marketplace registration and per-skill defaults for Claude Code and Codex. The `plugin-defaults` native command validates and updates the selected plugin configuration while preserving unrelated settings.
+
+### What is needed to install Codex from npm?
+
+The npm Codex source requires Node.js and npm, while the local Rust management tools still need to be built or present in `dist/`. The barebones bootstrap supplies Rust when necessary and leaves the selected Codex source explicit for each installation.
+
+## Contributing
+
+This private repository is maintained for the owner's Linux CLI setup. Keep `default.json` as the committed source of per-skill defaults, preserve unrelated settings under the target user's home, and maintain clean installation through `install.sh`. For code changes, use the documented release gate and a clean Ubuntu VM run appropriate to the changed behavior.
+
+## License
+
+This project is provided under the MIT License; see [LICENSE.md](LICENSE.md).
