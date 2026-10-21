@@ -61,7 +61,7 @@ def test_opencode_manages_no_api_key() -> None:
     print("parameters=none")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
-    helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
+    helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "OPENCODE_API_KEY" not in install
     assert "OPENCODE_API_KEY" not in cli
@@ -94,7 +94,7 @@ def test_every_selected_prompt_is_exposed_natively_to_opencode() -> None:
     """
     print("parameters=none")
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
-    helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
+    helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
     assert installer.count("install_opencode_prompt_skill") >= 3
     assert "install_opencode_prompt_plugin" in installer
     assert "install-opencode-skill" in helper
@@ -112,7 +112,7 @@ def test_opencode_config_merge_is_idempotent_and_preserves_user_keys(
     Returns: None.
     """
     print(f"tmp_path={tmp_path}")
-    helper = ROOT / "scripts/plugin_defaults.py"
+    helper = ROOT / "tests/reference/plugin_defaults.py"
     defaults = ROOT / "default.json"
     config = tmp_path / "opencode.json"
     config.write_text(json.dumps({"theme": "tokyonight"}) + "\n", encoding="utf-8")
@@ -140,7 +140,7 @@ def test_opencode_variant_default_clears_and_rejects_invalid(tmp_path: Path) -> 
     Returns: None.
     """
     print(f"tmp_path={tmp_path}")
-    helper = ROOT / "scripts/plugin_defaults.py"
+    helper = ROOT / "tests/reference/plugin_defaults.py"
     defaults = ROOT / "default.json"
     config = tmp_path / "opencode.json"
     base = [
@@ -168,7 +168,7 @@ def test_opencode_skill_link_is_idempotent(tmp_path: Path) -> None:
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text("# Commit\n", encoding="utf-8")
     command = [
-        "python3", str(ROOT / "scripts/plugin_defaults.py"),
+        "python3", str(ROOT / "tests/reference/plugin_defaults.py"),
         "--defaults", str(ROOT / "default.json"),
         "install-opencode-skill", str(home), str(skill), "commit",
     ]

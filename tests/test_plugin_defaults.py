@@ -13,15 +13,15 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests/reference"))
 SPEC = importlib.util.spec_from_file_location(
-    "plugin_defaults", ROOT / "scripts" / "plugin_defaults.py"
+    "plugin_defaults", ROOT / "tests/reference" / "plugin_defaults.py"
 )
 assert SPEC and SPEC.loader
 plugin_defaults = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(plugin_defaults)
 LOGGING_SPEC = importlib.util.spec_from_file_location(
-    "logging_utils", ROOT / "scripts" / "logging_utils.py"
+    "logging_utils", ROOT / "tests/reference" / "logging_utils.py"
 )
 assert LOGGING_SPEC and LOGGING_SPEC.loader
 logging_utils = importlib.util.module_from_spec(LOGGING_SPEC)
@@ -33,6 +33,12 @@ def defaults() -> dict:
 
 
 def test_logging_writes_to_repo_local_log() -> None:
+    """Check the public reference result.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     logger = logging_utils.get_logger("plugin_defaults_test", "plugin_defaults_test.log")
 
     @logging_utils.log_call(logger)
@@ -42,7 +48,7 @@ def test_logging_writes_to_repo_local_log() -> None:
     assert sample("trace") == "TRACE"
     for handler in logger.handlers:
         handler.flush()
-    log_path = ROOT / ".log" / "plugin_defaults_test.log"
+    log_path = ROOT / "tests/.log" / "plugin_defaults_test.log"
     assert log_path.is_file()
     content = log_path.read_text(encoding="utf-8")
     assert "ENTER test_plugin_defaults.py" in content
@@ -50,6 +56,7 @@ def test_logging_writes_to_repo_local_log() -> None:
     assert "EXIT test_plugin_defaults.py" in content
     assert "-> 'TRACE'" in content
     assert logger.level == logging.DEBUG
+    print(None)
 
 
 def test_merge_claude_settings_preserves_unrelated_values(tmp_path: Path) -> None:

@@ -70,9 +70,14 @@ def test_every_prompt_skill_is_exposed_to_cline() -> None:
 
 
 def test_every_prompt_plugin_is_exposed_to_cline() -> None:
-    """Cline should also discover full plugin bundles under ~/.cline/plugins."""
+    """Cline should also discover full plugin bundles under ~/.cline/plugins.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    helper = (ROOT / "scripts" / "plugin_defaults.py").read_text(encoding="utf-8")
+    helper = (ROOT / "tests/reference" / "plugin_defaults.py").read_text(encoding="utf-8")
     assert "install_cline_prompt_plugin" in installer
     # The plugin install must follow the skill install in install_prompt_plugin.
     skill_call = installer.index('install_cline_prompt_skill "$plugin_name" "$skill_name"')
@@ -80,6 +85,7 @@ def test_every_prompt_plugin_is_exposed_to_cline() -> None:
     assert skill_call < plugin_call
     assert "install-cline-plugin" in helper
     assert 'home / ".cline" / "plugins"' in helper
+    print(None)
 
 
 def test_cline_global_rules_are_merged_by_global_instructions() -> None:
@@ -91,7 +97,12 @@ def test_cline_global_rules_are_merged_by_global_instructions() -> None:
 
 
 def test_cline_skill_install_preserves_unmanaged_content(tmp_path: Path) -> None:
-    """The skill writer links managed sources and refuses user-file overwrite."""
+    """The skill writer links managed sources and refuses user-file overwrite.
+
+    Parameters: tmp_path - test input or fixture.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     home = tmp_path / "home"
     source = tmp_path / "source" / "commit"
     source.mkdir(parents=True)
@@ -101,7 +112,7 @@ def test_cline_skill_install_preserves_unmanaged_content(tmp_path: Path) -> None
     )
     command = [
         "python3",
-        str(ROOT / "scripts/plugin_defaults.py"),
+        str(ROOT / "tests/reference/plugin_defaults.py"),
         "--defaults",
         str(ROOT / "default.json"),
         "install-cline-skill",
@@ -121,3 +132,4 @@ def test_cline_skill_install_preserves_unmanaged_content(tmp_path: Path) -> None
     second = subprocess.run(command, text=True, capture_output=True, check=False)
     assert second.returncode != 0
     assert (target / "SKILL.md").read_text(encoding="utf-8") == "user content\n"
+    print(None)

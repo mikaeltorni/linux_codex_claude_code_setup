@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SYNC_SCRIPT = ROOT / "scripts" / "codex_history_sync.py"
+SYNC_SCRIPT = ROOT / "tests/reference" / "codex_history_sync.py"
 
 
 def load_sync():

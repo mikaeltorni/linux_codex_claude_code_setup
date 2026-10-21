@@ -48,15 +48,21 @@ def test_grok_has_detection_and_non_destructive_uninstall() -> None:
 
 
 def test_every_selected_prompt_is_exposed_natively_to_grok() -> None:
-    """Grok should receive skills without relying on Claude being installed."""
+    """Grok should receive skills without relying on Claude being installed.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
-    helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
+    helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
     assert "install_grok_prompt_skill" in installer
     assert installer.count("install_grok_prompt_skill") >= 3
     assert "install_grok_prompt_plugin" in installer
     assert "install-grok-skill" in helper
     assert "install-grok-plugin" in helper
     assert 'home / ".grok" / "skills"' in helper
+    print(None)
 
 
 def test_grok_instruction_verification_checks_retired_generic_cleanup() -> None:
@@ -72,22 +78,33 @@ def test_grok_instruction_verification_checks_retired_generic_cleanup() -> None:
 
 
 def test_grok_model_customization_is_merged_without_overwriting_config() -> None:
-    """Optional model settings use the shared merge helper and documented env key."""
+    """Optional model settings use the shared merge helper and documented env key.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
-    helper = (ROOT / "scripts/plugin_defaults.py").read_text(encoding="utf-8")
+    helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
     assert "configure_grok_model" in cli
     assert "merge-grok-config" in helper
     assert "env_key" in helper
     assert "GROK_MODEL_BASE_URL" in cli
+    print(None)
 
 
 def test_grok_skill_and_config_writes_are_idempotent(tmp_path: Path) -> None:
-    """The helper preserves user config and reuses a managed skill link."""
+    """The helper preserves user config and reuses a managed skill link.
+
+    Parameters: tmp_path - test input or fixture.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     home = tmp_path / "home"
     skill = tmp_path / "prompts" / "skills" / "commit"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text("# Commit\n", encoding="utf-8")
-    helper = ROOT / "scripts/plugin_defaults.py"
+    helper = ROOT / "tests/reference/plugin_defaults.py"
     defaults = ROOT / "default.json"
     command = [
         "python3", str(helper), "--defaults", str(defaults),
@@ -110,3 +127,4 @@ def test_grok_skill_and_config_writes_are_idempotent(tmp_path: Path) -> None:
     text = config.read_text(encoding="utf-8")
     assert text.count("[model.company]") == 1
     assert '[ui]\npermission_mode = "ask"' in text
+    print(None)
