@@ -43,7 +43,7 @@ build_setup_generators() {
   fi
   compile_setup_generators || return $?
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install setup-component; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name" || return $?
     if [[ -n "${TARGET_HOME:-}" ]]; then
       run_as_target install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
@@ -117,4 +117,26 @@ run_as_target_setup_json() {
   local bin
   bin="$(generators_release_bin setup-json)" || return 1
   run_as_target "$bin" "$@"
+}
+
+# Delegate optional lifecycle operations to the native owner, preserving overrides.
+# Parameters: action - lifecycle operation; component - selected vendor ID.
+# Returns: native lifecycle status.
+run_native_component() {
+  printf 'action=%s, component=%s\n' "$1" "$2" >&2
+  local bin status=0
+  bin="$(generators_release_bin setup-component)" || return 1
+  run_as_target env \
+    CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-}" \
+    GROK_INSTALL_URL="${GROK_INSTALL_URL:-}" GROK_COMMAND="${GROK_COMMAND:-}" \
+    GROK_HOME="${GROK_HOME:-}" GROK_API_KEY_ENV="${GROK_API_KEY_ENV:-}" \
+    GROK_CHANNEL="${GROK_CHANNEL:-}" GROK_VERSION="${GROK_VERSION:-}" \
+    GROK_MODEL_NAME="${GROK_MODEL_NAME:-}" GROK_MODEL_ID="${GROK_MODEL_ID:-}" \
+    GROK_MODEL_BASE_URL="${GROK_MODEL_BASE_URL:-}" \
+    OPENCODE_INSTALL_URL="${OPENCODE_INSTALL_URL:-}" OPENCODE_COMMAND="${OPENCODE_COMMAND:-}" \
+    OPENCODE_INSTALL_DIR="${OPENCODE_INSTALL_DIR:-}" OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-}" \
+    OPENCODE_MODEL="${OPENCODE_MODEL:-}" OPENCODE_VARIANT="${OPENCODE_VARIANT:-}" \
+    "$bin" "$@" --home "$TARGET_HOME" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }

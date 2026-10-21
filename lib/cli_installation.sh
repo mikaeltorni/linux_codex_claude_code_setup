@@ -14,43 +14,6 @@ ensure_local_bin_on_path() {
   '
 }
 
-# ensure_nodejs_22 - Ensure the system Node.js 22 runtime required by the npm
-# CLI installation is active. The base-system repository owns the normal
-# default-on installation; this NodeSource path keeps standalone runs working.
-ensure_nodejs_22() {
-  local version=""
-  if need_cmd node; then
-    version="$(node --version 2>/dev/null || true)"
-  fi
-  if [[ "$version" =~ ^v22[.] ]] && need_cmd npm; then
-    return
-  fi
-
-  msg "Installing required Node.js 22 runtime from NodeSource"
-  apt_install ca-certificates curl gnupg 1>&2
-
-  local setup_script
-  setup_script="$(mktemp)"
-  if ! curl -fsSL --max-time 300 https://deb.nodesource.com/setup_22.x -o "$setup_script"; then
-    rm -f "$setup_script"
-    log "error" "Failed to download the NodeSource Node.js 22 setup script"
-    return 1
-  fi
-  if ! bash "$setup_script" 1>&2; then
-    rm -f "$setup_script"
-    log "error" "NodeSource Node.js 22 repository setup failed"
-    return 1
-  fi
-  rm -f "$setup_script"
-  apt_install nodejs 1>&2
-
-  version="$(node --version 2>/dev/null || true)"
-  if [[ ! "$version" =~ ^v22[.] ]] || ! need_cmd npm; then
-    log "error" "Node.js 22 with npm is required; active version is ${version:-unavailable}"
-    return 1
-  fi
-}
-
 # Install the main Codex fork binary and print its raw binary path. Shared by
 # codex_cli and codex_wrapper so either component can be selected on its own and
 # still find (or install) the underlying binary.
@@ -120,21 +83,14 @@ install_claude_code() {
 # install_cline_cli - Install Cline into an isolated, user-owned npm prefix and
 # expose it through ~/.local/bin. Cline requires Node.js 20+; the shared Node 22
 # guard satisfies that prerequisite for both standalone and master installs.
+# Parameters: none; installer target and vendor settings come from the environment.
+# Returns: native component installation status.
 install_cline_cli() {
-  msg "Installing Cline CLI"
-  # Cline remains an npm package and still requires Node.js 22.
-  ensure_nodejs_22 1>&2 || return 1
-  run_as_target mkdir -p "$CLINE_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  # Staged + swapped so a reinstall never blanks out the live bin/cline.
-  npm_install_prefix_atomic "$CLINE_NPM_PREFIX" cline
-  local raw_cline="$CLINE_NPM_PREFIX/bin/cline"
-  if [[ ! -x "$raw_cline" ]]; then
-    log "error" "Cline installation failed: $raw_cline"
-    return 1
-  fi
-  run_as_target ln -sf "$raw_cline" "$TARGET_HOME/.local/bin/cline"
-  ensure_local_bin_on_path
-  msg "Installed Cline $($raw_cline --version 2>/dev/null || printf unknown)"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component install cline_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # configure_grok_model - Merge an optional custom model into Grok's user config.
@@ -154,28 +110,14 @@ configure_grok_model() {
 
 # install_grok_cli - Run xAI's official user-local installer, promote to the
 # configured release channel, then merge any operator-supplied model settings.
+# Parameters: none; installer target and vendor settings come from the environment.
+# Returns: native component installation status.
 install_grok_cli() {
-  msg "Installing Grok CLI from $GROK_INSTALL_URL (channel=${GROK_CHANNEL:-stable})"
-  run_as_target env \
-    GROK_INSTALL_URL="$GROK_INSTALL_URL" \
-    GROK_COMMAND="$GROK_COMMAND" \
-    GROK_CHANNEL="$GROK_CHANNEL" \
-    GROK_VERSION="$GROK_VERSION" \
-    bash -c '
-    set -euo pipefail
-    export PATH="$HOME/.local/bin:$PATH"
-    curl -fsSL --max-time 300 "$GROK_INSTALL_URL" | timeout 900 bash
-    command -v "$GROK_COMMAND" >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/$GROK_COMMAND" ]]
-    if [[ -n "${GROK_VERSION:-}" ]]; then
-      "$GROK_COMMAND" update --version "$GROK_VERSION"
-    elif [[ "${GROK_CHANNEL:-stable}" == alpha ]]; then
-      "$GROK_COMMAND" update --alpha
-    fi
-  ' </dev/null
-  configure_grok_model
-  ensure_local_bin_on_path
-  run_as_target env GROK_COMMAND="$GROK_COMMAND" bash -c \
-    'export PATH="$HOME/.local/bin:$PATH"; "$GROK_COMMAND" --version' 1>&2
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component install grok_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # configure_opencode_config - Merge the installer-managed defaults (default model
@@ -192,25 +134,14 @@ configure_opencode_config() {
 # binary on ~/.local/bin (shared PATH dir used by every managed CLI), then merge
 # the default model and reasoning-effort configuration. Idempotent; the official
 # installer no-ops when already current.
+# Parameters: none; installer target and vendor settings come from the environment.
+# Returns: native component installation status.
 install_opencode_cli() {
-  msg "Installing opencode CLI from $OPENCODE_INSTALL_URL"
-  run_as_target env OPENCODE_INSTALL_URL="$OPENCODE_INSTALL_URL" \
-    OPENCODE_COMMAND="$OPENCODE_COMMAND" OPENCODE_INSTALL_DIR="$OPENCODE_INSTALL_DIR" bash -c '
-    set -euo pipefail
-    export PATH="$HOME/.local/bin:$OPENCODE_INSTALL_DIR:$PATH"
-    curl -fsSL --max-time 300 "$OPENCODE_INSTALL_URL" | timeout 900 bash
-    [[ -x "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" ]] || {
-      echo "opencode installation failed: $OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" >&2
-      exit 1
-    }
-  ' </dev/null
-  run_as_target mkdir -p "$TARGET_HOME/.local/bin"
-  run_as_target ln -sf "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" \
-    "$TARGET_HOME/.local/bin/$OPENCODE_COMMAND"
-  ensure_local_bin_on_path
-  configure_opencode_config
-  run_as_target env OPENCODE_COMMAND="$OPENCODE_COMMAND" bash -c \
-    'export PATH="$HOME/.local/bin:$PATH"; "$OPENCODE_COMMAND" --version' 1>&2 || true
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component install opencode_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 # install_codex_plain_launcher - expose the isolated fork binary as plain codex.
 # A previously installed tracking-aware wrapper (a regular script that starts

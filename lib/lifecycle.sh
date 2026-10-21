@@ -27,14 +27,25 @@ detect_claude_code() {
 
 # detect_cline_cli - true when either the managed isolated Cline binary or a
 # system/user Cline command is available for the target user.
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 detect_cline_cli() {
-  [ -x "$CLINE_NPM_PREFIX/bin/cline" ] || run_as_target bash -lc 'command -v cline >/dev/null 2>&1'
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component detect cline_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # detect_grok_cli - true when the configured Grok command is user-accessible.
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 detect_grok_cli() {
-  [ -x "$TARGET_HOME/.local/bin/$GROK_COMMAND" ] ||
-    run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$GROK_COMMAND"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component detect grok_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # detect_qwen_cli - true when the plain qwen launcher or its Codex home exists.
@@ -51,10 +62,14 @@ detect_openrouter_cli() {
 
 # detect_opencode_cli - true when the opencode command is user-accessible, either
 # through the shared ~/.local/bin launcher or the official ~/.opencode/bin binary.
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 detect_opencode_cli() {
-  [ -x "$TARGET_HOME/.local/bin/$OPENCODE_COMMAND" ] ||
-    [ -x "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" ] ||
-    run_as_target bash -lc 'command -v "$1" >/dev/null 2>&1' bash "$OPENCODE_COMMAND"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component detect opencode_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # uninstall_codex_cli - remove the codex launcher and isolated fork binary.
@@ -92,25 +107,27 @@ uninstall_claude_code() {
 
 # uninstall_cline_cli - Remove only this repository's isolated Cline install.
 # A separately installed system-wide /usr/bin/cline is deliberately preserved.
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 uninstall_cline_cli() {
-  msg "Removing isolated Cline CLI (preserving any system-wide installation)"
-  local launcher="$TARGET_HOME/.local/bin/cline" raw="$CLINE_NPM_PREFIX/bin/cline"
-  if [ -L "$launcher" ] && [ "$(readlink -f "$launcher" 2>/dev/null || true)" = "$(readlink -f "$raw" 2>/dev/null || true)" ]; then
-    run_as_target rm -f "$launcher"
-  fi
-  run_as_target rm -rf "$CLINE_NPM_PREFIX"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component uninstall cline_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 
 # uninstall_opencode_cli - Remove the managed launcher and the official binary
 # while preserving ~/.config/opencode (user agents, skills, plugins, auth).
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 uninstall_opencode_cli() {
-  msg "Removing opencode CLI binary (preserving ~/.config/opencode configuration)"
-  local launcher="$TARGET_HOME/.local/bin/$OPENCODE_COMMAND"
-  if [ -L "$launcher" ] && [[ "$(readlink -f "$launcher" 2>/dev/null || true)" == "$(readlink -f "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND" 2>/dev/null || true)" ]]; then
-    run_as_target rm -f "$launcher"
-  fi
-  run_as_target rm -f "$OPENCODE_INSTALL_DIR/$OPENCODE_COMMAND"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component uninstall opencode_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # uninstall_qwen_cli - remove the plain qwen launcher and isolated runtime.
@@ -130,12 +147,12 @@ uninstall_openrouter_cli() {
 }
 
 # uninstall_grok_cli - Remove the managed launcher while preserving ~/.grok.
+# Parameters: none; target paths come from the installer environment.
+# Returns: native lifecycle status.
 uninstall_grok_cli() {
-  msg "Removing Grok CLI binary (preserving user configuration)"
-  run_as_target rm -f "$TARGET_HOME/.local/bin/$GROK_COMMAND"
-  local agent_link="$TARGET_HOME/.local/bin/agent"
-  if [ -L "$agent_link" ] && [[ "$(readlink -f "$agent_link" 2>/dev/null || true)" == "$GROK_HOME/bin/"* ]]; then
-    run_as_target rm -f "$agent_link"
-  fi
-  run_as_target rm -rf "$GROK_HOME/bin"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component uninstall grok_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }

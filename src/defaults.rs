@@ -474,13 +474,27 @@ fn install_plugin(tool: Tool, home: &Path, source: &Path, name: &str) -> Result<
     place_managed_link(&target, &source, tool.label(), "plugin", false)
 }
 
-fn merge_opencode(target: &Path, model: &str, variant: &str) -> Result<(), String> {
+/// Accept the shared opencode model and reasoning-variant contract.
+/// Parameters: model - provider/model slug; variant - default, high or max.
+/// Returns: None on acceptance, or a configuration error.
+pub(crate) fn require_opencode_config(model: &str, variant: &str) -> Result<(), String> {
+    eprintln!("model={model:?}, variant={variant:?}");
     if !model.contains('/') {
         return Err(format!("opencode model must be provider/model form: {}", py_str(model)));
     }
     if !matches!(variant, "default" | "high" | "max") {
         return Err(format!("invalid opencode variant: {}", py_str(variant)));
     }
+    eprintln!("None");
+    Ok(())
+}
+
+/// Merge opencode model defaults while preserving unrelated user keys.
+/// Parameters: target - user JSON settings; model - provider/model slug; variant - default, high or max.
+/// Returns: None after a successful write, or a configuration/I/O error.
+pub(crate) fn merge_opencode(target: &Path, model: &str, variant: &str) -> Result<(), String> {
+    eprintln!("target={target:?}, model={model:?}, variant={variant:?}");
+    require_opencode_config(model, variant)?;
     let mut config = read_object_allow_empty(target)?;
     if !config.contains_key("$schema") {
         config.insert("$schema".to_string(), Value::String("https://opencode.ai/config.json".to_string()));
@@ -503,13 +517,29 @@ fn merge_opencode(target: &Path, model: &str, variant: &str) -> Result<(), Strin
             agent.insert("variant".to_string(), Value::String(variant.to_string()));
         }
     }
-    write_public_json(target, &Value::Object(config))
+    write_public_json(target, &Value::Object(config))?;
+    eprintln!("None");
+    Ok(())
 }
 
-fn merge_grok(target: &Path, name: &str, model_id: &str, base_url: &str, env_key: &str) -> Result<(), String> {
+/// Accept Grok identifiers without reading an API-key value.
+/// Parameters: name - kebab-case model name; env_key - API-key environment-variable name.
+/// Returns: None on acceptance, or a configuration error.
+pub(crate) fn require_grok_config(name: &str, env_key: &str) -> Result<(), String> {
+    eprintln!("name={name:?}, env_key={env_key:?}");
     if !is_kebab(name) || !is_env_key(env_key) {
         return Err("invalid Grok model name or API-key environment variable".to_string());
     }
+    eprintln!("None");
+    Ok(())
+}
+
+/// Merge one managed Grok model block without dropping existing settings.
+/// Parameters: target - user TOML path; name - model label; model_id - provider id; base_url - endpoint; env_key - credential variable name only.
+/// Returns: None after writing the block, or a configuration/I/O error.
+pub(crate) fn merge_grok(target: &Path, name: &str, model_id: &str, base_url: &str, env_key: &str) -> Result<(), String> {
+    eprintln!("target={target:?}, name={name:?}, model_id={model_id:?}, base_url={base_url:?}, env_key={env_key:?}");
+    require_grok_config(name, env_key)?;
     let start = "# BEGIN linux_codex_claude_code_setup Grok model";
     let end = "# END linux_codex_claude_code_setup Grok model";
     let block = format!(
@@ -534,7 +564,9 @@ fn merge_grok(target: &Path, name: &str, model_id: &str, base_url: &str, env_key
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    fs::write(target, updated).map_err(|error| error.to_string())
+    fs::write(target, updated).map_err(|error| error.to_string())?;
+    eprintln!("None");
+    Ok(())
 }
 
 fn place_managed_link(target: &Path, source: &Path, tool: &str, noun: &str, same_root: bool) -> Result<(), String> {
