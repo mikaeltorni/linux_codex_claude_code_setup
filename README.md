@@ -4,7 +4,7 @@ Linux Codex and Claude Code Setup is a Linux CLI installer for developers who ne
 
 It installs and configures vendor CLIs on Linux, with optional Cline, Grok, and opencode components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
 
-[![Last commit: 2026-10-21](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commit activity: 90 commits in 30 days on 2026-10-21](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 on 2026-10-21](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
+[![Last commit: 2026-10-21](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commit activity: 92 commits in 30 days on 2026-10-21](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 on 2026-10-21](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
 
 [Features](#features) · [Installation](#linux-codex-and-claude-code-installation) · [Quick start](#quick-start) · [Configuration](#linux-codex-and-claude-code-configuration) · [FAQ](#faq) · [Usage](#linux-cli-usage-and-examples) · [Contributing](#contributing) · [License](#license)
 
