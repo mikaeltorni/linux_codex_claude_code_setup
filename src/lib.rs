@@ -17,3 +17,6 @@ mod vendors;
 pub mod preferences;
 pub mod npm_prefix;
 pub mod autoupdate;
+pub mod providers;
+mod provider_config;
+mod provider_install;

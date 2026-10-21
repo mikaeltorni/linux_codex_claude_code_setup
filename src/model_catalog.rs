@@ -96,7 +96,11 @@ fn python_title(text: &str) -> String {
     out
 }
 
-fn catalog_document(base_model: &str, context_window: i64) -> Value {
+/// Build the shared model entry for catalog CLI and provider installation.
+/// Parameters: base_model - normalized model slug; context_window - converted context capacity.
+/// Returns: the complete model catalog document.
+pub(crate) fn catalog_document(base_model: &str, context_window: i64) -> Value {
+    eprintln!("base_model={base_model:?}, context_window={context_window}");
     let mut model = Map::new();
     let text = |value: &str| Value::String(value.to_string());
     let boolean = |value: bool| Value::Bool(value);
@@ -155,7 +159,9 @@ fn catalog_document(base_model: &str, context_window: i64) -> Value {
     model.insert("supports_search_tool".to_string(), boolean(false));
     let mut document = Map::new();
     document.insert("models".to_string(), Value::Array(vec![Value::Object(model)]));
-    Value::Object(document)
+    let result = Value::Object(document);
+    eprintln!("{result:?}");
+    result
 }
 
 fn reasoning(effort: &str, description: &str) -> Value {

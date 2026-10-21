@@ -49,15 +49,25 @@ detect_grok_cli() {
 }
 
 # detect_qwen_cli - true when the plain qwen launcher or its Codex home exists.
+# Parameters: none; target provider resources come from installer settings.
+# Returns: native provider detect status.
 detect_qwen_cli() {
-  [ -d "${QWEN_CODEX_HOME:-$TARGET_HOME/.codex-qwen}" ] ||
-    [ -x "$TARGET_HOME/.local/bin/${QWEN_CODEX_COMMAND:-qwen}" ]
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_provider_owner detect qwen || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # detect_openrouter_cli - true when the plain openr launcher or its Codex home exists.
+# Parameters: none; target provider resources come from installer settings.
+# Returns: native provider detect status.
 detect_openrouter_cli() {
-  [ -d "${OPENROUTER_CODEX_HOME:-$TARGET_HOME/.codex-openrouter}" ] ||
-    [ -x "$TARGET_HOME/.local/bin/${OPENROUTER_CODEX_PLAIN_COMMAND:-openr}" ]
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_provider_owner detect openrouter || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # detect_opencode_cli - true when the opencode command is user-accessible, either
@@ -131,19 +141,25 @@ uninstall_opencode_cli() {
 }
 
 # uninstall_qwen_cli - remove the plain qwen launcher and isolated runtime.
+# Parameters: none; target provider resources come from installer settings.
+# Returns: native provider uninstall status.
 uninstall_qwen_cli() {
-  msg "Removing plain Local Codex CLI (${QWEN_CODEX_COMMAND:-qwen})"
-  run_as_target rm -rf "${QWEN_CODEX_HOME:-$TARGET_HOME/.codex-qwen}" \
-    "${QWEN_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-qwen}"
-  run_as_target rm -f "$TARGET_HOME/.local/bin/${QWEN_CODEX_COMMAND:-qwen}"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_provider_owner uninstall qwen || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # uninstall_openrouter_cli - remove the plain openr launcher and isolated runtime.
+# Parameters: none; target provider resources come from installer settings.
+# Returns: native provider uninstall status.
 uninstall_openrouter_cli() {
-  msg "Removing plain OpenRouter Codex CLI (${OPENROUTER_CODEX_PLAIN_COMMAND:-openr})"
-  run_as_target rm -rf "${OPENROUTER_CODEX_HOME:-$TARGET_HOME/.codex-openrouter}" \
-    "${OPENROUTER_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-openrouter}"
-  run_as_target rm -f "$TARGET_HOME/.local/bin/${OPENROUTER_CODEX_PLAIN_COMMAND:-openr}"
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_provider_owner uninstall openrouter || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # uninstall_grok_cli - Remove the managed launcher while preserving ~/.grok.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,7 +145,7 @@ def test_openrouter_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     text = (dest / "config.toml").read_text(encoding="utf-8")
     # The stored selection is honored, and a token outside the Codex catalog
     # (git-branch, dropped upstream) is filtered out instead of written through.
-    assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
+    assert tomllib.loads(text)["tui"]["status_line"] == ["model-with-reasoning", "used-tokens"]
     assert "git-branch" not in text
     print(None)
 
@@ -196,6 +197,6 @@ def test_qwen_writer_honors_status_bar_selections(tmp_path: Path) -> None:
     text = (dest / "config.toml").read_text(encoding="utf-8")
     # The stored selection is honored, and a token outside the Codex catalog
     # (git-branch, dropped upstream) is filtered out instead of written through.
-    assert 'status_line = ["model-with-reasoning","used-tokens"]' in text
+    assert tomllib.loads(text)["tui"]["status_line"] == ["model-with-reasoning", "used-tokens"]
     assert "git-branch" not in text
     print(None)

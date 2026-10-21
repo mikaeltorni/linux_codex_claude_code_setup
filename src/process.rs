@@ -93,3 +93,25 @@ pub(crate) fn require_executable(path: &Path) -> Result<(), String> {
     eprintln!("None");
     Ok(())
 }
+
+/// Wait briefly for an owned CLI being atomically replaced by an installer.
+/// Parameters: path - raw CLI resource required by the calling launch operation.
+/// Returns: None once executable, or an error after the bounded wait.
+pub(crate) fn wait_executable(path: &Path) -> Result<(), String> {
+    eprintln!("path={path:?}");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        if require_executable(path).is_ok() {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(format!(
+                "CLI unavailable after waiting for installation: {}",
+                path.display()
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    eprintln!("None");
+    Ok(())
+}

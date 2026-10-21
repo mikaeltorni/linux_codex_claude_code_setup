@@ -43,7 +43,7 @@ build_setup_generators() {
   fi
   compile_setup_generators || return $?
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install setup-component setup-preferences codex-hook-launcher agent-autoupdate npm-prefix; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install setup-component setup-preferences codex-hook-launcher agent-autoupdate npm-prefix setup-provider provider-launcher; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name" || return $?
     if [[ -n "${TARGET_HOME:-}" ]]; then
       run_as_target install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \
@@ -136,6 +136,26 @@ run_native_component() {
     OPENCODE_INSTALL_URL="${OPENCODE_INSTALL_URL:-}" OPENCODE_COMMAND="${OPENCODE_COMMAND:-}" \
     OPENCODE_INSTALL_DIR="${OPENCODE_INSTALL_DIR:-}" OPENCODE_CONFIG_HOME="${OPENCODE_CONFIG_HOME:-}" \
     OPENCODE_MODEL="${OPENCODE_MODEL:-}" OPENCODE_VARIANT="${OPENCODE_VARIANT:-}" \
+    "$bin" "$@" --home "$TARGET_HOME" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate provider lifecycle/configuration to its native owner.
+# Parameters: action - lifecycle operation; kind - qwen or openrouter; remaining - native options.
+# Returns: exact native operation status.
+run_provider_owner() {
+  printf 'action=%s, kind=%s\n' "$1" "$2" >&2
+  local bin status=0
+  bin="$(generators_release_bin setup-provider)" || return 1
+  run_as_target env SETUP_SOURCE_DIR="$SCRIPT_DIR" \
+    QWEN_CODEX_HOME="${QWEN_CODEX_HOME:-$TARGET_HOME/.codex-qwen}" \
+    QWEN_CODEX_NPM_PREFIX="${QWEN_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-qwen}" \
+    QWEN_CODEX_LMSTUDIO_MODEL="${QWEN_CODEX_LMSTUDIO_MODEL:-qwen3.8-27b}" \
+    OPENROUTER_CODEX_HOME="${OPENROUTER_CODEX_HOME:-$TARGET_HOME/.codex-openrouter}" \
+    OPENROUTER_CODEX_NPM_PREFIX="${OPENROUTER_CODEX_NPM_PREFIX:-$TARGET_HOME/.local/codex-openrouter}" \
+    OPENROUTER_CODEX_MODEL="${OPENROUTER_CODEX_MODEL:-stealth/ox-alpha}" \
+    CLAUDE_CODE_STATUS_BAR_DIR="${CLAUDE_CODE_STATUS_BAR_DIR:-$TARGET_HOME/projects/claude_code_status_bar}" \
     "$bin" "$@" --home "$TARGET_HOME" || status=$?
   printf '%s\n' "$status" >&2
   return "$status"
