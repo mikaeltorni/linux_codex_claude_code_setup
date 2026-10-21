@@ -57,7 +57,7 @@ def test_every_selected_prompt_is_exposed_natively_to_grok() -> None:
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
     helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
     assert "install_grok_prompt_skill" in installer
-    assert installer.count("install_grok_prompt_skill") >= 3
+    assert "run_prompt_owner skill grok" in installer
     assert "install_grok_prompt_plugin" in installer
     assert "install-grok-skill" in helper
     assert "install-grok-plugin" in helper
@@ -66,15 +66,23 @@ def test_every_selected_prompt_is_exposed_natively_to_grok() -> None:
 
 
 def test_grok_instruction_verification_checks_retired_generic_cleanup() -> None:
-    """Grok must flag retired managed generic guidance."""
+    """Grok must flag retired managed generic guidance.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(
         encoding="utf-8"
     )
 
-    assert '"$TARGET_HOME/.grok/AGENTS.md"' in installer
-    assert '"$TARGET_HOME/.grok/AGENTS.md"' in entrypoint
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    verifier = (ROOT / "src/prompt_verify.rs").read_text()
+    assert ".grok/AGENTS.md" in native
+    assert ".grok/AGENTS.md" in verifier
     assert "verify_retired_instruction" in entrypoint
+    print(None)
 
 
 def test_grok_model_customization_is_merged_without_overwriting_config() -> None:

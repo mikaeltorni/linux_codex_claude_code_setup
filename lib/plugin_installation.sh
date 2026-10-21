@@ -1,425 +1,316 @@
 #!/usr/bin/env bash
-# Install programming_prompts plugins/skills into Codex, Claude Code, and Cline.
-
-PROMPTS_READY=0
+# Shared-installer compatibility; prompt behavior belongs to native Rust owners.
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
 CODEX_MARKETPLACE_READY_HOMES=""
 CLAUDE_MARKETPLACE_READY=0
-# Plugins/skills installed in this run. The standalone entrypoint uses this list
-# for its final idempotent merge pass; normal component installs merge the
-# applicable managed instructions at the end of each prompt install.
 INSTALLED_PROMPT_PLUGINS=()
 
-# Space-separated list of Codex config homes that receive the plugins. Defaults
-# to the single default home; callers (e.g. agent_command_center) export extra
-# homes such as .codex-api and .codex-qwen so every Codex instance (codex, ca,
-# qa) sees the same skills. run_as_target uses a clean env, so each Codex call
-# below sets CODEX_HOME explicitly via `env`.
-#
-# When CODEX_HOMES is unset every already-provisioned Codex home is discovered
-# instead of only the default one. Homes such as .codex-api/.codex-qwen are
-# created by other flows, so defaulting to the default home alone let their
-# AGENTS.md drift to an older guidelines version until that flow ran again.
-discover_codex_homes() {
-  local home_dir
-  printf '%s\n' "$TARGET_HOME/.codex"
-  for home_dir in "$TARGET_HOME"/.codex-*; do
-    [[ -d "$home_dir" ]] || continue
-    printf '%s\n' "$home_dir"
-  done
-}
-
-target_codex_homes() {
-  if [[ -n "${CODEX_HOMES:-}" ]]; then
-    printf '%s\n' ${CODEX_HOMES}
-    return 0
-  fi
-  discover_codex_homes
-}
-
-source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
-
-# Generate the native catalogs only after resolving the required executable.
-# Parameters: none; defaults/source/output paths come from installer variables.
-# Returns: generator status; missing executable preserves the existing catalog.
-generate_programming_prompts_marketplace() {
-  local bin
-  bin="$(generators_release_bin generate-marketplaces)" || return 1
-  run_as_target rm -rf "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  run_as_target "$bin" \
-    --defaults "$SCRIPT_DIR/default.json" \
-    --prompts-root "$PROGRAMMING_PROMPTS_DIR" \
-    --output "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-}
-
+# Resolve target-owned CLIs without borrowing a command from another user's PATH.
+# Parameters: command_name - codex or claude.
+# Returns: selected target executable path on stdout.
 resolve_target_binary() {
-  local command_name="$1"
-  run_as_target bash -c 'command -v "$1" || printf "%s" "$HOME/.local/bin/$1"' bash "$command_name"
+  printf 'command_name=%s\n' "$1" >&2
+  local result="$TARGET_HOME/.local/bin/$1"
+  if [[ "$1" == codex && -x "$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm/bin/codex" ]]; then
+    result="$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm/bin/codex"
+  fi
+  printf '%s\n' "$result"
 }
 
-ensure_programming_prompts() {
-  (( PROMPTS_READY == 1 )) && return 0
-  ensure_linked_repository \
-    "programming_prompts" \
-    "$PROGRAMMING_PROMPTS_DIR" \
-    "https://github.com/${PROGRAMMING_PROMPTS_REPOSITORY}.git"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" validate "$PROGRAMMING_PROMPTS_DIR"
-  generate_programming_prompts_marketplace
-  PROMPTS_READY=1
+# Invoke the native prompt owner with complete converted target/source settings.
+# Parameters: action and operands - public setup-prompts tokens.
+# Returns: native status and query output, preserving nonzero failures.
+run_prompt_owner() {
+  printf 'arguments=%s\n' "$*" >&2
+  local bin codex_bin claude_bin status=0
+  bin="$(generators_release_bin setup-prompts)" || return 1
+  codex_bin="$(resolve_target_binary codex)" || return 1
+  claude_bin="$(resolve_target_binary claude)" || return 1
+  local -a prompt_runner=()
+  if declare -F run_as_target >/dev/null 2>&1; then prompt_runner=(run_as_target); fi
+  "${prompt_runner[@]}" env SETUP_SOURCE_DIR="$SCRIPT_DIR" CODEX_HOMES="${CODEX_HOMES:-}" \
+    "$bin" "$@" --home "$TARGET_HOME" \
+    --defaults "${PROMPT_DEFAULTS_FILE:-$SCRIPT_DIR/default.json}" \
+    --prompts-root "${PROGRAMMING_PROMPTS_DIR:-$TARGET_HOME/projects/programming_prompts}" \
+    --marketplace-dir "${PROGRAMMING_PROMPTS_MARKETPLACE_DIR:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/programming-prompts-marketplace}" \
+    --opencode-config "${OPENCODE_CONFIG_HOME:-$TARGET_HOME/.config/opencode}" \
+    --codex "$codex_bin" --claude "$claude_bin" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Discover all target account homes independently of an explicit selection.
+# Parameters: none; TARGET_HOME owns account directories.
+# Returns: one account home per output line and native query status.
+discover_codex_homes() {
+  printf 'parameters=none\n' >&2
+  local status=0
+  CODEX_HOMES= run_prompt_owner homes || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Preserve the selected home list through the native path parser.
+# Parameters: none; CODEX_HOMES optionally supplies the legacy home selection.
+# Returns: one selected home per output line and native query status.
+target_codex_homes() {
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_prompt_owner homes || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Register the catalog once for this shell caller's Codex account.
+# Parameters: home - selected Codex configuration directory.
+# Returns: native registration status, or zero when already prepared here.
 prepare_codex_marketplace() {
-  local codex_home="$1"
-  case " $CODEX_MARKETPLACE_READY_HOMES " in *" $codex_home "*) return 0;; esac
-  local codex_bin
-  codex_bin="$(resolve_target_binary codex)"
-  [[ -x "$codex_bin" ]] || { msg "Codex is unavailable; skipping Codex plugin installation"; return 1; }
-  local registered_root
-  registered_root="$(run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin marketplace list --json |
-    run_setup_json marketplace-root "$PROGRAMMING_PROMPTS_MARKETPLACE")"
-  if [[ -n "$registered_root" && "$registered_root" != "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" ]]; then
-    run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
-  fi
-  if [[ "$registered_root" != "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" ]]; then
-    run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin marketplace add "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  fi
-  CODEX_MARKETPLACE_READY_HOMES="$CODEX_MARKETPLACE_READY_HOMES $codex_home"
+  printf 'home=%s\n' "$1" >&2
+  local status=0
+  case " $CODEX_MARKETPLACE_READY_HOMES " in
+    *" $1 "*) printf '0\n' >&2; return 0 ;;
+  esac
+  run_prompt_owner prepare-codex "$1" || status=$?
+  if [[ "$status" == 0 ]]; then CODEX_MARKETPLACE_READY_HOMES="$CODEX_MARKETPLACE_READY_HOMES $1"; fi
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
-# Parameters: none; target registry and catalog come from the installer environment.
-# Returns: zero when Claude's registered directory matches the generated catalog.
-claude_marketplace_matches_checkout() {
-  run_as_target_setup_json claude-marketplace \
-    "$TARGET_HOME/.claude/plugins/known_marketplaces.json" \
-    "$PROGRAMMING_PROMPTS_MARKETPLACE" "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-}
-
-# run_target_claude_plugin — run a Claude Code CLI plugin command with a
-# non-interactive (non-TTY) stdout. claude is an Ink TUI: when its stdout is a
-# terminal it switches the terminal to raw mode via tcsetattr. Under the master
-# installer these commands run in a background process group, so that tcsetattr
-# raises SIGTTOU and stops the whole install — it hangs right after a marketplace
-# update or while installing a plugin. Routing stdout/stderr through a pipe makes
-# Claude Code detect a non-interactive environment and skip the raw-mode setup,
-# while `cat` still surfaces the output and the original exit code is preserved.
-# The JSON query readers above also consume pipes without terminal setup.
-run_target_claude_plugin() {
-  run_as_target "$@" </dev/null 2>&1 | cat
-  return "${PIPESTATUS[0]}"
-}
-
+# Register/update Claude's catalog once for this shell caller.
+# Parameters: none; the native owner resolves its target registry.
+# Returns: native registration status, or zero when already prepared here.
 prepare_claude_marketplace() {
-  (( CLAUDE_MARKETPLACE_READY == 1 )) && return 0
-  local claude_bin
-  claude_bin="$(resolve_target_binary claude)"
-  [[ -x "$claude_bin" ]] || { msg "Claude Code is unavailable; skipping Claude plugin installation"; return 1; }
-  if claude_marketplace_matches_checkout; then
-    run_target_claude_plugin "$claude_bin" plugin marketplace update "$PROGRAMMING_PROMPTS_MARKETPLACE"
-  else
-    if run_as_target "$claude_bin" plugin marketplace list --json |
-       run_setup_json contains - name "$PROGRAMMING_PROMPTS_MARKETPLACE"; then
-      run_target_claude_plugin "$claude_bin" plugin marketplace remove "$PROGRAMMING_PROMPTS_MARKETPLACE"
-    fi
-    run_target_claude_plugin "$claude_bin" plugin marketplace add --scope user "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR"
-  fi
-  CLAUDE_MARKETPLACE_READY=1
+  printf 'parameters=none\n' >&2
+  local status=0
+  if [[ "$CLAUDE_MARKETPLACE_READY" == 1 ]]; then printf '0\n' >&2; return 0; fi
+  run_prompt_owner prepare-claude || status=$?
+  if [[ "$status" == 0 ]]; then CLAUDE_MARKETPLACE_READY=1; fi
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
-# Record a plugin/skill installed this run so the global_instructions component
-# can merge its global instructions later. Deduplicates.
+# Capture Claude plugin output through a pipe to preserve non-TTY execution.
+# Parameters: command and arguments - existing external Claude CLI call.
+# Returns: exact child status and captured output.
+run_target_claude_plugin() {
+  printf 'arguments=%s\n' "$*" >&2
+  run_as_target "$@" </dev/null 2>&1 | cat
+  local status="${PIPESTATUS[0]}"
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Record this caller's successful selection for an optional later global merge.
+# Parameters: plugin - selected prompt identifier.
+# Returns: zero after adding or retaining the identifier.
 record_prompt_plugin() {
-  local plugin_name="$1" existing
+  printf 'plugin=%s\n' "$1" >&2
+  local existing
   for existing in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
-    [[ "$existing" == "$plugin_name" ]] && return 0
+    if [[ "$existing" == "$1" ]]; then printf '0\n' >&2; return 0; fi
   done
-  INSTALLED_PROMPT_PLUGINS+=("$plugin_name")
+  INSTALLED_PROMPT_PLUGINS+=("$1")
+  printf '0\n' >&2
 }
 
-# resolve_prompt_skill_source — Print the programming_prompts directory that
-# owns a skill body, whichever prompt layout it uses.
-#
-# Arguments:
-#   $1  prompt/plugin identifier from default.json
-#   $2  skill directory name
-#
-# The three layouts are searched in order: bundled plugin skills
-# (plugins/<plugin>/skills/<skill>), direct skills (skills/<skill>), and
-# dispatch skills (dispatch-skills/<skill>). Every harness installer routes
-# through this one resolver, so a new prompt layout is added here once instead
-# of in each harness-specific function.
-resolve_prompt_skill_source() {
-  local plugin_name="$1" skill_name="$2" candidate
-  for candidate in \
-    "$PROGRAMMING_PROMPTS_DIR/plugins/$plugin_name/skills/$skill_name" \
-    "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name" \
-    "$PROGRAMMING_PROMPTS_DIR/dispatch-skills/$skill_name"; do
-    if [[ -f "$candidate/SKILL.md" ]]; then
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done
-  # Preserve the historical fallback so the Python writer reports the missing
-  # source path rather than this resolver failing silently.
-  printf '%s' "$PROGRAMMING_PROMPTS_DIR/skills/$skill_name"
-}
-
-# Install the selected skill into Cline's documented ~/.cline/skills directory.
-# The Python writer links the authoritative programming_prompts source and
-# refuses to overwrite an unrelated user-authored skill with the same name.
-install_cline_prompt_skill() {
-  local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-cline-skill \
-    "$TARGET_HOME" "$source_skill" "$skill_name"
-}
-
-# Install the selected skill into Cursor's documented ~/.cursor/skills directory.
-install_cursor_prompt_skill() {
-  local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-cursor-skill \
-    "$TARGET_HOME" "$source_skill" "$skill_name"
-}
-
-# Link the full plugin bundle into Cline's ~/.cline/plugins directory so Cline
-# auto-discovers the plugin (skills, hooks, agents, MCP definitions) in every
-# session, mirroring the Grok plugin treatment. The per-skill symlink under
-# ~/.cline/skills/ is installed separately by install_cline_prompt_skill.
-install_cline_prompt_plugin() {
-  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
-  [[ -d "$source_plugin/skills" ]] || return 0
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-cline-plugin \
-    "$TARGET_HOME" "$source_plugin" "$plugin_name"
-}
-
-# Install the selected skill into Grok's documented ~/.grok/skills directory.
-install_grok_prompt_skill() {
-  local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-grok-skill \
-    "$TARGET_HOME" "$source_skill" "$skill_name"
-}
-
-# Link the full plugin bundle so Grok discovers future hooks, agents, and MCPs
-# in addition to the currently selected skill.
-install_grok_prompt_plugin() {
-  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-grok-plugin \
-    "$TARGET_HOME" "$source_plugin" "$plugin_name"
-}
-
-# Install the selected skill into opencode's native ~/.config/opencode/skills.
-install_opencode_prompt_skill() {
-  local plugin_name="$1" skill_name="$2" source_skill
-  source_skill="$(resolve_prompt_skill_source "$plugin_name" "$skill_name")"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-opencode-skill \
-    "$TARGET_HOME" "$source_skill" "$skill_name"
-}
-
-# Link the full plugin bundle so opencode discovers future hooks, agents, and
-# MCPs in addition to the currently selected skill.
-install_opencode_prompt_plugin() {
-  local plugin_name="$1" source_plugin="$PROGRAMMING_PROMPTS_DIR/plugins/$1"
-  [[ -d "$source_plugin/skills" ]] || return 0
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" install-opencode-plugin \
-    "$TARGET_HOME" "$source_plugin" "$plugin_name"
-}
-
-# Merge AGENTS.md/CLAUDE.md global instructions for every prompt installed in
-# this run. The function remains a separate helper for the standalone entrypoint
-# and is also safe as an idempotent compatibility call after component installs.
+# Merge only recorded non-dispatch instruction bodies through the native owner.
+# Parameters: none; this caller's recorded identifiers select global bodies.
+# Returns: exact native merge status.
 install_global_instructions_component() {
-  local plugin_name
-  (( ${#INSTALLED_PROMPT_PLUGINS[@]} == 0 )) && return 0
-  msg "Merging global agent instructions (AGENTS.md/CLAUDE.md)"
-  for plugin_name in "${INSTALLED_PROMPT_PLUGINS[@]}"; do
-    install_plugin_global_instructions "$plugin_name"
-  done
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_prompt_owner global-selected "${INSTALLED_PROMPT_PLUGINS[@]}" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing generate_programming_prompts_marketplace operands.
+# Returns: native operation status and any query output.
+generate_programming_prompts_marketplace() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner generate  || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing ensure_programming_prompts operands.
+# Returns: native operation status and any query output.
+ensure_programming_prompts() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner ensure  || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing claude_marketplace_matches_checkout operands.
+# Returns: native operation status and any query output.
+claude_marketplace_matches_checkout() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner claude-marketplace-matches  || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing resolve_prompt_skill_source operands.
+# Returns: native operation status and any query output.
+resolve_prompt_skill_source() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner resolve-source "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_plugin_global_instructions operands.
+# Returns: native operation status and any query output.
 install_plugin_global_instructions() {
-  local plugin_name="$1"
-  local instructions="$PROGRAMMING_PROMPTS_DIR/global-instructions/$1.md"
-  [[ -f "$instructions" ]] || instructions="$PROGRAMMING_PROMPTS_DIR/plugins/$1/install/global-instructions.md"
-  [[ -f "$instructions" ]] || return 0
-  # Codex reads AGENTS.md from each CODEX_HOME, so every configured Codex home
-  # (codex/.codex, ca/.codex-api, qa/.codex-qwen, oa/.codex-openrouter,
-  # na/.codex-nvidia) needs the managed tag — not just the default .codex home.
-  local codex_home
-  for codex_home in $(target_codex_homes); do
-    run_as_target_plugin_defaults \
-      --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-      "$codex_home/AGENTS.md" "$plugin_name" "$instructions"
-  done
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$TARGET_HOME/.claude/CLAUDE.md" "$plugin_name" "$instructions"
-  # Cline loads Rules into every session's system prompt. It reads the
-  # cross-tool agents.md standard at ~/.agents/AGENTS.md and its native global
-  # rules directory at ~/Documents/Cline/Rules/. Merging both keeps the
-  # guidelines always-on for Cline, not just available as an invokable skill.
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$TARGET_HOME/.agents/AGENTS.md" "$plugin_name" "$instructions"
-  local cline_rules="$TARGET_HOME/Documents/Cline/Rules"
-  run_as_target mkdir -p "$cline_rules"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$cline_rules/$plugin_name.md" "$plugin_name" "$instructions"
-  # opencode reads global agent instructions from ~/.config/opencode/AGENTS.md in
-  # every session, so merge the same managed block there to keep the guidelines
-  # always-on for opencode, not just available as an invokable skill.
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$OPENCODE_CONFIG_HOME/AGENTS.md" "$plugin_name" "$instructions"
-  # Grok also reads its global AGENTS.md. Keep the complete mandatory body
-  # there so Grok cannot depend on choosing the native skill explicitly.
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" merge-instructions \
-    "$TARGET_HOME/.grok/AGENTS.md" "$plugin_name" "$instructions"
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner global "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing remove_marketplace_plugin_installations operands.
+# Returns: native operation status and any query output.
 remove_marketplace_plugin_installations() {
-  local plugin_name="$1" codex_bin claude_bin selector codex_home
-  codex_bin="$(resolve_target_binary codex)"
-  selector="$plugin_name@$PROGRAMMING_PROMPTS_MARKETPLACE"
-  for codex_home in $(target_codex_homes); do
-    if [[ -x "$codex_bin" ]] &&
-       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin list --json |
-         run_setup_json contains installed pluginId "$selector"; then
-      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
-    fi
-  done
-  claude_bin="$(resolve_target_binary claude)"
-  if [[ -x "$claude_bin" ]] &&
-     run_as_target "$claude_bin" plugin list --json |
-       run_setup_json contains - id "$selector"; then
-    run_target_claude_plugin "$claude_bin" plugin uninstall --scope user "$selector"
-  fi
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner cleanup-marketplace "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing remove_legacy_plugin_installations operands.
+# Returns: native operation status and any query output.
 remove_legacy_plugin_installations() {
-  local plugin_name="$1" skill_name="$2" codex_bin selector codex_home
-  codex_bin="$(resolve_target_binary codex)"
-  selector="$plugin_name@personal"
-  for codex_home in $(target_codex_homes); do
-    if [[ -x "$codex_bin" ]] &&
-       run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin list --json |
-         run_setup_json contains installed pluginId "$selector"; then
-      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin remove "$selector" --json
-    fi
-
-    # Remove legacy flat skill symlinks (including stale/broken ones) from each
-    # Codex home as the plugins move to the marketplace model.
-    run_as_target_plugin_defaults \
-      --defaults "$SCRIPT_DIR/default.json" cleanup-legacy \
-      "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
-      --codex-home "$codex_home"
-  done
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner cleanup-legacy "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_cline_prompt_skill operands.
+# Returns: native operation status and any query output.
+install_cline_prompt_skill() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner skill cline "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_cline_prompt_plugin operands.
+# Returns: native operation status and any query output.
+install_cline_prompt_plugin() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner bundle cline "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_cursor_prompt_skill operands.
+# Returns: native operation status and any query output.
+install_cursor_prompt_skill() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner skill cursor "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_grok_prompt_skill operands.
+# Returns: native operation status and any query output.
+install_grok_prompt_skill() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner skill grok "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_grok_prompt_plugin operands.
+# Returns: native operation status and any query output.
+install_grok_prompt_plugin() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner bundle grok "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_opencode_prompt_skill operands.
+# Returns: native operation status and any query output.
+install_opencode_prompt_skill() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner skill opencode "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Delegate this compatibility form to the shared native operation.
+# Parameters: operands - existing install_opencode_prompt_plugin operands.
+# Returns: native operation status and any query output.
+install_opencode_prompt_plugin() {
+  printf 'operands=%s\n' "$*" >&2
+  local status=0
+  run_prompt_owner bundle opencode "$@" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Install the converted catalog selection through the native multi-harness owner.
+# Parameters: plugin - prompt identifier; skill - invocation name.
+# Returns: native install status; successful selections are recorded for compatibility.
 install_prompt_plugin() {
-  local plugin_name="$1" skill_name="$2" codex_bin claude_bin selector
-  ensure_programming_prompts
-  selector="$plugin_name@$PROGRAMMING_PROMPTS_MARKETPLACE"
-
-  codex_bin="$(resolve_target_binary codex)"
-  if [[ -x "$codex_bin" ]]; then
-    local codex_home
-    for codex_home in $(target_codex_homes); do
-      prepare_codex_marketplace "$codex_home" || continue
-      run_as_target env CODEX_HOME="$codex_home" "$codex_bin" plugin add "$selector" --json
-    done
-  fi
-
-  claude_bin="$(resolve_target_binary claude)"
-  if [[ -x "$claude_bin" ]]; then
-    prepare_claude_marketplace
-    if run_as_target "$claude_bin" plugin list --json |
-       run_setup_json contains - id "$selector"; then
-      run_target_claude_plugin "$claude_bin" plugin update --scope user "$selector"
-    else
-      run_target_claude_plugin "$claude_bin" plugin install --scope user "$selector"
-    fi
-    # Keep Claude pointed at the installer-owned generated marketplace. The
-    # source content remains programming_prompts; only the catalog is generated.
-    run_as_target_plugin_defaults \
-      --defaults "$SCRIPT_DIR/default.json" merge-claude \
-      "$TARGET_HOME/.claude/settings.json" \
-      --marketplace-dir "$PROGRAMMING_PROMPTS_MARKETPLACE_DIR" "$plugin_name"
-  fi
-  install_cline_prompt_skill "$plugin_name" "$skill_name"
-  install_cursor_prompt_skill "$plugin_name" "$skill_name"
-  install_cline_prompt_plugin "$plugin_name"
-  install_grok_prompt_skill "$plugin_name" "$skill_name"
-  install_grok_prompt_plugin "$plugin_name"
-  install_opencode_prompt_skill "$plugin_name" "$skill_name"
-  install_opencode_prompt_plugin "$plugin_name"
-  record_prompt_plugin "$plugin_name"
-  # Prompt components are independently selectable in the normal installer;
-  # apply their managed global instructions here rather than relying only on
-  # the standalone all-prompts entrypoint.
-  install_plugin_global_instructions "$plugin_name"
-  remove_legacy_plugin_installations "$plugin_name" "$skill_name"
+  printf 'plugin=%s, skill=%s\n' "$1" "$2" >&2
+  local status=0
+  run_prompt_owner install-plugin "$@" || status=$?
+  if [[ "$status" == 0 ]]; then record_prompt_plugin "$1"; fi
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
-# install_manifest_free_skill — Install one prompt body as a native skill into
-# every supported harness, without any plugin marketplace metadata.
-#
-# Arguments:
-#   $1  prompt identifier from default.json
-#   $2  skill directory name (also the /name and $name invocation)
-#   $3  programming_prompts subdirectory owning the body: skills | dispatch-skills
-#
-# Shared by install_prompt_skill and install_dispatch_skill so both kinds reach
-# Codex, Claude Code, Cline, Grok, and opencode through one code path; only the
-# source layout and the instruction-file merge differ between them.
-install_manifest_free_skill() {
-  local plugin_name="$1" skill_name="$2" source_dir="$3" codex_home
-  ensure_programming_prompts
-  remove_marketplace_plugin_installations "$plugin_name"
-  remove_legacy_plugin_installations "$plugin_name" "$skill_name"
-  run_as_target_plugin_defaults \
-    --defaults "$SCRIPT_DIR/default.json" cleanup-migrated-plugin \
-    "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" \
-    "$PROGRAMMING_PROMPTS_MARKETPLACE"
-  for codex_home in $(target_codex_homes); do
-    run_as_target_plugin_defaults \
-      --defaults "$SCRIPT_DIR/default.json" install-direct-skill \
-      "$TARGET_HOME" "$PROGRAMMING_PROMPTS_DIR" "$plugin_name" "$skill_name" \
-      --codex-home "$codex_home" --source-dir "$source_dir"
-  done
-  install_cline_prompt_skill "$plugin_name" "$skill_name"
-  install_cursor_prompt_skill "$plugin_name" "$skill_name"
-  install_grok_prompt_skill "$plugin_name" "$skill_name"
-  install_opencode_prompt_skill "$plugin_name" "$skill_name"
-  record_prompt_plugin "$plugin_name"
-}
-
+# Install the converted catalog selection through the native multi-harness owner.
+# Parameters: plugin - prompt identifier; skill - invocation name.
+# Returns: native install status; successful selections are recorded for compatibility.
 install_prompt_skill() {
-  local plugin_name="$1" skill_name="$2"
-  install_manifest_free_skill "$plugin_name" "$skill_name" "skills" || return 1
-  install_plugin_global_instructions "$plugin_name"
+  printf 'plugin=%s, skill=%s\n' "$1" "$2" >&2
+  local status=0
+  run_prompt_owner install-skill "$@" || status=$?
+  if [[ "$status" == 0 ]]; then record_prompt_plugin "$1"; fi
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
-# install_dispatch_skill — Install a dispatch skill (programming_prompts
-# dispatch-skills/<name>) so `/name` and `$name` resolve in every harness.
-#
-# Arguments:
-#   $1  prompt identifier from default.json
-#   $2  skill directory name
-#
-# Deliberately does NOT merge anything into AGENTS.md/CLAUDE.md: dispatch skills
-# are launched on demand from the skill menu, so adding their bodies to the
-# always-on instruction files would bloat every agent's context for a prompt
-# that is only needed when it is explicitly invoked.
+# Install the converted catalog selection through the native multi-harness owner.
+# Parameters: plugin - prompt identifier; skill - invocation name.
+# Returns: native install status; successful selections are recorded for compatibility.
 install_dispatch_skill() {
-  install_manifest_free_skill "$1" "$2" "dispatch-skills"
+  printf 'plugin=%s, skill=%s\n' "$1" "$2" >&2
+  local status=0
+  run_prompt_owner install-dispatch "$@" || status=$?
+  if [[ "$status" == 0 ]]; then record_prompt_plugin "$1"; fi
+  printf '%s\n' "$status" >&2
+  return "$status"
 }

@@ -179,7 +179,8 @@ def test_installer_exposes_clis_and_each_plugin() -> None:
     plugin_installer = (ROOT / "lib" / "plugin_installation.sh").read_text(
         encoding="utf-8"
     )
-    assert 'plugin uninstall --scope user "$selector"' in plugin_installer
+    native = (ROOT / "src/prompt_marketplace.rs").read_text()
+    assert '"uninstall", "--scope", "user"' in native
     print(None)
 
 
@@ -411,7 +412,8 @@ def test_setup_owns_generated_marketplaces_and_codex_wrapper() -> None:
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     wrapper = (ROOT / "lib" / "codex_wrapper.sh").read_text(encoding="utf-8")
-    assert "generators_release_bin generate-marketplaces" in installer
+    native = (ROOT / "src/prompt_config.rs").read_text()
+    assert "crate::marketplace::generate" in native
     assert "generate_marketplaces.py" not in installer
     assert "PROGRAMMING_PROMPTS_MARKETPLACE_DIR" in installer
     assert "install_codex_wrapper" in cli
@@ -427,11 +429,12 @@ def test_programming_prompts_checkout_uses_shared_auth_gate() -> None:
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-
-    assert "ensure_linked_repository" in installer
-    assert '"programming_prompts" \\' in installer
-    assert "run_as_target git clone" not in installer
+    bridge = (ROOT / "scripts/ensure_prompt_checkout.sh").read_text()
+    native = (ROOT / "src/prompt_config.rs").read_text()
+    assert "ensure_linked_repository" in bridge
+    assert '"programming_prompts"' in bridge
+    assert "checkout_bridge" in native
+    assert '"git", "clone"' not in native
     print(None)
 
 
@@ -442,59 +445,43 @@ def test_plugins_install_into_every_configured_codex_home() -> None:
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    main = (ROOT / "install.sh").read_text(encoding="utf-8")
+    installer = (ROOT / "lib/plugin_installation.sh").read_text()
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    config = (ROOT / "src/prompt_config.rs").read_text()
+    entrypoint = (ROOT / "scripts/install_programming_plugins.sh").read_text()
     assert "target_codex_homes" in installer
-    assert 'env CODEX_HOME="$codex_home"' in installer
-    assert "CODEX_HOMES" in main
-    entrypoint = ROOT / "scripts" / "install_programming_plugins.sh"
-    assert entrypoint.is_file()
-    entrypoint_text = entrypoint.read_text(encoding="utf-8")
-    assert "install_prompt_plugin" in entrypoint_text
-    assert "install_prompt_skill" in entrypoint_text
+    assert "self.homes" in native
+    assert 'command.env("CODEX_HOME", home)' in config
+    assert "CODEX_HOMES" in entrypoint
+    assert "run_prompt_owner install-defaults" in entrypoint
     print(None)
 
 
 def test_entrypoint_deploys_only_default_on_prompts() -> None:
     """The standalone entrypoint must skip opt-in (default:false) prompts.
 
-    The guidelines are the only default-on full-body instruction block. Native
-    SSH VM and dispatch skills are discoverable without loading every session.
-
     Parameters: none.
     Returns: None.
     """
     print("parameters=none")
-    entrypoint_text = (
-        ROOT / "scripts" / "install_programming_plugins.sh"
-    ).read_text(encoding="utf-8")
-    body = entrypoint_text.split("install_all_programming_plugins()", 1)[1]
-    assert '[[ "$state" == "on" ]] || continue' in body
-    assert 'dispatch-skill)' in body
-    assert 'install_dispatch_skill "$plugin" "$skill"' in body
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    assert 'entry["default"].as_bool() == Some(true)' in native
+    assert 'entry["kind"].as_str().unwrap_or("plugin")' in native
+    assert "self.install(" in native
     print(None)
 
 
 def test_global_instruction_tag_reaches_every_codex_home() -> None:
     """The always-on tag must be merged into each CODEX_HOME's AGENTS.md.
 
-    Codex reads AGENTS.md from its own CODEX_HOME, so tagging only the default
-    ~/.codex would leave ca/qa/oa/na untagged. The merge must iterate
-    target_codex_homes and write "$codex_home/AGENTS.md".
-
     Parameters: none.
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    body = installer.split("install_plugin_global_instructions()", 1)[1].split(
-        "\n}", 1
-    )[0]
-    assert "target_codex_homes" in body
-    assert '"$codex_home/AGENTS.md"' in body
-    assert '"$TARGET_HOME/.codex/AGENTS.md"' not in body
-    # Claude keeps its guidance in CLAUDE.md, not AGENTS.md.
-    assert '"$TARGET_HOME/.claude/CLAUDE.md"' in body
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    body = native.split("pub(crate) fn global(", 1)[1].split("pub(crate) fn global_selected", 1)[0]
+    assert ".homes" in body and 'p.join("AGENTS.md")' in body
+    assert '.claude/CLAUDE.md' in body
     print(None)
 
 
@@ -505,11 +492,11 @@ def test_global_instruction_install_does_not_require_retired_generic_source() ->
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
-    body = installer.split("install_plugin_global_instructions()", 1)[1].split("\n}", 1)[0]
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    body = native.split("pub(crate) fn global(", 1)[1].split("pub(crate) fn global_selected", 1)[0]
     assert "general-programming-guidelines" not in body
     assert "complete_skill" not in body
-    assert "global-instructions/$1.md" in body
+    assert "global-instructions" in body and "body.is_file()" in body
     print(None)
 
 
@@ -520,10 +507,11 @@ def test_prompt_components_apply_global_instructions_during_normal_install() -> 
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    for function_name in ("install_prompt_plugin()", "install_prompt_skill()"):
-        body = installer.split(function_name, 1)[1].split("\n}", 1)[0]
-        assert "install_plugin_global_instructions" in body
+    shim = (ROOT / "lib/plugin_installation.sh").read_text()
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    assert "run_prompt_owner install-plugin" in shim
+    assert "run_prompt_owner install-skill" in shim
+    assert native.count("self.global(plugin)?") >= 2
     print(None)
 
 
@@ -534,16 +522,12 @@ def test_programming_prompt_verifier_checks_each_runtime_surface() -> None:
     Returns: None.
     """
     print("parameters=none")
-    entrypoint = (ROOT / "scripts" / "install_programming_plugins.sh").read_text(
-        encoding="utf-8"
-    )
+    entrypoint = (ROOT / "scripts/install_programming_plugins.sh").read_text()
+    native = (ROOT / "src/prompt_verify.rs").read_text()
     assert "verify_programming_instructions" in entrypoint
-    assert '"verify"' in entrypoint
-    assert "SKILL.md" in entrypoint
-    assert "AGENTS.md" in entrypoint
-    assert "CLAUDE.md" in entrypoint
-    assert "Documents/Cline/Rules" in entrypoint
-    assert "OPENCODE_CONFIG_HOME" in entrypoint
+    assert "run_prompt_owner verify" in entrypoint
+    for marker in ("SKILL.md", "AGENTS.md", "CLAUDE.md", "Documents/Cline/Rules", "self.opencode", ".grok"):
+        assert marker in native, marker
     print(None)
 
 
@@ -657,10 +641,13 @@ def test_dispatch_skills_never_merge_into_instruction_files() -> None:
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    body = installer.split("install_dispatch_skill() {", 1)[1].split("\n}", 1)[0]
-    assert "install_plugin_global_instructions" not in body
-    assert "dispatch-skills" in body
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    body = native.split("pub(crate) fn install(", 1)[1].split("pub(crate) fn install_defaults", 1)[0]
+    assert 'if kind == "skill"' in body
+    assert 'kind == "dispatch-skill"' in body
+    assert "self.global(plugin)?" in body
+    shim = (ROOT / "lib/plugin_installation.sh").read_text()
+    assert "run_prompt_owner install-dispatch" in shim
     print(None)
 
 
@@ -671,7 +658,11 @@ def test_dispatch_skill_source_resolution_is_shared() -> None:
     Returns: None.
     """
     print("parameters=none")
-    installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    assert installer.count("resolve_prompt_skill_source()") == 1
-    assert installer.count('"$(resolve_prompt_skill_source ') == 4
+    config = (ROOT / "src/prompt_config.rs").read_text()
+    assert config.count("fn skill_source(") == 1
+    for layout in ("plugins", "skills", "dispatch-skills"):
+        assert f'"{layout}"' in config, layout
+    shim = (ROOT / "lib/plugin_installation.sh").read_text()
+    for tool in ("cline", "cursor", "grok", "opencode"):
+        assert f"run_prompt_owner skill {tool}" in shim
     print(None)

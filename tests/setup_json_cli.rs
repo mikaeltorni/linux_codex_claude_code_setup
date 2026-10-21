@@ -34,6 +34,7 @@ fn run(args: &[&str], input: &str) -> Output {
 /// Parameters: none.
 /// Returns: None.
 fn marketplace_roots_match_and_repeat() {
+    println!("parameters=none");
     let input = r#"{"marketplaces":[{"name":"other","root":"/other"},{"name":"prompts","root":"/tmp/a path/世界"}]}"#;
     for _ in 0..2 {
         let result = run(&["marketplace-root", "prompts"], input);
@@ -42,13 +43,14 @@ fn marketplace_roots_match_and_repeat() {
             String::from_utf8(result.stdout).unwrap(),
             "/tmp/a path/世界\n"
         );
-        assert!(result.stderr.is_empty());
+        assert!(String::from_utf8_lossy(&result.stderr).contains("name="));
     }
     for input in [input, "{}", r#"{"marketplaces":[]}"#] {
         let result = run(&["marketplace-root", "absent"], input);
         assert_eq!(result.status.code(), Some(0), "{:?}", result);
         assert_eq!(result.stdout, b"\n");
     }
+    println!("None");
 }
 
 #[test]
@@ -56,6 +58,7 @@ fn marketplace_roots_match_and_repeat() {
 /// Parameters: none.
 /// Returns: None.
 fn membership_queries_match_installed_and_marketplace_shapes() {
+    println!("parameters=none");
     for (args, input, expected) in [
         (
             vec!["contains", "installed", "pluginId", "alpha@prompts"],
@@ -83,8 +86,9 @@ fn membership_queries_match_installed_and_marketplace_shapes() {
         let result = run(&args, input);
         assert_eq!(result.status.code(), Some(expected), "{:?}", result);
         assert!(result.stdout.is_empty());
-        assert!(result.stderr.is_empty());
+        assert!(String::from_utf8_lossy(&result.stderr).contains("array="));
     }
+    println!("None");
 }
 
 #[test]

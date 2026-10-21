@@ -9,7 +9,7 @@ import subprocess
 from repository_paths import sibling_checkout
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = ("generate-marketplaces", "generate-model-catalog", "codex-history-sync", "plugin-defaults", "codex-reserve-policy", "setup-json", "agent-instances", "setup-install", "setup-component", "setup-preferences", "codex-hook-launcher", "agent-autoupdate", "npm-prefix", "setup-provider", "provider-launcher")
+NAMES = ("generate-marketplaces", "generate-model-catalog", "codex-history-sync", "plugin-defaults", "codex-reserve-policy", "setup-json", "agent-instances", "setup-install", "setup-component", "setup-preferences", "codex-hook-launcher", "agent-autoupdate", "npm-prefix", "setup-provider", "provider-launcher", "setup-prompts")
 
 
 def isolated_checkout(tmp_path):
@@ -129,7 +129,7 @@ def test_builder_preserves_invoker_toolchain_and_installs_via_target(tmp_path):
     cargo.write_text('''#!/bin/bash
 [[ "$CARGO_HOME" == "$EXPECTED_CARGO_HOME" && "$RUSTUP_HOME" == "$EXPECTED_RUSTUP_HOME" ]] || exit 83
 mkdir -p "$SCRIPT_DIR/target/release"
-cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install,setup-component,setup-preferences,codex-hook-launcher,agent-autoupdate,npm-prefix,setup-provider,provider-launcher} "$SCRIPT_DIR/target/release/"
+cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install,setup-component,setup-preferences,codex-hook-launcher,agent-autoupdate,npm-prefix,setup-provider,provider-launcher,setup-prompts} "$SCRIPT_DIR/target/release/"
 ''')
     cargo.chmod(0o755)
     env.update(CARGO_HOME=str(tmp_path / "custom-cargo"), RUSTUP_HOME=str(tmp_path / "custom-rustup"), EXPECTED_CARGO_HOME=str(tmp_path / "custom-cargo"), EXPECTED_RUSTUP_HOME=str(tmp_path / "custom-rustup"), TARGET_CALLS=str(tmp_path / "target-calls"))
@@ -160,7 +160,7 @@ mkdir -p "$CARGO_HOME/bin"
 cat > "$CARGO_HOME/bin/cargo" <<'CARGO'
 #!/bin/bash
 mkdir -p "$SCRIPT_DIR/target/release"
-cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install,setup-component,setup-preferences,codex-hook-launcher,agent-autoupdate,npm-prefix,setup-provider,provider-launcher} "$SCRIPT_DIR/target/release/"
+cp "$FIXTURE_SOURCE"/target/release/{generate-marketplaces,generate-model-catalog,codex-history-sync,plugin-defaults,codex-reserve-policy,setup-json,agent-instances,setup-install,setup-component,setup-preferences,codex-hook-launcher,agent-autoupdate,npm-prefix,setup-provider,provider-launcher,setup-prompts} "$SCRIPT_DIR/target/release/"
 CARGO
 chmod +x "$CARGO_HOME/bin/cargo"
 BOOTSTRAP
@@ -261,7 +261,7 @@ def test_barebones_installer_uses_native_distribution_without_siblings(tmp_path)
     checkout, home, env = isolated_checkout(tmp_path)
     (checkout.parent / "linux_installation_scripts_functions").unlink()
     (checkout / "dist").mkdir()
-    for name in ("setup-install", "agent-instances", "setup-preferences", "codex-hook-launcher", "agent-autoupdate", "npm-prefix", "setup-provider", "provider-launcher"):
+    for name in ("setup-install", "agent-instances", "setup-preferences", "codex-hook-launcher", "agent-autoupdate", "npm-prefix", "setup-provider", "provider-launcher", "setup-prompts"):
         shutil.copy2(ROOT / "target/release" / name, checkout / "dist" / name)
     bad = subprocess.run(["bash", "install.sh", "--barebones", "--select", "unknown"], cwd=checkout, env=env, capture_output=True, text=True)
     assert bad.returncode != 0
