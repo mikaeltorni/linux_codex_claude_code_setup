@@ -28,16 +28,22 @@ def test_cline_is_a_default_on_agent_tool_component() -> None:
 
 
 def test_cline_uses_an_isolated_user_install_with_lifecycle_support() -> None:
-    """The root-optional installer must not require a system npm prefix."""
+    """The root-optional installer must not require a system npm prefix.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     lifecycle = (ROOT / "lib" / "lifecycle.sh").read_text(encoding="utf-8")
     main = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     assert 'CLINE_NPM_PREFIX="${CLINE_NPM_PREFIX:-' in main
-    assert 'npm_install_prefix_atomic "$CLINE_NPM_PREFIX" cline' in installer
+    assert "run_native_component install cline_cli" in installer
     assert "install_cline_cli()" in installer
     assert "detect_cline_cli()" in lifecycle
     assert "uninstall_cline_cli()" in lifecycle
+    print(None)
 
 
 def test_delayed_autoupdate_includes_cline() -> None:

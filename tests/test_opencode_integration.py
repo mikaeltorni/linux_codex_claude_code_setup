@@ -35,8 +35,7 @@ def test_opencode_is_default_on_and_uses_official_customizable_installer() -> No
         "OPENCODE_VARIANT",
     ):
         assert f'{variable}="${{{variable}:-' in install
-    assert 'curl -fsSL --max-time 300 "$OPENCODE_INSTALL_URL"' in cli
-    assert '"$OPENCODE_COMMAND" --version' in cli
+    assert "run_native_component install opencode_cli" in cli
     print(None)
 
 

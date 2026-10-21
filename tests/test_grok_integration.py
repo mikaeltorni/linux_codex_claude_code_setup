@@ -8,7 +8,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_grok_is_default_on_and_uses_official_customizable_installer() -> None:
-    """Clean installs expose Grok and keep its installer contract overridable."""
+    """Clean installs expose Grok and keep its installer contract overridable.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     manifest = (ROOT / "installer/components.sh").read_text(encoding="utf-8")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib/cli_installation.sh").read_text(encoding="utf-8")
@@ -23,18 +28,23 @@ def test_grok_is_default_on_and_uses_official_customizable_installer() -> None:
         "GROK_VERSION",
     ):
         assert f'{variable}="${{{variable}:-' in install
-    assert 'curl -fsSL --max-time 300 "$GROK_INSTALL_URL"' in cli
-    assert '"$GROK_COMMAND" update --alpha' in cli
-    assert '"$GROK_COMMAND" --version' in cli
+    assert "run_native_component install grok_cli" in cli
+    print(None)
 
 
 def test_grok_has_detection_and_non_destructive_uninstall() -> None:
-    """Lifecycle support removes the managed binary but preserves user config."""
+    """Lifecycle support removes the managed binary but preserves user config.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     lifecycle = (ROOT / "lib/lifecycle.sh").read_text(encoding="utf-8")
     assert "detect_grok_cli()" in lifecycle
     assert "uninstall_grok_cli()" in lifecycle
-    assert 'rm -f "$TARGET_HOME/.local/bin/$GROK_COMMAND"' in lifecycle
+    assert "run_native_component uninstall grok_cli" in lifecycle
     assert 'rm -rf "$GROK_HOME"' not in lifecycle
+    print(None)
 
 
 def test_every_selected_prompt_is_exposed_natively_to_grok() -> None:

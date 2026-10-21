@@ -10,3 +10,7 @@ pub mod python_json;
 pub mod reserve_policy;
 pub mod setup_json;
 pub mod standalone;
+
+mod process;
+pub mod components;
+mod vendors;

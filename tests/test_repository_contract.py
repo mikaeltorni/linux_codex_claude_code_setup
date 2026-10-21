@@ -312,8 +312,10 @@ def test_codex_uses_local_fork_and_cline_retains_nodejs_22() -> None:
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     assert "codex_fork_install_main" in cli
     assert "@openai/codex" not in cli
-    assert "ensure_nodejs_22" in cli.split("install_cline_cli()", 1)[1]
-    assert "https://deb.nodesource.com/setup_22.x" in cli
+    assert "run_native_component install cline_cli" in cli
+    native = (ROOT / "src/vendors.rs").read_text()
+    assert 'require_node(&version)' in native
+    assert 'starts_with("v22.")' in native
     print(None)
 
 
