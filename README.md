@@ -5,6 +5,11 @@
 Installs the Codex, Claude Code, and Cline CLIs and registers every configured
 `programming_prompts` plugin or direct skill as an independently selectable component.
 
+Installed management commands, account launchers, provider launchers, and the
+delayed updater are Rust binaries. Shell files retain Rust bootstrapping, the shared installer
+UI/authentication bridges, and the shared Codex fork-build integration. Legacy
+Python implementations live only under `tests/reference` as parity oracles.
+
 `default.json` is the committed source of truth for the programming-prompts
 marketplace and per-skill default selections. It points Claude Code at
 `mikaeltorni/programming_prompts` through `extraKnownMarketplaces`, enables each
@@ -13,6 +18,8 @@ plugin explicitly, and drives the component menu for both products.
 ## Usage
 
 ```bash
+bash install.sh --barebones --codex-instances 3 --claude-instances 2
+bash install.sh --barebones --help
 bash install.sh --list-components
 bash install.sh --default
 bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
@@ -24,8 +31,8 @@ bash scripts/sync_codex_fork.sh
 
 `generate-marketplaces` reads `default.json` and plugin manifests under
 `--prompts-root`, then writes local Claude and Codex catalogs and plugin links
-under `--output`. `bash install.sh` builds that command and runs it. When Cargo
-is not on `PATH`, the installer runs `scripts/generate_marketplaces.py` instead.
+under `--output`. `bash install.sh` builds and installs that native command.
+Rust is bootstrapped when needed; there is no Python runtime fallback.
 
 ```bash
 generate-marketplaces \
@@ -43,8 +50,7 @@ invokes the generator with managed paths.
 `generate-model-catalog` writes `model-catalog.json` for a plain Codex home.
 The model argument may end in `@variant`; that suffix is not part of the slug.
 `QWEN_CODEX_CONTEXT_WINDOW` sets the context size, and a non-numeric value uses
-40960. The qwen and OpenRouter CLI installers run this command. Without Cargo
-they run `scripts/generate_model_catalog.py`.
+40960. The qwen and OpenRouter CLI installers share its native catalog builder.
 
 ```bash
 generate-model-catalog ~/.codex-qwen qwen3.8-27b
@@ -58,8 +64,7 @@ Codex homes and appends unique `history.jsonl` lines. Existing session files are
 left in place. `--home` may be repeated; without it, the command uses
 `CODEX_SYNC_HOMES` or the default provider homes under the current home.
 `--quiet` suppresses the progress lines. Fewer than two existing homes exits 0
-without copying. The `codexsync` launcher runs this command when it is installed,
-and otherwise runs `scripts/codex_history_sync.py`.
+without copying. The `codexsync` launcher runs the installed native engine.
 
 ```bash
 codex-history-sync sync --home ~/.codex --home ~/.codex-qwen
@@ -73,8 +78,8 @@ row per prompt. `validate` checks that row against a prompts checkout.
 `merge-claude`, `claude-hide-account`, `merge-instructions`,
 `merge-opencode-config`, and `merge-grok-config` update settings without
 dropping unrelated keys. The install commands link or copy a skill and refuse
-to replace an unmanaged directory. Without Cargo, the installer runs
-`scripts/plugin_defaults.py`.
+to replace an unmanaged directory. The installer uses the native command for
+these operations.
 
 ```bash
 plugin-defaults --defaults default.json list
@@ -144,10 +149,16 @@ and everything else is optional:
   `history.jsonl` into all homes, so any session can be continued from any
   provider interchangeably. It only ever copies missing files and de-duplicates
   history lines — nothing is deleted or overwritten — so it is safe to run
-  repeatedly. Export `CODEXSYNC=1` to have the `codex` launcher merge history
-  automatically before each run, or run `codexsync` on demand. Override the set
+  repeatedly. Run `codexsync` on demand; ACC owns automatic history-sync
+  integration in its tracking-aware runtime. Override the set
   of homes with `--home DIR` (repeatable) or the `CODEX_SYNC_HOMES` env var.
-- `plugin-*` and `skill-*` — separate **Plugins** and **Skills** menu sections,
+- `agent_instances` — optional standalone account provisioning. It configures
+  `cx1`/`codex1`, `cx2`/`codex2`, and numbered Claude aliases without ACC.
+  Fresh component installs choose three Codex accounts and one Claude account;
+  use the configure action or explicit counts to change them.
+- `codex_hook_trust` — enabled by default. Adds the saved hook-review bypass at
+  the common Codex launch point. Uninstalling this component restores review.
+- `plugin-*`, `skill-*`, and `dispatch-skill-*` — separate **Plugins** and **Skills** menu sections,
   with one independently selectable component per `programming_prompts` entry.
   Each selected skill is also linked into Cline's documented global
   `~/.cline/skills/` and Cursor's `~/.cursor/skills/` directories; unrelated
@@ -200,9 +211,11 @@ python3 -m pytest -q
 bash -n install.sh lib/*.sh installer/components.sh
 ```
 
-The Python utilities use only the standard library, so this repository has no
-Python package resolution surface and intentionally needs no `pyproject.toml`
-or dependency lock file.
+Run `bash scripts/verify_release.sh` for the full gate: strict Clippy, Rust
+tests, a locked release build, and pytest. Python 3.11+ and pytest are development
+requirements; the retained Python reference implementations use the standard
+library. The upstream Codex code-mode build can also require Python as a build
+tool.
 
 ## Detect, reconfigure, and uninstall
 
@@ -239,12 +252,12 @@ The installer postflight sets `[features] luna_reserve_auto_switch = false` in
 `~/.codex/config.toml`, every existing `~/.codex-*` home, and each separate
 `*.config.toml` profile. It uses the native Codex TOML editor on private copies
 and preserves unrelated settings/comments. Repeated installs keep the opt-out.
-The runtime must contain the Reserve opt-out feature (the local patched 0.160.1
-fork); restart/resume existing CLI sessions after rebuilding that runtime.
+The selected local fork must contain the Reserve opt-out feature; restart or
+resume existing CLI sessions after rebuilding that runtime.
 
 Use `bash install.sh --select codex_cli` to install the native runtime and apply
 the policy. Its standalone configuration entrypoint is
-`python3 scripts/codex_reserve_policy.py --home /path/to/home --codex /path/to/native/codex`.
+`codex-reserve-policy --home /path/to/home --codex /path/to/native/codex`.
 It accepts those two required path options and `--help`. The regression runner
 is `python3 -m unittest discover -s tests -p test_codex_reserve_policy.py -v`;
 see [coverage](tests/reserve_policy_coverage.md) for isolated native-RPC checks.
@@ -255,9 +268,234 @@ see [coverage](tests/reserve_policy_coverage.md) for isolated native-RPC checks.
 the installer reads `~/.config/linux_codex_claude_code_setup/codex-fork-ref`;
 without either selection it uses `main`. Branch names are validated, missing
 branches are rejected, and selection never changes the source checkout.
-For this machine, the saved selection is `newTest1601` so all provider copies
-retain the Reserve opt-out alongside the existing usage-limit features.
 
 Check selection with `bash tests/test_codex_fork_selection.sh`; the fixture
 covers default/saved/explicit choices, invalid/missing refs, and unchanged Git
 state after failures. `bash tests/test_codex_fork_install.sh` verifies publishing.
+
+
+## Standalone installation and accounts
+
+`bash install.sh --barebones` installs Codex and Claude without ACC, the shared
+installer framework, or a programming-prompts checkout. It runs `setup-install`,
+which accepts `--default`, `--select`/`--reconfigure`, `--home`,
+`--codex-instances`, `--claude-instances`, `--list-components`, and `--help`.
+The barebones component IDs are `codex_cli`, `claude_code`, `agent_instances`,
+and `codex_hook_trust`.
+
+```bash
+# Core CLIs and three independent Codex logins plus two Claude logins.
+bash install.sh --barebones --codex-instances 3 --claude-instances 2
+
+# Configure aliases for CLIs that are already installed.
+bash install.sh --barebones --select agent_instances \
+  --codex-instances 3 --claude-instances 2
+agent-instances list
+agent-instances configure --codex 3 --claude 2
+agent-instances reapply
+
+# The same account configuration through the full component installer.
+CODEX_INSTANCE_COUNT=3 CLAUDE_INSTANCE_COUNT=2 \
+  bash install.sh --select agent_instances
+```
+
+`agent-instances configure [--codex COUNT] [--claude COUNT] [--home PATH]`
+requires at least one count; an omitted product retains its saved count.
+`list` and `reapply` accept `--home PATH`, and `--help` prints usage. Counts
+include account 1. Zero disables managed aliases while retaining account data.
+Settings are saved in `~/.config/linux_codex_claude_code_setup/instances.json`.
+
+| Account | Aliases | Configuration/login home |
+| --- | --- | --- |
+| Codex 1 | `cx1`, `codex1` | `~/.codex` |
+| Codex N | `cxN`, `codexN` | `~/.codex-account-N` |
+| Claude 1 | `cc1`, `claude1` | `~/.claude` |
+| Claude N | `ccN`, `claudeN` | `~/.claude-account-N` |
+
+Sign in separately through each CLI, for example `cx2 login`. Credentials are
+never copied between accounts. Existing account directories must be real
+directories. Unrelated commands are protected from replacement; recognized old
+ACC aliases are backed up under the setup share directory and can be restored
+when the managed alias is disabled. The normal tracking-aware `codex` wrapper
+is preserved when ACC is present.
+
+The barebones builder uses `CODEX_FORK_DIR` (default `~/projects/codex`) and the
+selected local fork ref. That selected branch must be checked out with a clean
+`codex-rs` tree. A missing checkout is cloned from `CODEX_FORK_REPOSITORY_URL`
+(default `https://github.com/mikaeltorni/codex.git`). The builder records the
+revision, repairs missing native artifacts, and builds `codex-code-mode-host`
+when that package is present. Existing source checkouts are never switched or
+updated automatically. The full shared installer retains its fork-build helper
+for ACC integration.
+
+Use an existing absolute home with `--home`. Native commands report missing
+build tools with remediation instead of prompting for sudo. Codex needs a Rust
+and C/C++ build environment, Git, CMake, and pkg-config; Cline needs Node.js 22
+and npm. Vendor installation also needs curl, Bash, and coreutils. When invoked
+through sudo, the bootstrap hands user work back to the desktop user. Installed
+commands live under `~/.local/bin`; add it to the current shell's `PATH` after
+installation. Future Bash/login shells receive the PATH entry automatically.
+
+### Hook trust preference
+
+Hook-trust skipping is enabled in the committed defaults and can be controlled
+independently of account counts:
+
+```bash
+bash install.sh --barebones --skip-hook-trust-confirmation
+bash install.sh --barebones --require-hook-trust-confirmation
+setup-preferences hook-trust skip
+setup-preferences hook-trust require
+setup-preferences hook-trust show
+setup-preferences hook-trust reapply
+```
+
+All preference commands accept `--home PATH`. Barebones reruns retain a saved
+choice unless a flag overrides it. The full installer's `codex_hook_trust`
+component explicitly enables skipping; its uninstall restores review. The
+choice is stored in
+`~/.config/linux_codex_claude_code_setup/preferences.json`.
+
+The native launcher adds Codex's documented
+[`--dangerously-bypass-hook-trust`](https://learn.chatgpt.com/docs/hooks)
+flag, which runs enabled hooks without their individual trust review. It acts
+at the common raw entrypoint, covering standalone aliases and existing ACC
+wrappers. The fork payload is retained as `bin/codex-native`; each file is
+published through an atomic replacement. This preference controls hook review only.
+
+## Native management commands
+
+The full installer and master installer keep their existing selection,
+detection, reconfigure, and uninstall interfaces. Their optional component
+functions delegate to these native owners. In the forms below, braces denote
+alternatives: choose one value.
+
+```text
+setup-component {install|detect|uninstall} {cline_cli|grok_cli|opencode_cli} [--home PATH]
+setup-provider {install|configure|detect|uninstall|status-line} {qwen|openrouter} [--home PATH] [--config PATH]
+agent-autoupdate {run|install|detect|uninstall} [--home PATH] [--delay-hours HOURS]
+agent-autoupdate resolve INSTALLED_VERSION HOURS NOW_UNIX < npm-times.json
+npm-prefix install ABSOLUTE_PREFIX PACKAGE_SPEC
+setup-json marketplace-root NAME < cli-state.json
+setup-json contains {ARRAY_FIELD|-} KEY VALUE < cli-state.json
+setup-json claude-marketplace FILE NAME DIRECTORY
+setup-json --help
+codex-reserve-policy --home HOME --codex NATIVE_CODEX
+codex-reserve-policy --help
+```
+
+`setup-provider configure` merges provider TOML/catalog defaults without
+installing a CLI. `--config` chooses the provider configuration directory.
+`status-line` reads the display owner's selection. Installed `qwen` and `openr`
+aliases use the native provider launcher, preserve user arguments and exit
+status, and delegate to ACC when it is available. Provider uninstall preserves
+configuration and authentication. ACC continues to own tracked shorthand
+commands and local model selection/downloads.
+
+`agent-autoupdate` with no arguments is equivalent to `run`. Its native service
+updates Claude and Cline independently, keeps the publication delay, selects
+stable versions in numeric order, and never downgrades a recognized installed
+stable version. Delay hours must be finite and nonnegative. The resolver reads
+npm's timestamp JSON from stdin and prints a version only when eligible.
+The user timer runs after user-manager startup and daily; package/network
+failures during a scheduled update preserve the existing installation.
+`npm-prefix` stages the package and uses Linux atomic directory exchange;
+unsupported exchanges fail while retaining the previous tree.
+
+### Prompt installation and verification
+
+```bash
+bash scripts/install_programming_plugins.sh
+bash scripts/install_programming_plugins.sh verify
+
+SETUP_SOURCE_DIR="$PWD" setup-prompts install-defaults \
+  --defaults "$PWD/default.json" \
+  --prompts-root "$HOME/projects/programming_prompts"
+```
+
+`setup-prompts` accepts these actions:
+
+```text
+install-defaults
+verify
+install-plugin PLUGIN SKILL
+install-skill PLUGIN SKILL
+install-dispatch PLUGIN SKILL
+ensure
+generate
+homes
+prepare-codex CODEX_HOME
+prepare-claude
+claude-marketplace-matches
+global PLUGIN
+global-selected [PLUGIN ...]
+cleanup-legacy PLUGIN SKILL
+cleanup-marketplace PLUGIN
+resolve-source PLUGIN SKILL
+skill {cline|cursor|grok|opencode} PLUGIN SKILL
+bundle {cline|grok|opencode} PLUGIN
+verify-file TARGET SOURCE LABEL
+verify-retired TARGET
+```
+
+All actions accept `--home`, `--defaults`, `--prompts-root`, `--marketplace-dir`,
+`--codex`, `--claude`, and `--opencode-config` path options. Repeat
+`--codex-home PATH` to target explicit accounts. Otherwise `CODEX_HOMES` selects
+legacy homes, or all existing `.codex`/`.codex-*` homes are discovered. Use `--`
+to end option parsing when a literal operand starts with a dash.
+
+Keep the source distribution available: `SETUP_SOURCE_DIR` locates its
+checkout/authentication bridge and default catalog when installed elsewhere.
+Repository clone/update authentication remains delegated to the shared
+`ensure_linked_repository` helper. `PROGRAMMING_PROMPTS_REPOSITORY` overrides
+the catalog repository selection. Existing non-Git content directories can be
+used directly through `--prompts-root`.
+
+Only default-on catalog entries are installed by `install-defaults`.
+Dispatch skills stay on demand and never contribute global instruction bodies.
+The verifier checks installed default skill bodies across the selected Codex
+homes and Claude, Cline, Cursor, Grok, and opencode, and rejects retired generic
+instruction blocks. Verification and query actions do not modify those files.
+`claude-marketplace-matches` returns 1 for a different/missing registration.
+
+### Low-level defaults operations
+
+Use `plugin-defaults --defaults FILE` followed by one of these forms:
+
+```text
+list
+validate PROMPTS_ROOT
+merge-claude SETTINGS [--marketplace-dir DIRECTORY] PLUGIN [PLUGIN ...]
+claude-hide-account [--disable] SETTINGS
+merge-instructions TARGET NAME BODY
+cleanup-legacy HOME PROMPTS_ROOT PLUGIN SKILL [--codex-home PATH]
+cleanup-migrated-plugin HOME PROMPTS_ROOT PLUGIN MARKETPLACE
+install-direct-skill HOME PROMPTS_ROOT PLUGIN SKILL [--codex-home PATH] [--source-dir {skills|dispatch-skills}]
+install-{cline|cursor|grok|opencode}-skill HOME SOURCE_SKILL NAME
+install-{cline|grok|opencode}-plugin HOME SOURCE_PLUGIN NAME
+merge-opencode-config TARGET PROVIDER/MODEL {default|high|max}
+merge-grok-config TARGET NAME MODEL_ID BASE_URL API_KEY_ENV_NAME
+```
+
+`generate-marketplaces`, `generate-model-catalog`, `codex-history-sync`, and
+`codexsync` retain the forms described above. Calling `codex-history-sync`
+without operands is also supported; `--quiet` requires its `sync` selector.
+`plugin-defaults --defaults` precedes the operation. Native trace diagnostics go
+to stderr while query output remains on stdout.
+
+## VM smoke verification
+
+Run the saved smoke test inside the intended test VM after installing build
+prerequisites and making the source checkout available:
+
+```bash
+bash scripts/verify_vm.sh
+```
+
+It installs twice into a new isolated home, provisions three Codex and two
+Claude accounts, checks all seven CLI/alias version commands, checks the native
+instance engine, and verifies that ACC and programming-prompts were not cloned.
+`VM_TEST_HOME` selects a retained evidence directory; `CARGO_HOME` and
+`RUSTUP_HOME` can point to the VM's existing toolchain cache. Login/API calls are
+not part of this installation smoke test. Local release checks do not establish
+that a VM run has passed.
