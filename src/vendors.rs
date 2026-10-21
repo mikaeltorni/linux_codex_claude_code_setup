@@ -2,12 +2,12 @@
 
 use crate::components::Vendor;
 use crate::defaults::{merge_grok, merge_opencode, require_grok_config, require_opencode_config};
+use crate::npm_prefix::scratch;
 use crate::process::{capture, require_executable, require_tools};
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub(crate) struct Settings {
@@ -122,12 +122,7 @@ fn require_settings(settings: &Settings) -> Result<(), String> {
     {
         return Err("vendor command must be a basename".into());
     }
-    if !settings.prefix.is_absolute()
-        || settings.prefix == Path::new("/")
-        || settings.prefix == settings.home
-    {
-        return Err("vendor installation prefix must be an absolute dedicated directory".into());
-    }
+    crate::npm_prefix::require_prefix(&settings.prefix, &settings.home)?;
     eprintln!("None");
     Ok(())
 }
@@ -161,7 +156,7 @@ fn require_model(settings: &Settings) -> Result<(), String> {
 /// Reject collisions instead of replacing unrelated user commands.
 /// Parameters: destination - launcher to create; raw - owned executable target.
 /// Returns: None for absent or already managed symlinks.
-fn require_launcher(destination: &Path, raw: &Path) -> Result<(), String> {
+pub(crate) fn require_launcher(destination: &Path, raw: &Path) -> Result<(), String> {
     eprintln!("destination={destination:?}, raw={raw:?}");
     if fs::symlink_metadata(destination).is_ok()
         && fs::read_link(destination).ok().as_deref() != Some(raw)
@@ -187,55 +182,6 @@ pub(crate) fn detect(settings: &Settings) -> bool {
     result
 }
 
-/// Create an owned scratch directory that no other installer may overwrite.
-/// Parameters: parent - target parent directory; label - vendor scratch label.
-/// Returns: newly created unique directory.
-fn scratch(parent: &Path, label: &str) -> Result<PathBuf, String> {
-    eprintln!("parent={parent:?}, label={label:?}");
-    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_nanos();
-    let result = parent.join(format!("{label}.staging.{}.{stamp}", std::process::id()));
-    fs::create_dir(&result).map_err(|e| e.to_string())?;
-    eprintln!("{result:?}");
-    Ok(result)
-}
-
-/// Atomically exchange npm trees so reinstalls never hide a working command.
-/// Parameters: staged - newly validated tree; live - managed installation path.
-/// Returns: None after publication, or an error preserving the old tree.
-fn publish_tree(staged: &Path, live: &Path) -> Result<(), String> {
-    eprintln!("staged={staged:?}, live={live:?}");
-    if live.exists() {
-        use std::ffi::CString;
-        use std::os::unix::ffi::OsStrExt;
-        unsafe extern "C" {
-            fn renameat2(
-                oldfd: i32,
-                old: *const std::ffi::c_char,
-                newfd: i32,
-                new: *const std::ffi::c_char,
-                flags: u32,
-            ) -> i32;
-        }
-        let old = CString::new(staged.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
-        let new = CString::new(live.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
-        // SAFETY: both NUL-terminated paths outlive this Linux renameat2 call.
-        if unsafe { renameat2(-100, old.as_ptr(), -100, new.as_ptr(), 2) } != 0 {
-            return Err(format!(
-                "atomic npm exchange failed: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-    } else {
-        fs::rename(staged, live).map_err(|e| e.to_string())?;
-    }
-    eprintln!("None");
-    Ok(())
-}
-
 /// Install Cline using a validated staging prefix and an atomic tree exchange.
 /// Parameters: settings - validated target Cline settings.
 /// Returns: None after a successful install, or a failure preserving the live tree.
@@ -246,26 +192,7 @@ fn install_cline(settings: &Settings) -> Result<(), String> {
     require_node(&version)?;
     let raw = settings.prefix.join("bin/cline");
     require_launcher(&launcher(settings), &raw)?;
-    let stage = scratch(
-        settings.prefix.parent().ok_or("npm prefix has no parent")?,
-        "cline",
-    )?;
-    let result: Result<(), String> = (|| {
-        capture(
-            Command::new("timeout")
-                .args(["900", "npm", "install", "-g", "--prefix"])
-                .arg(&stage)
-                .arg("cline")
-                .env("HOME", &settings.home),
-        )?;
-        require_executable(&stage.join("bin/cline"))?;
-        publish_tree(&stage, &settings.prefix)?;
-        Ok(())
-    })();
-    if stage.exists() {
-        fs::remove_dir_all(&stage).map_err(|e| e.to_string())?;
-    }
-    result?;
+    crate::npm_prefix::install(&settings.prefix, "cline", &settings.home, Some("cline"))?;
     link(&launcher(settings), &raw)?;
     eprintln!("None");
     Ok(())
@@ -286,7 +213,7 @@ fn require_node(version: &str) -> Result<(), String> {
 /// Publish a previously validated launcher without replacing unrelated files.
 /// Parameters: destination - public command; raw - installed vendor executable.
 /// Returns: None when the managed symlink exists.
-fn link(destination: &Path, raw: &Path) -> Result<(), String> {
+pub(crate) fn link(destination: &Path, raw: &Path) -> Result<(), String> {
     eprintln!("destination={destination:?}, raw={raw:?}");
     require_launcher(destination, raw)?;
     fs::create_dir_all(destination.parent().ok_or("launcher has no parent")?)

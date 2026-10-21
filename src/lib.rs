@@ -15,3 +15,5 @@ mod process;
 pub mod components;
 mod vendors;
 pub mod preferences;
+pub mod npm_prefix;
+pub mod autoupdate;

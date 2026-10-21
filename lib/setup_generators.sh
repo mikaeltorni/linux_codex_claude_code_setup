@@ -43,7 +43,7 @@ build_setup_generators() {
   fi
   compile_setup_generators || return $?
   local name
-  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install setup-component setup-preferences codex-hook-launcher; do
+  for name in generate-marketplaces generate-model-catalog codex-history-sync plugin-defaults codex-reserve-policy setup-json agent-instances setup-install setup-component setup-preferences codex-hook-launcher agent-autoupdate npm-prefix; do
     install -D -m 0755 "$SCRIPT_DIR/target/release/$name" "$SCRIPT_DIR/dist/$name" || return $?
     if [[ -n "${TARGET_HOME:-}" ]]; then
       run_as_target install -D -m 0755 "$SCRIPT_DIR/target/release/$name" \

@@ -47,13 +47,19 @@ def test_cline_uses_an_isolated_user_install_with_lifecycle_support() -> None:
 
 
 def test_delayed_autoupdate_includes_cline() -> None:
-    """Cline should receive the same delayed, forward-only npm updates."""
-    updater = (ROOT / "assets" / "agent-autoupdate.sh").read_text(encoding="utf-8")
+    """Cline should receive the same delayed, forward-only npm updates.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
+    updater = (ROOT / "src" / "autoupdate.rs").read_text(encoding="utf-8")
     component = (ROOT / "lib" / "agent_autoupdate.sh").read_text(encoding="utf-8")
 
-    assert 'resolve_delayed_version "cline"' in updater
-    assert "update_cline" in updater
+    assert '("cline", "cline")' in updater
+    assert "npm_prefix::install" in updater
     assert "CLINE_NPM_PREFIX" in component
+    print(None)
 
 
 def test_every_prompt_skill_is_exposed_to_cline() -> None:
