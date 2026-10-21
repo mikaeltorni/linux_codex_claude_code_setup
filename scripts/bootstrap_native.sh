@@ -20,7 +20,7 @@ fi
 
 export PATH="$HOME/.cargo/bin:$PATH"
 if ! command -v cargo >/dev/null 2>&1; then
-  if [[ -x "$setup_root/dist/setup-install" && -x "$setup_root/dist/agent-instances" ]]; then
+  if [[ -x "$setup_root/dist/setup-install" && -x "$setup_root/dist/agent-instances" && -x "$setup_root/dist/setup-preferences" && -x "$setup_root/dist/codex-hook-launcher" ]]; then
     exec "$setup_root/dist/setup-install" "$@"
   fi
   if ! command -v curl >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1; then

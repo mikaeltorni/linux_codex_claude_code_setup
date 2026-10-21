@@ -1,4 +1,5 @@
 {
+  "codex": {"skip_hook_trust_confirmation": true},
   "marketplace": {
     "name": "programming-prompts",
     "repository": "mikaeltorni/programming_prompts",

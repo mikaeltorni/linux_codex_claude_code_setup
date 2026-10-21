@@ -1,3 +1,5 @@
-setup-install --barebones [--select codex_cli,claude_code,agent_instances] [--codex-instances COUNT] [--claude-instances COUNT] [--home PATH]
+setup-install --barebones [--select codex_cli,claude_code,agent_instances,codex_hook_trust] [--codex-instances COUNT] [--claude-instances COUNT] [--home PATH]
 --list-components lists the barebones components; --help prints this help.
 Without --select, installs Codex and Claude. Counts are optional and include account 1.
+--skip-hook-trust-confirmation saves the hook-trust bypass (default); --require-hook-trust-confirmation restores review.
+The saved choice applies to the common Codex runtime and managed account aliases.
