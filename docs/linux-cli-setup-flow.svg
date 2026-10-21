@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="270" viewBox="0 0 1120 270" role="img" aria-labelledby="title description">
+  <title id="title">Linux Codex and Claude Code setup flow</title>
+  <desc id="description">Choose CLI components and a Codex source, install them for the Linux user, configure accounts and plugins, then launch the selected commands.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a" />
+    </marker>
+  </defs>
+  <rect width="1120" height="270" rx="18" fill="#f6f8fa" />
+  <text x="28" y="36" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#24292f">Linux CLI setup flow</text>
+  <g font-family="Arial, sans-serif">
+    <rect x="24" y="60" width="248" height="152" rx="14" fill="#ffffff" stroke="#8c959f" stroke-width="1.5" />
+    <circle cx="50" cy="87" r="15" fill="#0969da" />
+    <text x="50" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">1</text>
+    <text x="76" y="93" font-size="17" font-weight="700" fill="#24292f">Choose components</text>
+    <text x="44" y="126" font-size="14" fill="#57606a">Codex: local fork or npm</text>
+    <text x="44" y="151" font-size="14" fill="#57606a">Claude Code and optional CLIs</text>
+    <text x="44" y="176" font-size="14" fill="#57606a">Selection stays user-owned</text>
+
+    <rect x="296" y="60" width="248" height="152" rx="14" fill="#ffffff" stroke="#8c959f" stroke-width="1.5" />
+    <circle cx="322" cy="87" r="15" fill="#8250df" />
+    <text x="322" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">2</text>
+    <text x="348" y="93" font-size="17" font-weight="700" fill="#24292f">Install for the user</text>
+    <text x="316" y="126" font-size="14" fill="#57606a">Native Rust management tools</text>
+    <text x="316" y="151" font-size="14" fill="#57606a">CLI launchers in ~/.local/bin</text>
+    <text x="316" y="176" font-size="14" fill="#57606a">No system-wide CLI paths</text>
+
+    <rect x="568" y="60" width="248" height="152" rx="14" fill="#ffffff" stroke="#8c959f" stroke-width="1.5" />
+    <circle cx="594" cy="87" r="15" fill="#1a7f37" />
+    <text x="594" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">3</text>
+    <text x="620" y="93" font-size="17" font-weight="700" fill="#24292f">Configure</text>
+    <text x="588" y="126" font-size="14" fill="#57606a">Separate account launchers</text>
+    <text x="588" y="151" font-size="14" fill="#57606a">Plugin defaults from default.json</text>
+    <text x="588" y="176" font-size="14" fill="#57606a">Preserve unrelated settings</text>
+
+    <rect x="840" y="60" width="256" height="152" rx="14" fill="#ffffff" stroke="#8c959f" stroke-width="1.5" />
+    <circle cx="866" cy="87" r="15" fill="#bf3989" />
+    <text x="866" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">4</text>
+    <text x="892" y="93" font-size="17" font-weight="700" fill="#24292f">Run selected CLIs</text>
+    <text x="860" y="126" font-size="14" fill="#57606a">codex · claude</text>
+    <text x="860" y="151" font-size="14" fill="#57606a">cline · grok · opencode</text>
+    <text x="860" y="176" font-size="14" fill="#57606a">Qwen · OpenRouter</text>
+  </g>
+  <path d="M 276 136 H 289" stroke="#57606a" stroke-width="2" marker-end="url(#arrow)" />
+  <path d="M 548 136 H 561" stroke="#57606a" stroke-width="2" marker-end="url(#arrow)" />
+  <path d="M 820 136 H 833" stroke="#57606a" stroke-width="2" marker-end="url(#arrow)" />
+  <text x="28" y="246" font-family="Arial, sans-serif" font-size="13" fill="#57606a">One source checkout · selectable components · user-local installation</text>
+</svg>

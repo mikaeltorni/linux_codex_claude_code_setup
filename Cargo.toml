@@ -2,6 +2,11 @@
 name = "codex-claude-setup"
 version = "0.1.0"
 edition = "2021"
+description = "Linux Codex and Claude Code Setup is a Linux CLI installer for developers who need isolated accounts, selectable Codex sources, and programming-prompts plugins."
+keywords = ["linux-cli", "claude-code", "codex", "installer", "programming-prompts"]
+license = "MIT"
+repository = "https://github.com/mikaeltorni/linux_codex_claude_code_setup"
+readme = "README.md"
 publish = false
 
 [[bin]]
