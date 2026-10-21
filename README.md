@@ -328,9 +328,18 @@ when that package is present. Existing source checkouts are never switched or
 updated automatically. The full shared installer retains its fork-build helper
 for ACC integration.
 
+When the fork includes `scripts/codex_package/v8.py`, the native builder calls
+that upstream Python 3.11+ helper before Cargo. It obtains the fork's pinned V8
+archive and Rust bindings, verifies their checksums, and caches them under
+`~/.cache/linux_codex_claude_code_setup/v8`. Artifact verification failures stop
+the build before replacing the installed Codex payload. Explicit `RUSTY_V8_ARCHIVE` /
+`RUSTY_V8_SRC_BINDING_PATH` pairs and `V8_FROM_SOURCE` retain the helper's
+upstream behavior.
+
 Use an existing absolute home with `--home`. Native commands report missing
 build tools with remediation instead of prompting for sudo. Codex needs a Rust
-and C/C++ build environment, Git, CMake, and pkg-config; Cline needs Node.js 22
+and C/C++ build environment, Git, CMake, and pkg-config, plus Python 3.11+ for
+forks using the V8 helper; Cline needs Node.js 22
 and npm. Vendor installation also needs curl, Bash, and coreutils. When invoked
 through sudo, the bootstrap hands user work back to the desktop user. Installed
 commands live under `~/.local/bin`; add it to the current shell's `PATH` after
@@ -499,3 +508,13 @@ instance engine, and verifies that ACC and programming-prompts were not cloned.
 `RUSTUP_HOME` can point to the VM's existing toolchain cache. Login/API calls are
 not part of this installation smoke test. Local release checks do not establish
 that a VM run has passed.
+
+Verified on 2026-10-21 in a clean Ubuntu 24.04.5 LTS live VM (x86_64), using
+commit `9da990b`, installed build prerequisites, and a separate 24 GiB build
+disk. Both installation passes and all seven version probes passed with
+Codex `0.162.1` (fork revision `99fcf7b19a30652da9363581d4fdb95241e112ca`)
+and Claude Code `2.1.306`. The saved account counts were 3/2, hook-trust skipping
+was enabled, and numbered account directories had mode 0700. Installed native
+binaries matched the VM build artifacts; neither ACC nor programming-prompts
+was cloned. This verifies installation and CLI startup; account authentication
+and model/API calls were not exercised.
