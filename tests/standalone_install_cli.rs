@@ -351,3 +351,76 @@ fn default_install_includes_the_code_mode_host() {
     fs::remove_dir_all(root).unwrap();
     println!("None");
 }
+
+#[test]
+/// Prepare the fork's verified V8 environment before building and preserve installed state on resolver failure.
+/// Parameters: none.
+/// Returns: None.
+fn fork_v8_artifacts_are_prepared_before_cargo() {
+    println!("parameters=none");
+    let (root, home, fork, path) = fixture("v8-artifacts");
+    let package = fork.join("scripts/codex_package");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(package.join("targets.py"), "TARGET_SPECS = {'fixture-linux-gnu': 'fixture-target'}\n").unwrap();
+    fs::write(package.join("v8.py"), r#"import os
+import sys
+from pathlib import Path
+
+def resolve_codex_v8_cargo_env(spec, *, cache_root):
+    """Provide fixture artifacts or reject preparation before Cargo.
+    Parameters: spec - parsed Rust target; cache_root - accepted artifact cache.
+    Returns: prepared Cargo environment.
+    """
+    print(f"spec={spec!r}, cache_root={cache_root!r}", file=sys.stderr)
+    assert spec == 'fixture-target'
+    assert Path(os.environ['CODEX_REPO_ROOT']) == Path.cwd()
+    if (Path(os.environ['HOME']) / 'reject-v8').exists():
+        raise RuntimeError('fixture artifact verification failed')
+    cache_root.mkdir(parents=True, exist_ok=True)
+    archive = cache_root / 'verified archive.a.gz'
+    binding = cache_root / 'verified binding.rs'
+    archive.write_text('verified archive')
+    binding.write_text('verified binding')
+    with (Path(os.environ['HOME']) / 'v8-preparations').open('a') as calls:
+        calls.write('prepared\n')
+    result = {'RUSTY_V8_ARCHIVE': str(archive), 'RUSTY_V8_SRC_BINDING_PATH': str(binding)}
+    print(result, file=sys.stderr)
+    return result
+"#).unwrap();
+    fs::create_dir_all(fork.join("codex-rs/code-mode-host")).unwrap();
+    fs::write(fork.join("codex-rs/code-mode-host/Cargo.toml"), "[package]\nname='codex-code-mode-host'\nversion='0.1.0'\n").unwrap();
+    executable(&root.join("tools/rustc"), "#!/bin/sh\nprintf 'host: fixture-linux-gnu\\n'\n");
+    let cargo = root.join("tools/cargo");
+    let original = fs::read_to_string(&cargo).unwrap();
+    executable(&cargo, &original.replacen("set -eu\n", r#"set -eu
+test -f "${RUSTY_V8_ARCHIVE:-}" || exit 94
+test -f "${RUSTY_V8_SRC_BINDING_PATH:-}" || exit 95
+test "$(cat "$RUSTY_V8_ARCHIVE")" = 'verified archive' || exit 96
+test "$(cat "$RUSTY_V8_SRC_BINDING_PATH")" = 'verified binding' || exit 97
+"#, 1));
+    for args in [vec!["add", "."], vec!["-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit", "-qm", "v8 fixture"]] {
+        assert!(Command::new("git").current_dir(&fork).args(args).status().unwrap().success());
+    }
+    let options = ["--barebones", "--select", "codex_cli"];
+    let first = run(&home, &fork, &path, &options);
+    assert!(first.status.success(), "V8 setup must precede Cargo: {first:?}");
+    assert!(run(&home, &fork, &path, &options).status.success());
+    assert_eq!(fs::read_to_string(home.join("v8-preparations")).unwrap(), "prepared\n");
+    let prefix = home.join(".local/share/linux_codex_claude_code_setup/npm");
+    let payload = fs::read(prefix.join("bin/codex")).unwrap();
+    let marker = fs::read(prefix.join("codex-fork-revision")).unwrap();
+    fs::remove_file(prefix.join("bin/codex-code-mode-host")).unwrap();
+    fs::write(home.join("reject-v8"), "reject").unwrap();
+    let rejected = run(&home, &fork, &path, &options);
+    assert!(!rejected.status.success(), "{rejected:?}");
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("fixture artifact verification failed"));
+    assert_eq!(fs::read_to_string(home.join("builds")).unwrap().lines().count(), 1);
+    assert_eq!(fs::read(prefix.join("bin/codex")).unwrap(), payload);
+    assert_eq!(fs::read(prefix.join("codex-fork-revision")).unwrap(), marker);
+    fs::remove_file(home.join("reject-v8")).unwrap();
+    assert!(run(&home, &fork, &path, &options).status.success());
+    assert_eq!(fs::read_to_string(home.join("v8-preparations")).unwrap(), "prepared\nprepared\n");
+    assert!(prefix.join("bin/codex-code-mode-host").is_file());
+    fs::remove_dir_all(root).unwrap();
+    println!("None");
+}
