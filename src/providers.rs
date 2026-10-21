@@ -234,6 +234,12 @@ pub fn launch(kind: Kind, home: &Path, arguments: &[OsString]) -> Result<(), Str
     let mut command = Command::new(&runtime.raw);
     command.env("CODEX_HOME", &runtime.config);
     if kind == Kind::Qwen {
+        let mut path = OsString::from(home.join(".lmstudio/bin").as_os_str());
+        path.push(":");
+        path.push(home.join(".local/bin"));
+        path.push(":");
+        path.push(std::env::var_os("PATH").unwrap_or_default());
+        command.env("PATH", path);
         command.args([
             "--oss",
             "--local-provider",
@@ -252,20 +258,24 @@ pub fn launch(kind: Kind, home: &Path, arguments: &[OsString]) -> Result<(), Str
             "enable_mcp_apps",
             "--yolo",
         ]);
-        let lms = home.join(".lmstudio/bin/lms");
-        if require_executable(&lms).is_ok()
-            && capture(Command::new(&lms).args(["server", "status"]))
+        let lms = [home.join(".lmstudio/bin/lms"), home.join(".local/bin/lms")]
+            .into_iter()
+            .find(|candidate| require_executable(candidate).is_ok())
+            .or_else(|| crate::process::binary("lms"));
+        if let Some(lms) = lms {
+            if capture(Command::new(&lms).args(["server", "status"]))
                 .unwrap_or_default()
                 .to_lowercase()
                 .contains("not running")
-            && capture(Command::new("systemctl").args([
-                "--user",
-                "start",
-                "lmstudio-serve.service",
-            ]))
-            .is_err()
-        {
-            let _ = capture(Command::new(lms).args(["server", "start"]));
+                && capture(Command::new("systemctl").args([
+                    "--user",
+                    "start",
+                    "lmstudio-serve.service",
+                ]))
+                .is_err()
+            {
+                let _ = capture(Command::new(lms).args(["server", "start"]));
+            }
         }
     } else {
         command.args([

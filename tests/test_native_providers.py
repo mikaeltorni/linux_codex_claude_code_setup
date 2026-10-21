@@ -24,7 +24,7 @@ def provider_fixture(tmp_path):
     raw = prefix / "bin/codex"
     raw.write_text('''#!/usr/bin/python3
 import json, os, sys
-print(json.dumps({"args":sys.argv[1:],"home":os.environ.get("CODEX_HOME"),"has_key":os.environ.get("OPENROUTER_API_KEY")=="fixture-key"}))
+print(json.dumps({"args":sys.argv[1:],"home":os.environ.get("CODEX_HOME"),"has_key":os.environ.get("OPENROUTER_API_KEY")=="fixture-key","path":os.environ.get("PATH")}))
 sys.exit(int(os.environ.get("FIXTURE_EXIT", "0")))
 ''')
     raw.chmod(0o755)
@@ -206,4 +206,29 @@ chmod +x target/release/codex
     assert (home / ".local/bin/qwen").is_symlink()
     assert (home / ".local/codex-qwen/bin/codex").is_file()
     assert not (home / "projects/agent_command_center").exists()
+    print(None)
+
+
+def test_qwen_launch_preserves_local_tool_path(tmp_path):
+    """Prepend the original local provider tool directories to the raw child's PATH.
+
+    Parameters: tmp_path - isolated native provider fixture.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
+    home, env = provider_fixture(tmp_path)
+    installed = invoke(home, env, "install", "qwen")
+    assert installed.returncode == 0, installed.stderr
+    lms = home / ".local/bin/lms"
+    lms.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$HOME/lms-calls"\nif [ "$*" = "server status" ]; then printf "not running\\n"; fi\n')
+    lms.chmod(0o755)
+    systemctl = Path(env["PATH"].split(":")[0]) / "systemctl"
+    systemctl.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$HOME/lms-systemctl-calls"\nexit 1\n')
+    systemctl.chmod(0o755)
+    launched = subprocess.run([str(home / ".local/bin/qwen"), "message"], env=env, capture_output=True, text=True)
+    assert launched.returncode == 0, launched.stderr
+    expected = f"{home}/.lmstudio/bin:{home}/.local/bin:{env['PATH']}"
+    assert json.loads(launched.stdout)["path"] == expected
+    assert (home / "lms-calls").read_text().splitlines() == ["server status", "server start"]
+    assert (home / "lms-systemctl-calls").read_text().splitlines() == ["--user start lmstudio-serve.service"]
     print(None)
