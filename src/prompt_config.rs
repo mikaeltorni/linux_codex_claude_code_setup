@@ -18,6 +18,7 @@ pub(crate) struct Context {
     pub(crate) defaults_path: PathBuf,
     pub(crate) defaults: Value,
     pub(crate) name: String,
+    pub(crate) repository: String,
     pub(crate) homes: Vec<PathBuf>,
     pub(crate) codex: PathBuf,
     pub(crate) claude: PathBuf,
@@ -67,6 +68,15 @@ impl Context {
             catalog: args.marketplace.clone(),
             defaults_path: args.defaults.clone(),
             name: defaults["marketplace"]["name"].as_str().unwrap().into(),
+            repository: std::env::var("PROGRAMMING_PROMPTS_REPOSITORY")
+                .ok()
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| {
+                    defaults["marketplace"]["repository"]
+                        .as_str()
+                        .unwrap()
+                        .into()
+                }),
             defaults,
             homes: discover(&args.home, &args.homes)?,
             codex: args.codex.clone().unwrap_or_else(|| {
@@ -186,14 +196,14 @@ impl Context {
         if !self.source_ready {
             if !self.source.exists() || self.source.join(".git").exists() {
                 require_checkout_bridge(&self.checkout_bridge)?;
-                let repository = self.defaults["marketplace"]["repository"].as_str().unwrap();
                 capture(
                     Command::new("timeout")
                         .args(["300", "bash"])
                         .arg(&self.checkout_bridge)
                         .arg(&self.home)
                         .arg(&self.source)
-                        .arg(repository).env("HOME",&self.home),
+                        .arg(&self.repository)
+                        .env("HOME", &self.home),
                 )?;
             }
             self.apply(DefaultsCommand::Validate {
