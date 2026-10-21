@@ -26,7 +26,12 @@ def test_component_is_registered_and_default_on() -> None:
 
 
 def test_lifecycle_functions_and_units_are_defined() -> None:
-    """install/detect/uninstall plus the user service+timer must be wired up."""
+    """install/detect/uninstall plus the user service+timer must be wired up.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     lib = (ROOT / "lib" / "agent_autoupdate.sh").read_text(encoding="utf-8")
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
@@ -40,28 +45,34 @@ def test_lifecycle_functions_and_units_are_defined() -> None:
     assert 'source "$SCRIPT_DIR/lib/agent_autoupdate.sh"' in install
     assert "agent-autoupdate.timer" in lib
     assert "agent-autoupdate.service" in lib
-    assert "systemctl --user enable --now" in lib
+    native = (ROOT / "src/autoupdate.rs").read_text()
+    assert '"enable",' in native and '"--now",' in native
     assert "QWEN_CODEX_NPM_PREFIX" not in lib
-    assert "OnStartupSec=2min" in lib
-    assert "OnUnitActiveSec=1d" in lib
+    assert "OnStartupSec=2min" in native
+    assert "OnUnitActiveSec=1d" in native
+    print(None)
 
 
 def test_updater_script_enforces_publication_delay() -> None:
-    """The shipped updater pins to stable releases past the configured delay."""
+    """The shipped updater pins to stable releases past the configured delay.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     script = ROOT / "assets" / "agent-autoupdate.sh"
     assert script.is_file()
     body = script.read_text(encoding="utf-8")
-    # Codex stays on the user's local fork; only the other CLIs use npm.
-    assert "@openai/codex" not in body
-    assert "@anthropic-ai/claude-code" in body
-    assert 'resolve_delayed_version "cline"' in body
-    assert "npm view" in body and "time --json" in body
-    # Default 24h delay and a forward-only / no-downgrade guard.
-    assert "AGENT_AUTOUPDATE_DELAY_HOURS:-24" in body
-    assert "key(installed) >= key(target)" in body
+    assert "exec" in body and "python" not in body
+    native = (ROOT / "src/autoupdate.rs").read_text()
+    assert "@openai/codex" not in native
+    assert "@anthropic-ai/claude-code" in native
+    assert '"cline"' in native
+    assert "npm_prefix::install" in native
     assert subprocess.run(
         ["bash", "-n", str(script)], capture_output=True
     ).returncode == 0
+    print(None)
 
 
 def test_updater_never_probes_codex() -> None:

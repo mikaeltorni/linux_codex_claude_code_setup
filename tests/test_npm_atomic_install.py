@@ -178,12 +178,17 @@ def test_all_prefix_installs_route_through_the_helper() -> None:
 
 
 def test_updater_sources_the_helper_and_installer_deploys_it() -> None:
-    """The deployed updater is standalone, so the helper ships next to it."""
-    updater = (ROOT / "assets" / "agent-autoupdate.sh").read_text(encoding="utf-8")
-    assert "npm_atomic_install.sh" in updater
-    lib = (ROOT / "lib" / "agent_autoupdate.sh").read_text(encoding="utf-8")
-    assert "AGENT_AUTOUPDATE_NPM_ATOMIC_LIB" in lib
-    assert 'cp "$SCRIPT_DIR/assets/npm_atomic_install.sh"' in lib
-    install = (ROOT / "install.sh").read_text(encoding="utf-8")
-    assert 'source "$SCRIPT_DIR/assets/npm_atomic_install.sh"' in install
-    assert "NPM_ATOMIC_RUNNER=run_as_target" in install
+    """The deployed updater is standalone, so the helper ships next to it.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
+    updater = (ROOT / "src/autoupdate.rs").read_text(encoding="utf-8")
+    vendors = (ROOT / "src/vendors.rs").read_text(encoding="utf-8")
+    assert "npm_prefix::install" in updater and "npm_prefix::install" in vendors
+    lib = (ROOT / "lib/agent_autoupdate.sh").read_text(encoding="utf-8")
+    assert "generators_release_bin agent-autoupdate" in lib
+    helper = (ROOT / "assets/npm_atomic_install.sh").read_text(encoding="utf-8")
+    assert "npm-prefix" in helper and "python3" not in helper
+    print(None)
