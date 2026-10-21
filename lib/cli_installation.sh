@@ -2,6 +2,7 @@
 # Codex, Claude Code, Cline, Grok, and opencode CLI installation functions.
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup_generators.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/hook_trust.sh"
 
 # Ensure ~/.local/bin is on the target user's PATH via .bashrc (idempotent).
 # The user-local launchers and tracking wrapper live there, so every CLI
@@ -17,13 +18,20 @@ ensure_local_bin_on_path() {
 # Install the main Codex fork binary and print its raw binary path. Shared by
 # codex_cli and codex_wrapper so either component can be selected on its own and
 # still find (or install) the underlying binary.
+# Parameters: none; target and fork settings come from the installer environment.
+# Returns: raw Codex entrypoint on stdout, or installation failure.
 ensure_codex_binary() {
+  printf 'parameters=none\n' >&2
   # Callers capture this function's stdout to read the binary path, so every
   # noisy install command must write to stderr (still logged/visible) and only
   # the resolved path may reach stdout.
   run_as_target install -D -m 0644 "$SCRIPT_DIR/assets/codex_fork_install.sh" \
     "$TARGET_HOME/.local/share/linux_codex_claude_code_setup/codex_fork_install.sh" 1>&2 || return 1
-  codex_fork_install_main
+  local raw status=0
+  raw="$(codex_fork_install_main)" || return 1
+  reapply_hook_trust 1>&2 || status=$?
+  [[ "$status" == 0 ]] || return "$status"
+  printf '%s' "$raw"
 }
 
 # Core Codex CLI component: install the raw binary and expose `codex` on PATH via

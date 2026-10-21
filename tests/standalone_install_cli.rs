@@ -52,6 +52,7 @@ printf '%s\n' "$STABLE_GIT_COMMIT" >> "$HOME/builds"
 mkdir -p target/release
 cat > target/release/codex <<'CLI'
 #!/bin/bash
+[[ "${1:-}" != --dangerously-bypass-hook-trust ]] || shift
 if [[ "${1:-}" == app-server ]]; then
   read -r request
   printf '{"id":1,"result":{}}\n'
@@ -214,6 +215,10 @@ fn codex_install_uses_the_selected_local_revision() {
             .count(),
         1
     );
+    fs::remove_file(home.join(".local/share/linux_codex_claude_code_setup/npm/bin/codex-native")).unwrap();
+    let repaired = run(&home, &fork, &path, &["--barebones", "--select", "codex_cli"]);
+    assert!(repaired.status.success(), "{repaired:?}");
+    assert!(home.join(".local/share/linux_codex_claude_code_setup/npm/bin/codex-native").is_file());
     let raw = home.join(".local/share/linux_codex_claude_code_setup/npm/bin/codex");
     let before = fs::read(&raw).unwrap();
     fs::write(fork.join("codex-rs/Cargo.toml"), "dirty source\n").unwrap();
@@ -230,7 +235,7 @@ fn codex_install_uses_the_selected_local_revision() {
             .unwrap()
             .lines()
             .count(),
-        1
+        2
     );
     fs::remove_dir_all(root).unwrap();
     println!("None");

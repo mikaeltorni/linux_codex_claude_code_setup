@@ -1,3 +1,4 @@
 codex_cli	Codex CLI	on	CLIs
 claude_code	Claude Code CLI	on	CLIs
 agent_instances	Standalone Codex and Claude account instances	off	Configuration
+codex_hook_trust	Skip Codex hook trust confirmation	on	Configuration

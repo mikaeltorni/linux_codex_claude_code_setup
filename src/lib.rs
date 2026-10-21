@@ -14,3 +14,4 @@ pub mod standalone;
 mod process;
 pub mod components;
 mod vendors;
+pub mod preferences;

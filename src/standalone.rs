@@ -18,6 +18,7 @@ pub enum Component {
     Codex,
     Claude,
     Instances,
+    HookTrust,
 }
 
 #[derive(Debug)]
@@ -33,6 +34,7 @@ pub struct InstallArgs {
     pub action: Action,
     pub codex_count: Option<u16>,
     pub claude_count: Option<u16>,
+    pub skip_hook_trust: Option<bool>,
 }
 
 /// Reexecute a sudo invocation as its desktop user before creating user files.
@@ -87,9 +89,10 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
     eprintln!("args={args:?}, home={home:?}");
     let mut result = InstallArgs {
         home,
-        action: Action::Install(vec![Component::Codex, Component::Claude]),
+        action: Action::Install(vec![Component::Codex, Component::Claude, Component::HookTrust]),
         codex_count: None,
         claude_count: None,
+        skip_hook_trust: None,
     };
     let mut tokens = args.iter();
     while let Some(token) = tokens.next() {
@@ -98,6 +101,8 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
             .map_or((token.as_str(), None), |(a, b)| (a, Some(b)));
         match flag {
             "--barebones" | "--default" if inline.is_none() => (),
+            "--skip-hook-trust-confirmation" if inline.is_none() => result.skip_hook_trust = Some(true),
+            "--require-hook-trust-confirmation" if inline.is_none() => result.skip_hook_trust = Some(false),
             "--help" | "-h" if inline.is_none() => result.action = Action::Help,
             "--list-components" if inline.is_none() => result.action = Action::List,
             "--select" | "--reconfigure" | "--home" | "--codex-instances"
@@ -128,6 +133,7 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
                                 "codex_cli" => Ok(Component::Codex),
                                 "claude_code" => Ok(Component::Claude),
                                 "agent_instances" => Ok(Component::Instances),
+                                "codex_hook_trust" => Ok(Component::HookTrust),
                                 _ => Err(format!("unknown barebones component: {id}")),
                             })
                             .collect::<Result<Vec<_>, _>>()?;
@@ -253,7 +259,7 @@ fn install_codex(home: &Path) -> Result<PathBuf, String> {
     let host_manifest = source.join("codex-rs/code-mode-host/Cargo.toml");
     let needs_host = host_manifest.is_file();
     if installed.as_deref().map(str::trim) != Some(&revision)
-        || require_executable(&raw).is_err()
+        || crate::preferences::require_runtime(&raw).is_err()
         || needs_host && require_executable(&prefix.join("bin/codex-code-mode-host")).is_err()
     {
         let mut build = Command::new("cargo");
@@ -451,6 +457,13 @@ pub fn execute(args: &InstallArgs) -> Result<String, String> {
                     }
                 }
                 capture(&mut command)?;
+            }
+            let hook_engine = std::env::current_exe().map_err(|e| e.to_string())?.with_file_name("codex-hook-launcher");
+            let installed_hook_engine = args.home.join(".local/bin/codex-hook-launcher");
+            publish(&installed_hook_engine, &hook_engine, 0o755)?;
+            publish(&args.home.join(".local/bin/setup-preferences"), &hook_engine.with_file_name("setup-preferences"), 0o755)?;
+            if raw.is_some() || components.contains(&Component::HookTrust) || args.skip_hook_trust.is_some() {
+                crate::preferences::configure(&args.home, args.skip_hook_trust, &installed_hook_engine)?;
             }
             if let Some(raw) = raw {
                 crate::reserve_policy::disable_reserve_switch(&args.home, &raw)?;
