@@ -174,11 +174,14 @@ def test_require_cli_wait_guard_rejects_a_missing_guard(tmp_path: Path) -> None:
 
 
 def test_every_generated_wrapper_guards_its_exec() -> None:
-    """No wrapper may go back to exec-ing a raw npm binary unguarded."""
+    """No wrapper may go back to exec-ing a raw npm binary unguarded.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     wrappers = {
         "lib/codex_wrapper.sh": "real_codex",
-        "lib/qwen_cli.sh": "QWEN_CODEX_NPM_PREFIX/bin/codex",
-        "lib/openrouter_cli.sh": "OPENROUTER_CODEX_NPM_PREFIX/bin/codex",
     }
     for relative, marker in wrappers.items():
         source = (ROOT / relative).read_text(encoding="utf-8")
@@ -187,5 +190,8 @@ def test_every_generated_wrapper_guards_its_exec() -> None:
         guard = source.index('acc_wait_for_cli "')
         assert source.index(marker, guard) >= guard, f"{relative} launches before waiting"
         assert "require_cli_wait_guard" in source, f"{relative} has no install-time check"
+    native = (ROOT / "src/providers.rs").read_text()
+    assert native.index("wait_executable(&runtime.raw)") < native.index(".exec()", native.index("wait_executable(&runtime.raw)"))
     install = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert 'source "$SCRIPT_DIR/lib/cli_wait.sh"' in install
+    print(None)

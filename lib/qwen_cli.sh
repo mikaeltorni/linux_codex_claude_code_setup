@@ -1,151 +1,52 @@
 #!/usr/bin/env bash
-# Plain Local Codex (qwen) CLI provisioning for standalone installs.
-
-source "$(dirname "${BASH_SOURCE[0]}")/status_bar_selection.sh"
-
+# Shared menu/configuration compatibility for the native provider owner.
 CLI_INSTANCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=/dev/null
+SCRIPT_DIR="${SCRIPT_DIR:-$CLI_INSTANCES_DIR}"
 source "$CLI_INSTANCES_DIR/configs/codex_instances/defaults.sh"
 agent_cli_apply_codex_instance_defaults
-# The generated wrapper embeds acc_wait_for_cli; pull it in here rather than
-# relying on install.sh source ordering.
-# shellcheck source=/dev/null
-source "$CLI_INSTANCES_DIR/lib/cli_wait.sh"
+source "$CLI_INSTANCES_DIR/lib/setup_generators.sh"
 
-# _qwen_status_line_toml — Resolve the [tui] status_line TOML array for the
-# local/Qwen Codex instance. Prefer the shared claude_code_status_bar field
-# selections (same source of truth as the ca/oa/claude bars) so a default
-# installation_scripts run keeps the qa status bar visible; fall back to a
-# built-in rich default when that repository is unavailable.
-# Parameters: none; TARGET_HOME supplies the user's saved selection.
-# Returns: the owning status-bar Rust command's TOML array or default fields.
+# Read selected status fields through the same native owner as configuration writes.
+# Parameters: none; TARGET_HOME identifies the target display selection.
+# Returns: JSON/TOML array on stdout and native query status.
 _qwen_status_line_toml() {
-  setup_status_line_toml qwen
+  printf 'parameters=none\n' >&2
+  local bin status=0
+  bin="$(generators_release_bin setup-provider)" || return 1
+  "$bin" status-line qwen --home "$TARGET_HOME" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
+# Configure provider TOML through the native merger and display owner.
+# Parameters: destination - provider config directory.
+# Returns: native configuration status.
 write_qwen_config_toml() {
-  local dest_dir="$1" status_line
-  status_line="$(_qwen_status_line_toml)"
-  run_as_target tee "${dest_dir}/config.toml" >/dev/null <<EOF
-oss_provider = "${QWEN_CODEX_LOCAL_PROVIDER}"
-model = "${QWEN_CODEX_LMSTUDIO_MODEL}"
-model_context_window = ${QWEN_CODEX_CONTEXT_WINDOW}
-model_auto_compact_token_limit = ${QWEN_CODEX_AUTO_COMPACT_TOKEN_LIMIT}
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-model_supports_reasoning_summaries = true
-model_reasoning_summary = "detailed"
-model_reasoning_effort = "${QWEN_CODEX_REASONING_EFFORT}"
-model_catalog_json = "${dest_dir}/model-catalog.json"
-
-[features]
-multi_agent = false
-apps = false
-enable_mcp_apps = false
-
-[history]
-persistence = "save-all"
-
-[tui]
-status_line = ${status_line}
-EOF
-
-  run_as_target tee "${dest_dir}/qwen.config.toml" >/dev/null <<EOF
-oss_provider = "${QWEN_CODEX_LOCAL_PROVIDER}"
-model = "${QWEN_CODEX_LMSTUDIO_MODEL}"
-model_context_window = ${QWEN_CODEX_CONTEXT_WINDOW}
-model_auto_compact_token_limit = ${QWEN_CODEX_AUTO_COMPACT_TOKEN_LIMIT}
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-model_supports_reasoning_summaries = true
-model_reasoning_summary = "detailed"
-model_reasoning_effort = "${QWEN_CODEX_REASONING_EFFORT}"
-model_catalog_json = "${dest_dir}/model-catalog.json"
-
-[features]
-multi_agent = false
-apps = false
-enable_mcp_apps = false
-
-[history]
-persistence = "save-all"
-
-[tui]
-status_line = ${status_line}
-EOF
+  printf 'destination=%s\n' "$1" >&2
+  local status=0
+  run_provider_owner configure qwen --config "$1" || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
-write_qwen_plain_wrapper() {
-  # See install_codex_wrapper: the embedded guard must be sourced.
-  require_cli_wait_guard || return 1
-  run_as_target tee "$TARGET_HOME/.local/bin/$QWEN_CODEX_COMMAND" >/dev/null <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Direct qwen launches join ACC's persistent tmux-session path when
-# available.  The marker makes the child wrapper run its native CLI once.
-acc_dispatcher="\$HOME/.local/bin/agent-command-center"
-if [ "\${AGENT_COMMAND_CENTER_SESSION_RUN:-0}" != 1 ] && [ "\${AGENT_COMMAND_CENTER_RAW_LAUNCH:-0}" != 1 ] && [ -x "\$acc_dispatcher" ]; then
-  exec "\$acc_dispatcher" raw-launch --kind qwen -- "\$0" "\$@"
-fi
-
-export CODEX_HOME="${QWEN_CODEX_HOME}"
-export PATH="\$HOME/.lmstudio/bin:\$HOME/.local/bin:\$PATH"
-lms_cli="\$HOME/.lmstudio/bin/lms"
-if [ ! -x "\$lms_cli" ]; then
-  lms_cli="\$(command -v lms || true)"
-fi
-if [ -n "\$lms_cli" ] && "\$lms_cli" server status 2>/dev/null | grep -qi 'not running'; then
-  systemctl --user start lmstudio-serve.service >/dev/null 2>&1 || "\$lms_cli" server start >/dev/null 2>&1 || true
-fi
-$(declare -f acc_wait_for_cli)
-acc_wait_for_cli "$QWEN_CODEX_NPM_PREFIX/bin/codex" || exit 127
-exec "$QWEN_CODEX_NPM_PREFIX/bin/codex" \\
-  --oss \\
-  --local-provider "$QWEN_CODEX_LOCAL_PROVIDER" \\
-  --profile qwen \\
-  -m "$QWEN_CODEX_LMSTUDIO_MODEL" \\
-  -c model_reasoning_effort="$QWEN_CODEX_REASONING_EFFORT" \\
-  --disable multi_agent \\
-  --disable apps \\
-  --disable enable_mcp_apps \\
-  --yolo \\
-  "\$@"
-EOF
-  run_as_target chmod +x "$TARGET_HOME/.local/bin/$QWEN_CODEX_COMMAND"
-}
-
+# Delegate optional prompt content to its standalone entrypoint.
+# Parameters: none; target provider home comes from installer settings.
+# Returns: zero when absent or delegated, preserving the existing best-effort contract.
 install_qwen_plugins_into_home() {
+  printf 'parameters=none\n' >&2
   local plugins_installer="$SCRIPT_DIR/scripts/install_programming_plugins.sh"
-  [[ -f "$plugins_installer" ]] || return 0
+  [[ -f "$plugins_installer" ]] || { printf '0\n' >&2; return 0; }
   env CODEX_HOMES="$QWEN_CODEX_HOME" bash "$plugins_installer" || \
     msg "Plugin installation into $QWEN_CODEX_HOME failed (non-fatal)"
+  printf '0\n' >&2
 }
 
-# Install local-provider Codex and its native model catalog.
-# Parameters: none; QWEN_CODEX variables configure the target installation.
-# Returns: the installation status.
+# Install the native provider, then reapply its optional selected prompt content.
+# Parameters: none; target paths are installer settings.
+# Returns: provider installation status; optional prompts retain their existing best-effort behavior.
 install_qwen_cli() {
-  msg "Installing plain Local Codex CLI (${QWEN_CODEX_COMMAND})"
-  apt_install curl 1>&2
-
-  if [ -d "$QWEN_CODEX_HOME" ]; then
-    msg "Refreshing existing Local Codex home at $QWEN_CODEX_HOME"
-  else
-    run_as_target mkdir -p "$QWEN_CODEX_HOME" "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  fi
-  run_as_target mkdir -p "$QWEN_CODEX_NPM_PREFIX" "$TARGET_HOME/.local/bin"
-  codex_fork_install_to_prefix "$QWEN_CODEX_NPM_PREFIX" >/dev/null || return 1
-
-  local catalog_bin
-  catalog_bin="$(generators_release_bin generate-model-catalog)" || return 1
-  run_as_target env \
-    TARGET_HOME="$TARGET_HOME" \
-    QWEN_CODEX_CONTEXT_WINDOW="${QWEN_CODEX_CONTEXT_WINDOW:-40960}" \
-    "$catalog_bin" "$QWEN_CODEX_HOME" "$QWEN_CODEX_LMSTUDIO_MODEL"
-
-  write_qwen_config_toml "$QWEN_CODEX_HOME"
-  write_qwen_plain_wrapper
+  printf 'parameters=none\n' >&2
+  run_provider_owner install qwen || return $?
   install_qwen_plugins_into_home
-  ensure_local_bin_on_path
+  printf '0\n' >&2
 }

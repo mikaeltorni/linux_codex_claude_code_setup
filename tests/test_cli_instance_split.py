@@ -73,13 +73,19 @@ def test_cli_installers_do_not_emit_acc_shorthand_dispatchers() -> None:
 
 
 def test_isolated_codex_instances_refresh_main_revision_on_rerun() -> None:
-    """Existing Qwen/OpenRouter homes receive the fork main binary on rerun."""
-    qwen = (ROOT / "lib" / "qwen_cli.sh").read_text(encoding="utf-8")
-    openrouter = (ROOT / "lib" / "openrouter_cli.sh").read_text(encoding="utf-8")
-    for source in (qwen, openrouter):
-        install_body = source.split("install_", 1)[1]
-        assert 'codex_fork_install_to_prefix "$' in install_body
-        assert install_body.index("codex_fork_install_to_prefix") > install_body.index("fi")
+    """Existing Qwen/OpenRouter homes receive the fork main binary on rerun.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
+    source = (ROOT / "src/provider_install.rs").read_text(encoding="utf-8")
+    assert 'publish(&raw, &main, 0o755)' in source
+    assert 'codex-fork-revision' in source
+    for kind in ("qwen", "openrouter"):
+        shim = (ROOT / "lib" / f"{kind}_cli.sh").read_text()
+        assert f"run_provider_owner install {kind}" in shim
+    print(None)
 
 
 def test_provider_install_reuses_fork_main_binary() -> None:

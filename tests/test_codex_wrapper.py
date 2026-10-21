@@ -162,13 +162,13 @@ def test_wrapper_delegates_a_raw_launch_to_agent_command_center(tmp_path: Path) 
 
 
 def test_plain_provider_launchers_use_acc_raw_launch() -> None:
-    """Plain provider launchers retain their argv but enter ACC tmux sessions."""
-    launchers = {
-        "lib/qwen_cli.sh": "qwen",
-        "lib/openrouter_cli.sh": "openrouter",
-    }
-    for relative_path, kind in launchers.items():
-        source = (ROOT / relative_path).read_text(encoding="utf-8")
-        assert f"raw-launch --kind {kind}" in source
-        assert "AGENT_COMMAND_CENTER_SESSION_RUN" in source
-        assert "AGENT_COMMAND_CENTER_RAW_LAUNCH" in source
+    """Retain optional ACC delegation in the native provider runtime.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
+    source = (ROOT / "src/providers.rs").read_text(encoding="utf-8")
+    for marker in ("raw-launch", "--kind", "qwen", "openrouter", "AGENT_COMMAND_CENTER_SESSION_RUN", "AGENT_COMMAND_CENTER_RAW_LAUNCH"):
+        assert marker in source, marker
+    print(None)

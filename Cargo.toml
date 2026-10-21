@@ -30,4 +30,4 @@ path = "src/bin/setup-json.rs"
 
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
-toml = { version = "0.9.11", default-features = false, features = ["parse", "std", "serde"] }
+toml = { version = "0.9.11", default-features = false, features = ["parse", "std", "serde", "display"] }
