@@ -91,6 +91,22 @@ pub fn install(
     required: Option<&str>,
 ) -> Result<(), String> {
     eprintln!("prefix={prefix:?}, spec={spec:?}, home={home:?}, required={required:?}");
+    install_prepared(prefix, spec, home, required, |_, _| Ok(()))?;
+    eprintln!("None");
+    Ok(())
+}
+
+/// Prepare and validate a complete npm runtime before atomic publication.
+/// Parameters: prefix - dedicated live directory; spec - npm package specification; home - target home; required - executable basename; prepare - staged runtime preparation and smoke check.
+/// Returns: None after publication, or an error preserving the prior tree.
+pub(crate) fn install_prepared(
+    prefix: &Path,
+    spec: &str,
+    home: &Path,
+    required: Option<&str>,
+    prepare: fn(&Path, &Path) -> Result<(), String>,
+) -> Result<(), String> {
+    eprintln!("prefix={prefix:?}, spec={spec:?}, home={home:?}, required={required:?}, prepare={prepare:?}");
     crate::instances::require_home(home)?;
     require_prefix(prefix, home)?;
     let stage = scratch(
@@ -107,6 +123,7 @@ pub fn install(
                 .env("HOME", home),
         )?;
         require_staged(&stage, required)?;
+        prepare(&stage, home)?;
         publish_tree(&stage, prefix)?;
         Ok(())
     })();

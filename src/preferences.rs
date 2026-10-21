@@ -1,6 +1,6 @@
 //! Persisted installer choices and a common Codex hook-trust launch boundary.
 
-use crate::files::{publish, write_generated};
+use crate::files::{publish, publish_link, write_generated};
 use crate::instances::require_home;
 use crate::process::require_executable;
 use serde_json::{json, Value};
@@ -131,6 +131,27 @@ pub fn require_runtime(raw: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Wrap a native executable or npm link without losing package-relative resources.
+/// Parameters: raw - raw Codex entrypoint; engine - native hook launcher executable.
+/// Returns: None after preparing a complete managed runtime, or a validation/I/O error.
+pub(crate) fn prepare_runtime(raw: &Path, engine: &Path) -> Result<(), String> {
+    eprintln!("raw={raw:?}, engine={engine:?}");
+    require_executable(raw)?;
+    require_executable(engine)?;
+    let payload = raw.with_file_name("codex-native");
+    if !is_launcher(raw)? {
+        if raw.is_symlink() {
+            publish_link(&payload, &fs::read_link(raw).map_err(|e| e.to_string())?)?;
+        } else {
+            publish(&payload, raw, 0o755)?;
+        }
+    }
+    require_executable(&payload)?;
+    publish(raw, engine, 0o755)?;
+    eprintln!("None");
+    Ok(())
+}
+
 /// Save one preference and install a transparent native shim at the common raw CLI.
 /// Parameters: home - target home; choice - explicit selection or saved/default choice; engine - native hook launcher executable.
 /// Returns: saved state after successful publication, or a validation/I/O error.
@@ -140,18 +161,12 @@ pub fn configure(home: &Path, choice: Option<bool>, engine: &Path) -> Result<Val
     let mut state = read_state(home)?;
     let skip = choice.unwrap_or(skip_hook_trust(home)?);
     let prefix = std::env::var_os("CODEX_NPM_PREFIX")
+        .filter(|v| !v.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| home.join(".local/share/linux_codex_claude_code_setup/npm"));
     let raw = prefix.join("bin/codex");
     if raw.exists() {
-        require_executable(&raw)?;
-        require_executable(engine)?;
-        let payload = raw.with_file_name("codex-native");
-        if !is_launcher(&raw)? {
-            publish(&payload, &raw, 0o755)?;
-        }
-        require_executable(&payload)?;
-        publish(&raw, engine, 0o755)?;
+        prepare_runtime(&raw, engine)?;
     }
     state["skip_hook_trust_confirmation"] = json!(skip);
     write_generated(

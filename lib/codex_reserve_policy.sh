@@ -9,6 +9,10 @@ declare -F generators_release_bin >/dev/null 2>&1 || \
 # Returns: success when disabled, or the native policy failure status.
 configure_codex_reserve_switch() {
   printf '%s\n' 'parameters=none' >&2
+  if [[ "${CODEX_INSTALL_SOURCE:-fork}" == npm ]]; then
+    printf '%s\n' '0 (official npm runtime has no fork Reserve policy)' >&2
+    return 0
+  fi
   local raw_codex="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}/bin/codex"
   if [[ ! -x "$raw_codex" ]]; then
     printf '%s\n' '0 (no installed Codex runtime)' >&2

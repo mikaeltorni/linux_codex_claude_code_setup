@@ -1,11 +1,11 @@
 //! Native barebones installation with no ACC, prompt checkout or shared framework.
 
-use crate::files::{publish, write_generated};
+use crate::files::{publish, publish_link, write_generated};
 use crate::instances::require_home;
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::{symlink, OpenOptionsExt};
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -29,6 +29,12 @@ pub enum Action {
     Install(Vec<Component>),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CodexSource {
+    Fork,
+    Npm,
+}
+
 #[derive(Debug)]
 pub struct InstallArgs {
     pub home: PathBuf,
@@ -36,6 +42,8 @@ pub struct InstallArgs {
     pub codex_count: Option<u16>,
     pub claude_count: Option<u16>,
     pub skip_hook_trust: Option<bool>,
+    pub codex_source: CodexSource,
+    pub codex_prefix: PathBuf,
 }
 
 /// Reexecute a sudo invocation as its desktop user before creating user files.
@@ -85,7 +93,7 @@ pub fn run_as_target() -> Result<(), String> {
 
 /// Parse every barebones selector, flag and numeric operand before installation.
 /// Parameters: args - raw command tokens; home - default target home.
-/// Returns: converted paths, selection and counts, or a usage error.
+/// Returns: converted paths, source, selection and counts, or a usage error.
 pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
     eprintln!("args={args:?}, home={home:?}");
     let mut result = InstallArgs {
@@ -94,7 +102,10 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
         codex_count: None,
         claude_count: None,
         skip_hook_trust: None,
+        codex_source: CodexSource::Fork,
+        codex_prefix: PathBuf::new(),
     };
+    let mut source = std::env::var("CODEX_INSTALL_SOURCE").unwrap_or_else(|_| "fork".into());
     let mut tokens = args.iter();
     while let Some(token) = tokens.next() {
         let (flag, inline) = token
@@ -107,12 +118,13 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
             "--help" | "-h" if inline.is_none() => result.action = Action::Help,
             "--list-components" if inline.is_none() => result.action = Action::List,
             "--select" | "--reconfigure" | "--home" | "--codex-instances"
-            | "--claude-instances" => {
+            | "--claude-instances" | "--codex-source" => {
                 let value = inline
                     .or_else(|| tokens.next().map(String::as_str))
                     .ok_or(USAGE)?;
                 match flag {
                     "--home" => result.home = PathBuf::from(value),
+                    "--codex-source" => source = value.into(),
                     "--codex-instances" => {
                         result.codex_count = Some(
                             value
@@ -147,6 +159,15 @@ pub fn parse(args: &[String], home: PathBuf) -> Result<InstallArgs, String> {
             _ => return Err(format!("unknown option: {token}\n{USAGE}")),
         }
     }
+    result.codex_source = match source.as_str() {
+        "fork" => CodexSource::Fork,
+        "npm" => CodexSource::Npm,
+        _ => return Err("Codex source must be fork or npm".into()),
+    };
+    result.codex_prefix = std::env::var_os("CODEX_NPM_PREFIX")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| result.home.join(".local/share/linux_codex_claude_code_setup/npm"));
     eprintln!("{result:?}");
     Ok(result)
 }
@@ -219,11 +240,56 @@ fn require_codex_launcher(launcher: &Path, raw: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Expose the accepted common runtime while preserving an installed ACC wrapper.
+/// Parameters: home - target home; raw - installed common runtime.
+/// Returns: None after publishing the plain launcher or retaining the ACC wrapper.
+fn expose_codex(home: &Path, raw: &Path) -> Result<(), String> {
+    eprintln!("home={home:?}, raw={raw:?}");
+    let launcher = home.join(".local/bin/codex");
+    require_codex_launcher(&launcher, raw)?;
+    if !launcher.is_symlink() && launcher.is_file() {
+        eprintln!("Preserving the existing ACC tracking wrapper at {}", launcher.display());
+    } else {
+        publish_link(&launcher, raw)?;
+    }
+    eprintln!("None");
+    Ok(())
+}
+
+/// Prepare the npm launcher in its own package tree and smoke-test the vendor runtime.
+/// Parameters: stage - newly installed npm tree; home - target home for the smoke check.
+/// Returns: None for a working wrapped runtime, or a preparation/execution error.
+fn prepare_npm_codex(stage: &Path, home: &Path) -> Result<(), String> {
+    eprintln!("stage={stage:?}, home={home:?}");
+    let engine = std::env::current_exe().map_err(|e| e.to_string())?.with_file_name("codex-hook-launcher");
+    crate::preferences::prepare_runtime(&stage.join("bin/codex"), &engine)?;
+    capture(Command::new("timeout").arg("60").arg(stage.join("bin/codex-native"))
+        .args(["--dangerously-bypass-hook-trust", "--version"]).env("HOME", home))?;
+    eprintln!("None");
+    Ok(())
+}
+
+/// Install the official npm package without fetching or compiling the fork.
+/// Parameters: home - accepted target home; prefix - dedicated installation directory.
+/// Returns: installed raw Codex path, or a dependency/vendor/publication error.
+fn install_npm_codex(home: &Path, prefix: &Path) -> Result<PathBuf, String> {
+    eprintln!("home={home:?}, prefix={prefix:?}");
+    crate::npm_prefix::require_prefix(prefix, home)?;
+    let raw = prefix.join("bin/codex");
+    require_codex_launcher(&home.join(".local/bin/codex"), &raw)?;
+    require_tools(&["node", "npm", "timeout"])?;
+    crate::npm_prefix::install_prepared(prefix, "@openai/codex@latest", home, Some("codex"), prepare_npm_codex)?;
+    expose_codex(home, &raw)?;
+    eprintln!("{raw:?}");
+    Ok(raw)
+}
+
 /// Install one local fork revision without touching optional repositories or credentials.
-/// Parameters: home - accepted target home.
+/// Parameters: home - accepted target home; prefix - dedicated installation directory.
 /// Returns: installed raw Codex path, or a fork artifact preparation/build/publish error.
-fn install_codex(home: &Path) -> Result<PathBuf, String> {
-    eprintln!("home={home:?}");
+fn install_codex(home: &Path, prefix: &Path) -> Result<PathBuf, String> {
+    eprintln!("home={home:?}, prefix={prefix:?}");
+    crate::npm_prefix::require_prefix(prefix, home)?;
     require_tools(&["git", "cargo", "cc", "cmake", "pkg-config"])?;
     let source = std::env::var_os("CODEX_FORK_DIR")
         .map(PathBuf::from)
@@ -251,7 +317,6 @@ fn install_codex(home: &Path) -> Result<PathBuf, String> {
         )?;
     }
     let revision = require_fork(&source, &branch)?;
-    let prefix = home.join(".local/share/linux_codex_claude_code_setup/npm");
     let raw = prefix.join("bin/codex");
     let launcher = home.join(".local/bin/codex");
     require_codex_launcher(&launcher, &raw)?;
@@ -305,17 +370,7 @@ fn install_codex(home: &Path) -> Result<PathBuf, String> {
         }
         write_generated(&marker, &format!("{revision}\n"), 0o600)?;
     }
-    fs::create_dir_all(launcher.parent().unwrap()).map_err(|e| e.to_string())?;
-    if !launcher.is_symlink() && launcher.is_file() {
-        eprintln!(
-            "Preserving the existing ACC tracking wrapper at {}",
-            launcher.display()
-        );
-    } else {
-        let staged = launcher.with_extension(format!("setup-{}", std::process::id()));
-        symlink(&raw, &staged).map_err(|e| e.to_string())?;
-        fs::rename(staged, launcher).map_err(|e| e.to_string())?;
-    }
+    expose_codex(home, &raw)?;
     eprintln!("{raw:?}");
     Ok(raw)
 }
@@ -454,7 +509,10 @@ pub fn execute(args: &InstallArgs) -> Result<String, String> {
         Action::Install(components) => {
             require_home(&args.home)?;
             let raw = if components.contains(&Component::Codex) {
-                Some(install_codex(&args.home)?)
+                Some(match args.codex_source {
+                    CodexSource::Fork => install_codex(&args.home, &args.codex_prefix)?,
+                    CodexSource::Npm => install_npm_codex(&args.home, &args.codex_prefix)?,
+                })
             } else {
                 None
             };
@@ -505,7 +563,9 @@ pub fn execute(args: &InstallArgs) -> Result<String, String> {
                 crate::preferences::configure(&args.home, args.skip_hook_trust, &installed_hook_engine)?;
             }
             if let Some(raw) = raw {
-                crate::reserve_policy::disable_reserve_switch(&args.home, &raw)?;
+                if args.codex_source == CodexSource::Fork {
+                    crate::reserve_policy::disable_reserve_switch(&args.home, &raw)?;
+                }
             }
             configure_path(&args.home)?;
             "Barebones installation complete. Sign in separately through each CLI; add ~/.local/bin to your current PATH to use the installed commands.".into()

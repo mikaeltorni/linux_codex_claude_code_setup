@@ -17,11 +17,11 @@ fn require_parent(path: &Path) -> Result<&Path, String> {
     Ok(result)
 }
 
-/// Create an owned staging file without following or deleting existing paths.
-/// Parameters: path - final destination; mode - Unix file mode.
-/// Returns: staging path and exclusively created file, or an I/O error.
-fn stage(path: &Path, mode: u32) -> Result<(PathBuf, fs::File), String> {
-    eprintln!("path={path:?}, mode={mode:o}");
+/// Choose a unique staging path beside its final destination.
+/// Parameters: path - final destination.
+/// Returns: staging path after preparing its parent, or an I/O error.
+fn stage_path(path: &Path) -> Result<PathBuf, String> {
+    eprintln!("path={path:?}");
     let parent = require_parent(path)?;
     fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     let stamp = std::time::SystemTime::now()
@@ -29,6 +29,16 @@ fn stage(path: &Path, mode: u32) -> Result<(PathBuf, fs::File), String> {
         .map_err(|e| e.to_string())?
         .as_nanos();
     let temp = parent.join(format!(".setup-{}-{stamp}", std::process::id()));
+    eprintln!("{temp:?}");
+    Ok(temp)
+}
+
+/// Create an owned staging file without following or deleting existing paths.
+/// Parameters: path - final destination; mode - Unix file mode.
+/// Returns: staging path and exclusively created file, or an I/O error.
+fn stage(path: &Path, mode: u32) -> Result<(PathBuf, fs::File), String> {
+    eprintln!("path={path:?}, mode={mode:o}");
+    let temp = stage_path(path)?;
     let file = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -38,6 +48,21 @@ fn stage(path: &Path, mode: u32) -> Result<(PathBuf, fs::File), String> {
     let result = (temp, file);
     eprintln!("{result:?}");
     Ok(result)
+}
+
+/// Publish a symlink atomically while retaining its package-relative target.
+/// Parameters: path - destination link; target - original relative or absolute link target.
+/// Returns: None on replacement, or an I/O error preserving the previous link.
+pub(crate) fn publish_link(path: &Path, target: &Path) -> Result<(), String> {
+    eprintln!("path={path:?}, target={target:?}");
+    let temp = stage_path(path)?;
+    std::os::unix::fs::symlink(target, &temp).map_err(|e| e.to_string())?;
+    if let Err(error) = fs::rename(&temp, path) {
+        let _ = fs::remove_file(&temp);
+        return Err(error.to_string());
+    }
+    eprintln!("None");
+    Ok(())
 }
 
 /// Publish a complete executable or backup without truncating a running file.
