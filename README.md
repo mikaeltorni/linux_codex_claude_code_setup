@@ -19,12 +19,82 @@ plugin explicitly, and drives the component menu for both products.
 
 ```bash
 bash install.sh --barebones --codex-instances 3 --claude-instances 2
+bash install.sh --barebones --codex-source npm --codex-instances 3 --claude-instances 2
 bash install.sh --barebones --help
 bash install.sh --list-components
 bash install.sh --default
 bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
 bash install.sh --select codex_cli,qwen_cli,openrouter_cli
 bash scripts/sync_codex_fork.sh
+```
+
+### Choose the Codex source
+
+The local fork remains the default. To install the official prebuilt Codex
+package directly from npm, use:
+
+```bash
+# Codex only, without ACC, plugins or a fork checkout/build.
+bash install.sh --barebones --select codex_cli --codex-source npm
+
+# Include Claude and standalone accounts using the same npm Codex runtime.
+bash install.sh --barebones --codex-source npm \
+  --codex-instances 3 --claude-instances 2
+
+# After installing the native management commands, update npm Codex directly.
+setup-install --select codex_cli --codex-source=npm
+
+# Use npm through the full shared component installer or its interactive menu.
+CODEX_INSTALL_SOURCE=npm bash install.sh --select codex_cli
+CODEX_INSTALL_SOURCE=npm bash install.sh
+
+# Switch back to the checked-out local fork.
+bash install.sh --barebones --select codex_cli --codex-source fork
+```
+
+`--codex-source {fork|npm}` is a barebones/native option. It overrides
+`CODEX_INSTALL_SOURCE`; without either, the source is `fork`. The full shared
+installer uses the environment variable. Source selection applies to each
+invocation: repeat the npm flag or environment variable when updating or
+reconfiguring npm Codex. An ordinary Codex install without it selects the fork
+again. `--codex-source=npm` and the space-separated form are equivalent.
+
+The npm path runs `npm install -g --prefix STAGING -- @openai/codex@latest`,
+following [OpenAI's npm installation guidance](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
+It requires Node.js 16+ and npm, and uses the vendor's prebuilt platform package.
+It does not clone or compile the Codex fork. This repository's Rust management
+helpers still need to be built or available in `dist/`; the bootstrap supplies
+Rust when necessary. On Ubuntu, missing system prerequisites can be installed
+separately with `sudo apt-get install -y ca-certificates curl build-essential nodejs npm`.
+The installer itself runs as the target user without a sudo prompt.
+
+Both sources expose `~/.local/bin/codex` and share the dedicated prefix
+`~/.local/share/linux_codex_claude_code_setup/npm`. `CODEX_NPM_PREFIX` can select
+another absolute dedicated prefix; keep that choice stable on reruns. An npm
+install replaces the whole managed prefix, including the fork revision marker,
+after the staged runtime passes its version check. Download, package or smoke
+check failures retain the previous prefix. The npm executable keeps its relative
+package link so Node can locate its package metadata and platform binary.
+
+Switching sources preserves existing login/configuration files, plugins, saved
+account counts and the hook-trust preference. Recognized ACC tracking wrappers
+are retained. The source checkout is untouched by npm installation. The
+delayed Claude/Cline updater does not update either Codex source; rerun the
+selected Codex install command for updates. Fork synchronization and the Reserve
+opt-out postflight apply to the fork source.
+
+For a vendor-only installation outside this repository's managed prefix,
+OpenAI's command is `npm install -g @openai/codex@latest`. Use the managed
+commands above to integrate standalone accounts and the saved hook preference.
+
+New shells receive the user command directory automatically. Refresh an
+already-open terminal after installation:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+hash -r
+codex --version
+claude --version  # When Claude was selected.
 ```
 
 ### Marketplace generator
@@ -99,19 +169,21 @@ and everything else is optional:
   command inherited from another home is never reused. Cline is installed into
   an isolated user-owned npm prefix and linked as `~/.local/bin/cline`, matching
   its official `npm install -g cline` package without requiring sudo.
-  `codex_cli` builds the checked-out `main` branch of the user's
+  By default, `codex_cli` builds the checked-out `main` branch of the user's
   `~/projects/codex` fork and installs its binary under a user-owned prefix.
   The installer clones a missing fork but never fetches, pulls, or merges an
   existing checkout. When `main` changes, the next install rebuilds it with
   visible Cargo progress and records the source revision.
   Run `bash scripts/sync_codex_fork.sh` to check and deploy that revision to
   all four installed Codex instances without reinstalling other CLIs.
+  Select the official npm source with `CODEX_INSTALL_SOURCE=npm`, or the
+  barebones `--codex-source npm` option described above.
 - `qwen_cli` — installs the local Codex (`qwen`) CLI into its isolated home
-  (`~/.codex-qwen`) using the built fork binary from main
+  (`~/.codex-qwen`) using the managed runtime from main
   `codex`, and puts a plain `qwen` launcher on `PATH`. Tracking-aware `qa`
   belongs to Agent Command Center.
 - `openrouter_cli` — installs the OpenRouter Codex (`openr`) CLI into
-  `~/.codex-openrouter` using the same built fork binary as main
+  `~/.codex-openrouter` using the same managed runtime as main
   `codex`, and puts a plain `openr` launcher on `PATH`. Tracking-aware `oa`
   belongs to Agent Command Center.
 - `grok_cli` — runs xAI's official `https://x.ai/cli/install.sh` installer,
@@ -137,8 +209,8 @@ and everything else is optional:
 - `agent_autoupdate` — a systemd **user** timer that, at user-manager startup
   (the first user session after a system reboot) and once a day, updates every
   installed Claude Code and Cline runtime to the newest stable release that
-  has been published for at least 24 hours. Codex remains on the local fork's
-  main branch. Tune the delay via
+  has been published for at least 24 hours. Codex stays on its separately
+  selected fork or npm installation. Tune the delay via
   `AGENT_AUTOUPDATE_DELAY_HOURS` in
   `~/.config/linux_codex_claude_code_setup/autoupdate.env`.
 - `codex_history_sync` — installs `codexsync`, a non-destructive union merge of
@@ -215,7 +287,13 @@ Run `bash scripts/verify_release.sh` for the full gate: strict Clippy, Rust
 tests, a locked release build, and pytest. Python 3.11+ and pytest are development
 requirements; the retained Python reference implementations use the standard
 library. The upstream Codex code-mode build can also require Python as a build
-tool.
+tool. The npm package-context tests also require Node.js.
+
+The npm source change passed the full gate (including 181 Python tests), source
+switching tests, and two real `@openai/codex@latest` installs into an isolated
+local home on 2026-10-21. Codex `0.163.0`, `cx1`/`cx2`/`cx3`, saved hook
+preferences, unchanged fixture credentials/configuration and shell PATH all
+passed. This npm run was local; the VM result below covers the fork source.
 
 ## Detect, reconfigure, and uninstall
 
@@ -248,7 +326,7 @@ This notice is intended to clarify the nature of the project and does not impose
 
 ## Automatic GPT Reserve switching
 
-The installer postflight sets `[features] luna_reserve_auto_switch = false` in
+For the fork source, the installer postflight sets `[features] luna_reserve_auto_switch = false` in
 `~/.codex/config.toml`, every existing `~/.codex-*` home, and each separate
 `*.config.toml` profile. It uses the native Codex TOML editor on private copies
 and preserves unrelated settings/comments. Repeated installs keep the opt-out.
@@ -279,7 +357,8 @@ state after failures. `bash tests/test_codex_fork_install.sh` verifies publishin
 `bash install.sh --barebones` installs Codex and Claude without ACC, the shared
 installer framework, or a programming-prompts checkout. It runs `setup-install`,
 which accepts `--default`, `--select`/`--reconfigure`, `--home`,
-`--codex-instances`, `--claude-instances`, `--list-components`, and `--help`.
+`--codex-source {fork|npm}`, `--codex-instances`, `--claude-instances`,
+`--list-components`, and `--help`, plus the hook-trust flags below.
 The barebones component IDs are `codex_cli`, `claude_code`, `agent_instances`,
 and `codex_hook_trust`.
 
@@ -319,7 +398,7 @@ ACC aliases are backed up under the setup share directory and can be restored
 when the managed alias is disabled. The normal tracking-aware `codex` wrapper
 is preserved when ACC is present.
 
-The barebones builder uses `CODEX_FORK_DIR` (default `~/projects/codex`) and the
+For the fork source, the barebones builder uses `CODEX_FORK_DIR` (default `~/projects/codex`) and the
 selected local fork ref. That selected branch must be checked out with a clean
 `codex-rs` tree. A missing checkout is cloned from `CODEX_FORK_REPOSITORY_URL`
 (default `https://github.com/mikaeltorni/codex.git`). The builder records the
@@ -337,9 +416,9 @@ the build before replacing the installed Codex payload. Explicit `RUSTY_V8_ARCHI
 upstream behavior.
 
 Use an existing absolute home with `--home`. Native commands report missing
-build tools with remediation instead of prompting for sudo. Codex needs a Rust
+build tools with remediation instead of prompting for sudo. Fork Codex needs a Rust
 and C/C++ build environment, Git, CMake, and pkg-config, plus Python 3.11+ for
-forks using the V8 helper; Cline needs Node.js 22
+forks using the V8 helper; npm Codex needs Node.js 16+ and npm. Cline needs Node.js 22
 and npm. Vendor installation also needs curl, Bash, and coreutils. When invoked
 through sudo, the bootstrap hands user work back to the desktop user. Installed
 commands live under `~/.local/bin`; add it to the current shell's `PATH` after
@@ -369,8 +448,9 @@ The native launcher adds Codex's documented
 [`--dangerously-bypass-hook-trust`](https://learn.chatgpt.com/docs/hooks)
 flag, which runs enabled hooks without their individual trust review. It acts
 at the common raw entrypoint, covering standalone aliases and existing ACC
-wrappers. The fork payload is retained as `bin/codex-native`; each file is
-published through an atomic replacement. This preference controls hook review only.
+wrappers for either Codex source. The payload is retained as `bin/codex-native`
+(a package-relative link for npm); each entrypoint is published through an atomic
+replacement. This preference controls hook review only.
 
 ## Native management commands
 
