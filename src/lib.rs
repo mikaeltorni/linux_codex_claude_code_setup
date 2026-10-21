@@ -20,3 +20,8 @@ pub mod autoupdate;
 pub mod providers;
 mod provider_config;
 mod provider_install;
+pub mod prompts;
+mod prompt_config;
+mod prompt_install;
+mod prompt_marketplace;
+mod prompt_verify;

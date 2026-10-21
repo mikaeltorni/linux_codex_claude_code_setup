@@ -93,7 +93,8 @@ fn entries<'a>(document: &'a Value, array: &str) -> Result<&'a [Value], String> 
 /// Select the first named marketplace root, matching the Python pipeline result.
 /// Parameters: name - marketplace selector; document - decoded native state.
 /// Returns: root and newline, or just newline when absent.
-fn marketplace_root(name: &str, document: &Value) -> Result<(String, bool), String> {
+pub(crate) fn marketplace_root(name: &str, document: &Value) -> Result<(String, bool), String> {
+    eprintln!("name={name:?}, document={document:?}");
     let found = entries(document, "marketplaces")?
         .iter()
         .find(|entry| entry.get("name").and_then(Value::as_str) == Some(name));
@@ -101,35 +102,41 @@ fn marketplace_root(name: &str, document: &Value) -> Result<(String, bool), Stri
         .and_then(|entry| entry.get("root"))
         .and_then(Value::as_str)
         .unwrap_or("");
-    Ok((format!("{root}\n"), true))
+    let result = (format!("{root}\n"), true);
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
 /// Match exact plugin or marketplace selectors in native CLI output.
 /// Parameters: array - object array field or '-'; key - selector field; value - exact expected selector; document - decoded state.
 /// Returns: empty output and whether a selector is present.
-fn contains(
+pub(crate) fn contains(
     array: &str,
     key: &str,
     value: &str,
     document: &Value,
 ) -> Result<(String, bool), String> {
+    eprintln!("array={array:?}, key={key:?}, value={value:?}, document={document:?}");
     let matched = entries(document, array)?
         .iter()
         .any(|entry| entry.get(key).and_then(Value::as_str) == Some(value));
-    Ok((String::new(), matched))
+    let result = (String::new(), matched);
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
 /// Verify Claude's marketplace is backed by the exact generated catalog directory.
 /// Parameters: file - native known-marketplaces file; name - marketplace selector; directory - desired directory path.
 /// Returns: empty output and a match flag, or a content-free file/decode error.
-fn claude_marketplace(
+pub(crate) fn claude_marketplace(
     file: &PathBuf,
     name: &str,
     directory: &str,
 ) -> Result<(String, bool), String> {
+    eprintln!("file={file:?}, name={name:?}, directory={directory:?}");
     let text = match fs::read_to_string(file) {
         Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok((String::new(), false)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => { let result = (String::new(), false); eprintln!("{result:?}"); return Ok(result); },
         Err(_) => return Err("Cannot read Claude marketplace registry".into()),
     };
     let document = parse_document(&text)?;
@@ -142,7 +149,9 @@ fn claude_marketplace(
             .and_then(|entry| entry.get("path"))
             .and_then(Value::as_str)
             == Some(directory);
-    Ok((String::new(), matched))
+    let result = (String::new(), matched);
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
 /// Route a parsed query to its read-only operation owner.

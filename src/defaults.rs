@@ -162,16 +162,29 @@ pub fn parse_defaults_args(args: &[String]) -> Result<DefaultsArgs, String> {
 /// Run the parsed plugin-defaults command.
 ///
 /// List returns tab-separated catalog rows. Other commands return an empty string.
+/// Load configuration once and execute one converted defaults command.
+/// Parameters: args - parsed defaults path and command operands.
+/// Returns: command output, or a configuration/operation failure.
 pub fn run_defaults(args: &DefaultsArgs) -> Result<String, String> {
+    eprintln!("args={args:?}");
     let defaults = load_defaults(&args.defaults)?;
-    match &args.command {
-        Command::List => Ok(list_rows(&defaults)),
+    let result = run_with_defaults(&args.command, &defaults)?;
+    eprintln!("{result:?}"); Ok(result)
+}
+
+/// Execute a typed defaults operation with an already validated catalog.
+/// Parameters: command - converted operation operands; defaults - validated shared catalog.
+/// Returns: operation output or its error.
+pub(crate) fn run_with_defaults(command: &Command, defaults: &Value) -> Result<String, String> {
+    eprintln!("command={command:?}, defaults={defaults:?}");
+    let result: Result<String, String> = match command {
+        Command::List => Ok(list_rows(defaults)),
         Command::Validate { prompts_root } => {
-            validate_sources(&defaults, prompts_root)?;
+            validate_sources(defaults, prompts_root)?;
             Ok(String::new())
         }
         Command::MergeClaude { settings, marketplace_dir, plugins } => {
-            merge_claude(settings, &defaults, plugins, marketplace_dir.as_deref())?;
+            merge_claude(settings, defaults, plugins, marketplace_dir.as_deref())?;
             Ok(String::new())
         }
         Command::HideAccount { settings, hide } => {
@@ -210,10 +223,18 @@ pub fn run_defaults(args: &DefaultsArgs) -> Result<String, String> {
             merge_grok(target, name, model_id, base_url, env_key)?;
             Ok(String::new())
         }
-    }
+    };
+    let result = result?;
+    eprintln!("{result:?}");
+    Ok(result)
 }
 
-fn load_defaults(path: &Path) -> Result<Value, String> {
+
+/// Parse and validate the shared prompt catalog before any installation effects.
+/// Parameters: path - committed or explicitly selected defaults document.
+/// Returns: validated marketplace metadata and prompt entries.
+pub(crate) fn load_defaults(path: &Path) -> Result<Value, String> {
+    eprintln!("path={path:?}");
     let data: Value = serde_json::from_str(&fs::read_to_string(path).map_err(|error| error.to_string())?)
         .map_err(|error| error.to_string())?;
     let marketplace = data.get("marketplace").cloned().unwrap_or_else(|| Value::Object(Map::new()));
@@ -244,6 +265,7 @@ fn load_defaults(path: &Path) -> Result<Value, String> {
         }
         seen.push(plugin.to_string());
     }
+    eprintln!("{data:?}");
     Ok(data)
 }
 
@@ -429,49 +451,101 @@ fn cleanup_migrated(home: &Path, prompts_root: &Path, plugin_name: &str, marketp
     Ok(())
 }
 
+/// Require the current manifest-free skill source layout.
+/// Parameters: source_dir - converted source directory selector.
+/// Returns: None for a supported current source layout, otherwise an error.
+fn require_source_dir(source_dir: &str) -> Result<(), String> {
+    eprintln!("source_dir={source_dir:?}");
+    if source_dir != "skills" && source_dir != DISPATCH { return Err(format!("unsupported skill source directory: {}", py_str(source_dir))); }
+    eprintln!("None"); Ok(())
+}
+
+/// Require an authoritative skill body before creating any runtime link or copy.
+/// Parameters: source - converted source directory; label - diagnostic content label.
+/// Returns: canonical source directory, or a missing-body error.
+fn require_skill_source(source: &Path, label: &str) -> Result<PathBuf, String> {
+    eprintln!("source={source:?}, label={label:?}");
+    let result = canonical(source);
+    if !result.join("SKILL.md").is_file() { return Err(format!("missing {label} source: {}", result.display())); }
+    eprintln!("{result:?}"); Ok(result)
+}
+
+/// Require a kebab-case native content identifier without changing its acceptance.
+/// Parameters: tool - diagnostic harness; noun - skill or plugin; name - converted content name.
+/// Returns: None for an accepted identifier, otherwise its legacy diagnostic.
+fn require_content_name(tool: &str, noun: &str, name: &str) -> Result<(), String> {
+    eprintln!("tool={tool:?}, noun={noun:?}, name={name:?}");
+    if !is_kebab(name) { return Err(format!("invalid {tool} {noun} name: {}", py_str(name))); }
+    eprintln!("None"); Ok(())
+}
+
+/// Install a validated direct/dispatch skill into the selected Codex and Claude homes.
+/// Parameters: home - target user; prompts_root - authoritative checkout; skill_name - invocation name; codex_home - optional selected account; source_dir - supported source layout.
+/// Returns: None after installation, or a source/I/O failure.
 fn install_direct(home: &Path, prompts_root: &Path, skill_name: &str, codex_home: Option<&Path>, source_dir: &str) -> Result<(), String> {
-    if source_dir != "skills" && source_dir != DISPATCH {
-        return Err(format!("unsupported skill source directory: {}", py_str(source_dir)));
-    }
+    eprintln!("home={home:?}, prompts_root={prompts_root:?}, skill_name={skill_name:?}, codex_home={codex_home:?}, source_dir={source_dir:?}");
+    require_source_dir(source_dir)?;
     let codex_home = codex_home.map(Path::to_path_buf).unwrap_or_else(|| home.join(".codex"));
-    let source_skill = prompts_root.join(source_dir).join(skill_name);
-    if !source_skill.join("SKILL.md").is_file() {
-        return Err(format!("missing direct skill source: {}", source_skill.display()));
-    }
+    let source_skill = require_skill_source(&prompts_root.join(source_dir).join(skill_name), "direct skill")?;
     let codex_skills = codex_home.join("skills");
     fs::create_dir_all(&codex_skills).map_err(|error| error.to_string())?;
     let codex_link = codex_skills.join(skill_name);
     replace_codex_link(&codex_link, &source_skill)?;
-    if !codex_link.exists() {
-        std::os::unix::fs::symlink(&source_skill, &codex_link).map_err(|error| error.to_string())?;
-    }
+    if !codex_link.exists() { std::os::unix::fs::symlink(&source_skill, &codex_link).map_err(|error| error.to_string())?; }
     let claude_skill = home.join(".claude/skills").join(skill_name);
     remove_path(&claude_skill)?;
-    copy_tree(&source_skill, &claude_skill)
+    copy_tree(&source_skill, &claude_skill)?;
+    eprintln!("None"); Ok(())
 }
 
+/// Resolve a standard native-harness skill target and call the shared installation owner.
+/// Parameters: tool - native harness; home - target user; source - authoritative skill directory; name - invocation name.
+/// Returns: None after native linking, otherwise a validation/collision error.
 fn install_skill(tool: Tool, home: &Path, source: &Path, name: &str) -> Result<(), String> {
-    if !is_kebab(name) {
-        return Err(format!("invalid {} skill name: {}", tool.label(), py_str(name)));
-    }
-    let source = canonical(source);
-    if !source.join("SKILL.md").is_file() {
-        return Err(format!("missing {} skill source: {}", tool.label(), source.display()));
-    }
-    let target = tool.skill_dir(home, name);
-    place_managed_link(&target, &source, tool.label(), "skill", matches!(tool, Tool::Cline | Tool::Cursor))
+    eprintln!("tool={tool:?}, home={home:?}, source={source:?}, name={name:?}");
+    install_skill_at(tool, &tool.skill_dir(home,name), source, name)?;
+    eprintln!("None"); Ok(())
 }
 
+/// Link a native skill at a converted standard or explicitly configured target.
+/// Parameters: tool - native harness; target - fully converted target link; source - authoritative body directory; name - invocation name.
+/// Returns: None after shared source/name/collision validation and linking.
+pub(crate) fn install_skill_at(tool: Tool, target: &Path, source: &Path, name: &str) -> Result<(), String> {
+    eprintln!("tool={tool:?}, target={target:?}, source={source:?}, name={name:?}");
+    require_content_name(tool.label(), "skill", name)?;
+    let source = require_skill_source(source, &format!("{} skill",tool.label()))?;
+    place_managed_link(target, &source, tool.label(), "skill", matches!(tool, Tool::Cline | Tool::Cursor))?;
+    eprintln!("None"); Ok(())
+}
+
+/// Resolve a standard native bundle target and call the shared linking owner.
+/// Parameters: tool - native harness; home - target user; source - complete plugin directory; name - plugin identifier.
+/// Returns: None after validation/linking, otherwise its source/collision error.
 fn install_plugin(tool: Tool, home: &Path, source: &Path, name: &str) -> Result<(), String> {
-    if !is_kebab(name) {
-        return Err(format!("invalid {} plugin name: {}", tool.label(), py_str(name)));
-    }
+    eprintln!("tool={tool:?}, home={home:?}, source={source:?}, name={name:?}");
+    install_plugin_at(tool, &tool.plugin_dir(home,name), source, name)?;
+    eprintln!("None"); Ok(())
+}
+
+/// Link a complete bundle at the converted standard or explicitly configured target.
+/// Parameters: tool - native harness; target - complete bundle link path; source - complete plugin directory; name - plugin identifier.
+/// Returns: None after shared identifier/source/collision validation and linking.
+pub(crate) fn install_plugin_at(tool: Tool, target: &Path, source: &Path, name: &str) -> Result<(), String> {
+    eprintln!("tool={tool:?}, target={target:?}, source={source:?}, name={name:?}");
+    require_content_name(tool.label(), "plugin", name)?;
     let source = canonical(source);
-    if !source.join("skills").is_dir() {
-        return Err(format!("missing {} plugin content: {}", tool.label(), source.display()));
-    }
-    let target = tool.plugin_dir(home, name);
-    place_managed_link(&target, &source, tool.label(), "plugin", false)
+    require_bundle_source(tool, &source)?;
+    place_managed_link(target, &source, tool.label(), "plugin", false)?;
+    eprintln!("None"); Ok(())
+}
+
+/// Accept an authoritative plugin bundle before creating a native link.
+/// Parameters: tool - diagnostic harness; source - canonical plugin directory.
+/// Returns: None when the current bundle has its required skills directory.
+fn require_bundle_source(tool: Tool, source: &Path) -> Result<(), String> {
+    eprintln!("tool={tool:?}, source={source:?}");
+    if !source.join("skills").is_dir() { return Err(format!("missing {} plugin content: {}", tool.label(), source.display())); }
+    eprintln!("None"); Ok(())
 }
 
 /// Accept the shared opencode model and reasoning-variant contract.

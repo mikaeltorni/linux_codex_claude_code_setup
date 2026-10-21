@@ -95,7 +95,7 @@ def test_every_selected_prompt_is_exposed_natively_to_opencode() -> None:
     print("parameters=none")
     installer = (ROOT / "lib/plugin_installation.sh").read_text(encoding="utf-8")
     helper = (ROOT / "tests/reference/plugin_defaults.py").read_text(encoding="utf-8")
-    assert installer.count("install_opencode_prompt_skill") >= 3
+    assert "run_prompt_owner skill opencode" in installer
     assert "install_opencode_prompt_plugin" in installer
     assert "install-opencode-skill" in helper
     assert "install-opencode-plugin" in helper

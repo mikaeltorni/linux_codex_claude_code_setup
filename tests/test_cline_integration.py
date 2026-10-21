@@ -63,10 +63,16 @@ def test_delayed_autoupdate_includes_cline() -> None:
 
 
 def test_every_prompt_skill_is_exposed_to_cline() -> None:
-    """Cline should discover the same selected skills under ~/.cline/skills."""
+    """Cline should discover the same selected skills under ~/.cline/skills.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
     assert "install_cline_prompt_skill" in installer
-    assert installer.count("install_cline_prompt_skill") >= 3
+    assert "run_prompt_owner skill cline" in installer
+    print(None)
 
 
 def test_every_prompt_plugin_is_exposed_to_cline() -> None:
@@ -80,8 +86,9 @@ def test_every_prompt_plugin_is_exposed_to_cline() -> None:
     helper = (ROOT / "tests/reference" / "plugin_defaults.py").read_text(encoding="utf-8")
     assert "install_cline_prompt_plugin" in installer
     # The plugin install must follow the skill install in install_prompt_plugin.
-    skill_call = installer.index('install_cline_prompt_skill "$plugin_name" "$skill_name"')
-    plugin_call = installer.index('install_cline_prompt_plugin "$plugin_name"')
+    native = (ROOT / "src/prompt_install.rs").read_text()
+    skill_call = native.index("self.skill(tool, plugin, skill)")
+    plugin_call = native.index("self.bundle(tool, plugin)")
     assert skill_call < plugin_call
     assert "install-cline-plugin" in helper
     assert 'home / ".cline" / "plugins"' in helper
@@ -89,11 +96,17 @@ def test_every_prompt_plugin_is_exposed_to_cline() -> None:
 
 
 def test_cline_global_rules_are_merged_by_global_instructions() -> None:
-    """Cline Rules are loaded every session; the installer merges them in."""
+    """Cline Rules are loaded every session; the installer merges them in.
+
+    Parameters: none.
+    Returns: None.
+    """
+    print("parameters=none")
     installer = (ROOT / "lib" / "plugin_installation.sh").read_text(encoding="utf-8")
-    global_fn = installer.split("install_plugin_global_instructions()", 1)[1]
+    global_fn = (ROOT / "src/prompt_install.rs").read_text()
     assert ".agents/AGENTS.md" in global_fn
     assert "Documents/Cline/Rules" in global_fn
+    print(None)
 
 
 def test_cline_skill_install_preserves_unmanaged_content(tmp_path: Path) -> None:
