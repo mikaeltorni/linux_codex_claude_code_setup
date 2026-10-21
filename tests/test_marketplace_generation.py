@@ -9,9 +9,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests/reference"))
 SPEC = importlib.util.spec_from_file_location(
-    "generate_marketplaces", ROOT / "scripts" / "generate_marketplaces.py"
+    "generate_marketplaces", ROOT / "tests/reference" / "generate_marketplaces.py"
 )
 assert SPEC and SPEC.loader
 generator = importlib.util.module_from_spec(SPEC)
@@ -19,6 +19,12 @@ SPEC.loader.exec_module(generator)
 
 
 def test_generated_catalogs_cover_defaults_with_local_plugin_sources(tmp_path: Path) -> None:
+    """Check the public reference result.
+
+    Parameters: tmp_path - isolated test fixture.
+    Returns: None.
+    """
+    print(f"tmp_path={tmp_path}")
     prompts = tmp_path / "programming_prompts"
     defaults = json.loads((ROOT / "default.json").read_text(encoding="utf-8"))
     for entry in defaults["plugins"]:
@@ -53,6 +59,7 @@ def test_generated_catalogs_cover_defaults_with_local_plugin_sources(tmp_path: P
         assert link.is_symlink()
         assert link.resolve() == (prompts / "plugins" / name).resolve()
 
-    log_path = ROOT / ".log" / "generate_marketplaces.log"
+    log_path = ROOT / "tests/.log" / "generate_marketplaces.log"
     assert log_path.is_file()
     assert "Generated marketplaces for" in log_path.read_text(encoding="utf-8")
+    print(None)

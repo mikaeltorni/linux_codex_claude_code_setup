@@ -345,7 +345,7 @@ def test_installer_logging_contract_is_explicit() -> None:
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     cli = (ROOT / "lib" / "cli_installation.sh").read_text(encoding="utf-8")
     shell_logging = (ROOT / "lib" / "logging.sh").read_text(encoding="utf-8")
-    python_logging = (ROOT / "scripts" / "logging_utils.py").read_text(
+    python_logging = (ROOT / "tests/reference" / "logging_utils.py").read_text(
         encoding="utf-8"
     )
     assert ".log/" in gitignore

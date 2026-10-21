@@ -8,7 +8,7 @@ import tomllib
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts/codex_reserve_policy.py"
+SCRIPT = ROOT / "tests/reference/codex_reserve_policy.py"
 BINARY = Path(os.environ.get("CODEX_CONFIG_TEST_BINARY", str(Path.home() / ".local/share/linux_codex_claude_code_setup/npm/bin/codex")))
 
 
