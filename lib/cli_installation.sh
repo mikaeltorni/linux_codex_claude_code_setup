@@ -15,34 +15,57 @@ ensure_local_bin_on_path() {
   '
 }
 
-# Install the main Codex fork binary and print its raw binary path. Shared by
+# Install the selected Codex source and print its raw binary path. Shared by
 # codex_cli and codex_wrapper so either component can be selected on its own and
 # still find (or install) the underlying binary.
-# Parameters: none; target and fork settings come from the installer environment.
+# Parameters: none; target, source and fork settings come from the installer environment.
 # Returns: raw Codex entrypoint on stdout, or installation failure.
 ensure_codex_binary() {
   printf 'parameters=none\n' >&2
+  local raw status=0 native
+  if [[ "${CODEX_INSTALL_SOURCE:-fork}" != fork ]]; then
+    build_setup_generators 1>&2 || return 1
+    native="$(generators_release_bin setup-install)" || return 1
+    run_as_target env \
+      CODEX_NPM_PREFIX="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}" \
+      "$native" --barebones --select codex_cli \
+      --codex-source "$CODEX_INSTALL_SOURCE" --home "$TARGET_HOME" 1>&2 || status=$?
+    if [[ "$status" != 0 ]]; then
+      printf '%s\n' "$status" >&2
+      return "$status"
+    fi
+    raw="${CODEX_NPM_PREFIX:-$TARGET_HOME/.local/share/linux_codex_claude_code_setup/npm}/bin/codex"
+    printf '%s\n' "$raw" >&2
+    printf '%s' "$raw"
+    return 0
+  fi
   # Callers capture this function's stdout to read the binary path, so every
   # noisy install command must write to stderr (still logged/visible) and only
   # the resolved path may reach stdout.
   run_as_target install -D -m 0644 "$SCRIPT_DIR/assets/codex_fork_install.sh" \
     "$TARGET_HOME/.local/share/linux_codex_claude_code_setup/codex_fork_install.sh" 1>&2 || return 1
-  local raw status=0
   raw="$(codex_fork_install_main)" || return 1
   reapply_hook_trust 1>&2 || status=$?
   [[ "$status" == 0 ]] || return "$status"
+  printf '%s\n' "$raw" >&2
   printf '%s' "$raw"
 }
 
 # Core Codex CLI component: install the raw binary and expose `codex` on PATH via
 # a plain launcher. The tracking-aware wrapper is the separate codex_wrapper
 # component; without it the raw Codex still runs end to end.
+# Parameters: none; source and target come from installer environment.
+# Returns: native source installation and launcher configuration status.
 install_codex_cli() {
-  msg "Installing Codex CLI from local fork main"
+  printf 'parameters=none\n' >&2
+  msg "Installing Codex CLI from ${CODEX_INSTALL_SOURCE:-fork}"
   local raw_codex
   raw_codex="$(ensure_codex_binary)" || return 1
   install_codex_plain_launcher "$raw_codex"
-  ensure_local_bin_on_path
+  local status=0
+  ensure_local_bin_on_path || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
 }
 
 # Optional tracking-aware Codex wrapper component. Ensures the binary exists (so

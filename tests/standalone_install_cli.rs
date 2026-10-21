@@ -424,3 +424,48 @@ test "$(cat "$RUSTY_V8_SRC_BINDING_PATH")" = 'verified binding' || exit 97
     fs::remove_dir_all(root).unwrap();
     println!("None");
 }
+
+#[test]
+/// Switch npm to the default fork and back without changing the source checkout.
+/// Parameters: none.
+/// Returns: None.
+fn codex_source_switches_preserve_the_fork_default() {
+    println!("parameters=none");
+    let (root, home, fork, path) = fixture("source-switch");
+    executable(&root.join("tools/npm"), r#"#!/bin/bash
+set -eu
+[[ "$*" == *'@openai/codex@latest'* ]] || exit 91
+stage="$4"
+mkdir -p "$stage/bin" "$stage/lib/node_modules/@openai/codex/bin"
+printf '#!/bin/sh\necho npm-codex\n' > "$stage/lib/node_modules/@openai/codex/bin/codex.js"
+chmod +x "$stage/lib/node_modules/@openai/codex/bin/codex.js"
+ln -s ../lib/node_modules/@openai/codex/bin/codex.js "$stage/bin/codex"
+"#);
+    let prefix = home.join(".local/share/linux_codex_claude_code_setup/npm");
+    for source in [Some("npm"), None, Some("fork"), Some("npm")] {
+        let mut args = vec!["--barebones", "--select", "codex_cli"];
+        if let Some(value) = source {
+            args.extend(["--codex-source", value]);
+        }
+        let result = run(&home, &fork, &path, &args);
+        assert!(result.status.success(), "{source:?}: {result:?}");
+        assert_eq!(prefix.join("bin/codex-native").is_symlink(), source == Some("npm"));
+        assert_eq!(prefix.join("codex-fork-revision").exists(), source != Some("npm"));
+    }
+    assert_eq!(fs::read_to_string(home.join("builds")).unwrap().lines().count(), 1);
+    assert_eq!(capture_git_branch(&fork), "main");
+    fs::remove_dir_all(root).unwrap();
+    println!("None");
+}
+
+/// Read a fixture's active branch through Git's public interface.
+/// Parameters: fork - source checkout.
+/// Returns: trimmed checked-out branch name.
+fn capture_git_branch(fork: &Path) -> String {
+    println!("fork={fork:?}");
+    let output = Command::new("git").arg("-C").arg(fork).args(["branch", "--show-current"]).output().unwrap();
+    assert!(output.status.success());
+    let result = String::from_utf8(output.stdout).unwrap().trim().to_owned();
+    println!("{result:?}");
+    result
+}

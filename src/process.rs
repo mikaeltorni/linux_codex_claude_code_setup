@@ -27,6 +27,9 @@ pub(crate) fn require_tools(names: &[&str]) -> Result<(), String> {
         .copied()
         .collect::<Vec<_>>();
     if !missing.is_empty() {
+        if missing.iter().any(|name| matches!(*name, "node" | "npm")) {
+            return Err(format!("Missing required tools: {}. Sudo-required step (run separately): sudo apt-get install -y nodejs npm coreutils", missing.join(", ")));
+        }
         return Err(format!("Missing required tools: {}. Sudo-required step (run separately): sudo apt-get install -y ca-certificates curl git build-essential cmake pkg-config python3", missing.join(", ")));
     }
     eprintln!("None");
