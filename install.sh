@@ -78,14 +78,8 @@ source "$SCRIPT_DIR/lib/instances.sh"
 source "$SCRIPT_DIR/lib/hook_trust.sh"
 source "$SCRIPT_DIR/lib/codex_reserve_policy.sh"
 source "$SCRIPT_DIR/lib/lifecycle.sh"
-# Discovery stays read-only even on an unbuilt checkout. Installation builds
-# first so locally edited default.json can be parsed before component registration.
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  case "${1:-}" in
-    --list-components|--export-selection|--detect|--help|-h) ;;
-    *) build_setup_generators ;;
-  esac
-fi
+# Resolve discovery from native helpers or the checksum-bound committed metadata.
+# Building belongs to the accepted installation preflight, after full validation.
 source "$SCRIPT_DIR/installer/components.sh"
 
 # Build native helpers before applying the selected components.
@@ -99,13 +93,19 @@ agent_cli_preflight() {
   return "$status"
 }
 
+# Plan selection before logging and the accepted installation's native preflight.
+# Parameters: $@ - already parsed installer arguments. Returns: the operation status, zero on cancellation.
 run_installer() {
-  run_with_installer_log component_main "$@"
+  printf 'arguments=%s\n' "$*" >&2
+  local rc
+  isc_plan_install
+  if [[ "$ISC_PLAN_ACTION" == cancel ]]; then printf '0\n' >&2; return 0; fi
+  run_with_installer_log _isc_apply_plan "$ISC_ARGUMENT_ORIGIN"; rc=$?
+  printf '%s\n' "$rc" >&2
+  return "$rc"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  case "${1:-}" in
-    --list-components|--export-selection|--detect|--help|-h) component_main "$@" ;;
-    *) run_installer "$@" ;;
-  esac
+  if isc_route_readonly_args "$@"; then exit $?; fi
+  run_installer "$@"
 fi
