@@ -21,7 +21,7 @@ def isolated_checkout(tmp_path):
     print(f"tmp_path={tmp_path}")
     checkout = tmp_path / "projects/setup"
     checkout.mkdir(parents=True)
-    for name in ("lib", "assets", "installer", "scripts", "configs"):
+    for name in ("lib", "assets", "installer", "scripts", "configs", ".installer-support"):
         shutil.copytree(ROOT / name, checkout / name, ignore=shutil.ignore_patterns("__pycache__"))
     for name in ("install.sh", "default.json", "Cargo.toml"):
         shutil.copy2(ROOT / name, checkout / name)
