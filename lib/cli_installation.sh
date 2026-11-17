@@ -189,3 +189,13 @@ install_codex_plain_launcher() {
   fi
   run_as_target ln -sf "$raw_codex" "$bin_dir/codex"
 }
+
+# Install Vibe through its target-user native lifecycle.
+# Parameters: none. Returns: installer status.
+install_vibe_cli() {
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component install vibe_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}

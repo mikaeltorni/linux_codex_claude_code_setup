@@ -172,3 +172,23 @@ uninstall_grok_cli() {
   printf '%s\n' "$status" >&2
   return "$status"
 }
+
+# Detect Vibe in the target user's installation.
+# Parameters: none. Returns: native detection status.
+detect_vibe_cli() {
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component detect vibe_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
+
+# Remove Vibe while retaining its user configuration.
+# Parameters: none. Returns: native removal status.
+uninstall_vibe_cli() {
+  printf 'parameters=none\n' >&2
+  local status=0
+  run_native_component uninstall vibe_cli || status=$?
+  printf '%s\n' "$status" >&2
+  return "$status"
+}
