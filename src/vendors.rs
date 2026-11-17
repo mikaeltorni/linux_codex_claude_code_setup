@@ -63,6 +63,12 @@ impl Settings {
                     .join("config.toml"),
                 setting("GROK_INSTALL_URL", "https://x.ai/cli/install.sh"),
             ),
+            Vendor::Vibe => (
+                "vibe".into(),
+                home.join(".local/share/uv/tools/mistral-vibe"),
+                home.join(".vibe"),
+                String::new(),
+            ),
             Vendor::Opencode => (
                 setting("OPENCODE_COMMAND", "opencode"),
                 PathBuf::from(setting(
@@ -147,7 +153,7 @@ fn require_model(settings: &Settings) -> Result<(), String> {
                 require_grok_config(name, key)?;
             }
         }
-        Vendor::Cline => (),
+        Vendor::Cline | Vendor::Vibe => (),
     }
     eprintln!("None");
     Ok(())
@@ -273,6 +279,70 @@ fn install_official(settings: &Settings) -> Result<(), String> {
     result
 }
 
+/// Find uv or install its official user-local executable for a clean home.
+/// Parameters: settings - target user's paths.
+/// Returns: uv executable path or an installation error.
+fn ensure_uv(settings: &Settings) -> Result<PathBuf, String> {
+    eprintln!("settings={settings:?}");
+    let local = settings.home.join(".local/bin/uv");
+    if require_executable(&local).is_ok() {
+        eprintln!("{local:?}");
+        return Ok(local);
+    }
+    if let Some(path) = crate::process::binary("uv") {
+        eprintln!("{path:?}");
+        return Ok(path);
+    }
+    require_tools(&["curl", "sh", "timeout"])?;
+    let directory = scratch(&settings.home.join(".local/share"), "uv-installer")?;
+    let script = directory.join("install.sh");
+    let result = capture(
+        Command::new("curl")
+            .args([
+                "-fsSL",
+                "--max-time",
+                "300",
+                "https://astral.sh/uv/install.sh",
+                "-o",
+            ])
+            .arg(&script)
+            .env("HOME", &settings.home),
+    )
+    .and_then(|_| {
+        capture(
+            Command::new("timeout")
+                .arg("300")
+                .arg("sh")
+                .arg(&script)
+                .env("HOME", &settings.home)
+                .env("UV_NO_MODIFY_PATH", "1"),
+        )
+    });
+    let _ = fs::remove_dir_all(&directory);
+    result?;
+    require_executable(&local)?;
+    eprintln!("{local:?}");
+    Ok(local)
+}
+
+/// Install Vibe through uv without changing native credentials or configuration.
+/// Parameters: settings - target user's paths.
+/// Returns: None when an executable is available, or installation failure.
+fn install_vibe(settings: &Settings) -> Result<(), String> {
+    eprintln!("settings={settings:?}");
+    if !detect(settings) {
+        let uv = ensure_uv(settings)?;
+        capture(
+            Command::new(uv)
+                .args(["tool", "install", "mistral-vibe"])
+                .env("HOME", &settings.home),
+        )?;
+        require_executable(&launcher(settings))?;
+    }
+    eprintln!("None");
+    Ok(())
+}
+
 /// Install the selected optional CLI and merge only its managed configuration.
 /// Parameters: settings - converted vendor and target configuration.
 /// Returns: None after installation, validation and persistent PATH configuration.
@@ -282,6 +352,7 @@ pub(crate) fn install(settings: &Settings) -> Result<(), String> {
     require_model(settings)?;
     match settings.vendor {
         Vendor::Cline => install_cline(settings)?,
+        Vendor::Vibe => install_vibe(settings)?,
         Vendor::Grok => {
             install_official(settings)?;
             let executable = launcher(settings);
@@ -328,6 +399,18 @@ pub(crate) fn install(settings: &Settings) -> Result<(), String> {
 pub(crate) fn uninstall(settings: &Settings) -> Result<(), String> {
     eprintln!("settings={settings:?}");
     require_settings(settings)?;
+    if matches!(settings.vendor, Vendor::Vibe) {
+        if detect(settings) {
+            let uv = ensure_uv(settings)?;
+            capture(
+                Command::new(uv)
+                    .args(["tool", "uninstall", "mistral-vibe"])
+                    .env("HOME", &settings.home),
+            )?;
+        }
+        eprintln!("None");
+        return Ok(());
+    }
     let destination = launcher(settings);
     let raw = match settings.vendor {
         Vendor::Cline => settings.prefix.join("bin/cline"),

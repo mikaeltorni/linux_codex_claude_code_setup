@@ -4,7 +4,7 @@ use crate::instances::require_home;
 use std::path::PathBuf;
 
 pub const USAGE: &str =
-    "setup-component {install|detect|uninstall} {cline_cli|grok_cli|opencode_cli} [--home PATH]";
+    "setup-component {install|detect|uninstall} {cline_cli|grok_cli|opencode_cli|vibe_cli} [--home PATH]";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -17,6 +17,7 @@ pub enum Vendor {
     Cline,
     Grok,
     Opencode,
+    Vibe,
 }
 #[derive(Debug)]
 pub struct Args {
@@ -41,6 +42,7 @@ pub fn parse(tokens: &[String], home: PathBuf) -> Result<Args, String> {
             Some("cline_cli") => Vendor::Cline,
             Some("grok_cli") => Vendor::Grok,
             Some("opencode_cli") => Vendor::Opencode,
+            Some("vibe_cli") => Vendor::Vibe,
             _ => return Err(USAGE.into()),
         },
         home,
