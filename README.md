@@ -2,7 +2,7 @@
 
 Linux Codex and Claude Code Setup is a Linux CLI installer for developers who need isolated accounts, selectable Codex sources, and programming-prompts plugins.
 
-It installs and configures vendor CLIs on Linux, with optional Cline, Grok, and opencode components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
+It installs and configures vendor CLIs on Linux, with optional Cline, Grok, opencode, and Mistral Vibe components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
 
 [![Last commit: 2026-10-21](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commit activity: 92 commits in 30 days on 2026-10-21](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 on 2026-10-21](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
 
@@ -58,10 +58,14 @@ bash install.sh --barebones --codex-source npm --codex-instances 3 --claude-inst
 bash install.sh --barebones --help
 bash install.sh --list-components
 bash install.sh --default
-bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli
+bash install.sh --select codex_cli,claude_code,cline_cli,grok_cli,opencode_cli,vibe_cli
 bash install.sh --select codex_cli,qwen_cli,openrouter_cli
 bash scripts/sync_codex_fork.sh
 ```
+
+### Mistral Vibe
+
+The default-on `vibe_cli` component installs Mistral Vibe user-locally with `uv tool install mistral-vibe`; on a clean home it installs `uv` first when necessary. Use `bash install.sh --select vibe_cli` to install it separately. Run `vibe` to sign in with Mistral; the installer does not manage credentials. Component removal leaves `~/.vibe` configuration and authentication in place.
 
 ### Choosing a Codex installation source
 
@@ -495,7 +499,7 @@ functions delegate to these native owners. In the forms below, braces denote
 alternatives: choose one value.
 
 ```text
-setup-component {install|detect|uninstall} {cline_cli|grok_cli|opencode_cli} [--home PATH]
+setup-component {install|detect|uninstall} {cline_cli|grok_cli|opencode_cli|vibe_cli} [--home PATH]
 setup-provider {install|configure|detect|uninstall|status-line} {qwen|openrouter} [--home PATH] [--config PATH]
 agent-autoupdate {run|install|detect|uninstall} [--home PATH] [--delay-hours HOURS]
 agent-autoupdate resolve INSTALLED_VERSION HOURS NOW_UNIX < npm-times.json
