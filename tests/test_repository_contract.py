@@ -351,10 +351,10 @@ def test_installer_logging_contract_is_explicit() -> None:
     )
     assert ".log/" in gitignore
     assert 'source "$SCRIPT_DIR/lib/logging.sh"' in installer
-    assert "run_with_installer_log component_main" in installer
+    assert 'run_with_installer_log _isc_apply_plan "$ISC_ARGUMENT_ORIGIN"' in installer
     assert 'log_dir="$SCRIPT_DIR/.log"' in shell_logging
     assert 'tee "$log_file"' in shell_logging
-    assert "--list-components|--export-selection|--detect|--help|-h) component_main" in installer
+    assert installer.index('if isc_route_readonly_args "$@"; then exit $?; fi') < installer.index('  run_installer "$@"')
     assert "def get_logger(" in python_logging
     assert "def log_call(" in python_logging
     assert "configure_logger" not in python_logging
