@@ -4,7 +4,7 @@ Linux Codex and Claude Code Setup is a Linux CLI installer for developers who ne
 
 It installs and configures vendor CLIs on Linux, with optional Cline, Grok, opencode, and Mistral Vibe components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
 
-[![Last commit: 2026-10-21](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commit activity: 92 commits in 30 days on 2026-10-21](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 on 2026-10-21](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
+[![Last commit: 2026-11-19](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commits in 30 days: 8 as of 2026-11-25](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 as of 2026-11-25](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
 
 [Features](#linux-cli-installer-features) · [Installation](#linux-codex-and-claude-code-installation) · [Quick start](#quick-start-for-codex-and-claude-code) · [Configuration](#linux-codex-and-claude-code-configuration) · [FAQ](#linux-codex-and-claude-code-installation-faq) · [Usage](#linux-cli-usage-and-examples) · [Contributing](#contributing-to-the-linux-cli-installer) · [License](#mit-license-for-the-linux-cli-installer)
 
@@ -327,6 +327,8 @@ tests, a locked release build, and pytest. Python 3.11+ and pytest are developme
 requirements; the retained Python reference implementations use the standard
 library. The upstream Codex code-mode build can also require Python as a build
 tool. The npm package-context tests also require Node.js.
+
+Run this gate from a standalone checkout for core release checks. Integration checks that read an optional sibling checkout run when that checkout is present.
 
 The npm source change passed the full gate (including 181 Python tests), source
 switching tests, and two real `@openai/codex@latest` installs into an isolated
