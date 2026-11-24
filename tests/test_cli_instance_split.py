@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 # Resolve siblings from Git's common directory so this works in the live
@@ -94,6 +96,7 @@ def test_provider_install_reuses_fork_main_binary() -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_manifest_does_not_own_core_clis() -> None:
     components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
     for row in ("codex_cli|", "claude_code|", "cline_cli|", "grok_cli|", "qwen_cli|", "openrouter_cli|"):
@@ -103,6 +106,7 @@ def test_acc_manifest_does_not_own_core_clis() -> None:
     assert "agent_tracker|" in components
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_hooks_refresh_only_without_runtime_provisioning() -> None:
     qwen = (ACC / "lib" / "qwen_codex.sh").read_text(encoding="utf-8")
     openrouter = (ACC / "lib" / "openrouter_codex.sh").read_text(encoding="utf-8")
@@ -114,12 +118,14 @@ def test_acc_hooks_refresh_only_without_runtime_provisioning() -> None:
     assert "refresh_openrouter_notify_hook" in openrouter_setup
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_tracker_still_generates_shorthand_dispatchers() -> None:
     tracker = (ACC / "lib" / "codex_agent_tracker.sh").read_text(encoding="utf-8")
     assert "local acc_front_ends=(ca cx cap cca cla qa ga oa na" in tracker
     assert 'for command_name in "${acc_front_ends[@]}"' in tracker
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_tracked_qwen_launcher_is_separate_from_plain_qwen() -> None:
     defaults = (ACC / "configs" / "lmstudio" / "defaults.sh").read_text(encoding="utf-8")
     qwen = (ACC / "lib" / "qwen_codex.sh").read_text(encoding="utf-8")

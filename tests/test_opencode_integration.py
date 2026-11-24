@@ -1,6 +1,8 @@
 """Contracts for the opencode (sst) CLI and programming-prompt integration."""
 
 from pathlib import Path
+
+import pytest
 import json
 import subprocess
 
@@ -178,6 +180,7 @@ def test_opencode_skill_link_is_idempotent(tmp_path: Path) -> None:
     print(None)
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_exposes_opencode_launcher_family_in_yolo_mode() -> None:
     """ACC wires oca/ocr/ocac driving opencode with --auto (yolo) and no API key.
 

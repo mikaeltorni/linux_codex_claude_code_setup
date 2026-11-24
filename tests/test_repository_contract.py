@@ -6,6 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 # Derive the projects folder from Git's common repository directory. This works
@@ -104,8 +106,11 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     skill_defaults = {
         entry["skill"] for entry in defaults["plugins"] if entry.get("kind") == "skill"
     }
-    assert plugin_defaults == plugin_names()
-    assert skill_defaults <= direct_skill_names()
+    if PROMPTS.is_dir():
+        assert plugin_defaults == plugin_names()
+        assert skill_defaults <= direct_skill_names()
+    else:
+        assert plugin_defaults == {"commit-guidelines", "linux-desktop-configuration"}
     assert skill_defaults == {
         "init-project",
         "refactoring",
@@ -135,6 +140,7 @@ def test_committed_defaults_cover_every_prompt_plugin() -> None:
     print(None)
 
 
+@pytest.mark.skipif(not PROMPTS.is_dir(), reason="requires the programming_prompts checkout")
 def test_programming_prompts_is_content_only() -> None:
     """Prompt content has per-plugin manifests but no generated marketplaces.
 
@@ -219,9 +225,10 @@ def test_models_and_tracking_wrapper_are_owned_by_acc() -> None:
     components = (ROOT / "installer" / "components.sh").read_text(encoding="utf-8")
     assert "qwen3_8_27b_model|" not in components
     assert "codex_wrapper|" not in components
-    acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
-    assert "qwen3_8_27b_model|" in acc_components
-    assert "codex_wrapper|" in acc_components
+    if ACC.is_dir():
+        acc_components = (ACC / "installer" / "components.sh").read_text(encoding="utf-8")
+        assert "qwen3_8_27b_model|" in acc_components
+        assert "codex_wrapper|" in acc_components
     print(None)
 
 
@@ -363,6 +370,7 @@ def test_installer_logging_contract_is_explicit() -> None:
     print(None)
 
 
+@pytest.mark.skipif(not ACC.is_dir(), reason="requires the Agent Command Center checkout")
 def test_acc_delegates_before_installing_its_own_components() -> None:
     """ACC should clone/install the standalone dependency before any component.
 
@@ -564,6 +572,7 @@ def test_claude_plugin_commands_run_without_a_controlling_tty() -> None:
     print(None)
 
 
+@pytest.mark.skipif(not ORCHESTRATOR.is_dir(), reason="requires the installation_scripts checkout")
 def test_master_installs_standalone_repo_before_acc() -> None:
     """Clean setup should clone and run the standalone repository before ACC.
 
@@ -607,9 +616,10 @@ def test_dispatch_skills_are_configured_and_present() -> None:
     }
     assert "github-seo" in dispatch
     assert "github-portfolio-scan" in dispatch
-    assert dispatch <= dispatch_skill_names()
-    assert (PROMPTS / "dispatch-skills" / "github-seo" / "SKILL.md").is_file()
-    assert (PROMPTS / "dispatch-skills" / "github-portfolio-scan" / "SKILL.md").is_file()
+    if PROMPTS.is_dir():
+        assert dispatch <= dispatch_skill_names()
+        assert (PROMPTS / "dispatch-skills" / "github-seo" / "SKILL.md").is_file()
+        assert (PROMPTS / "dispatch-skills" / "github-portfolio-scan" / "SKILL.md").is_file()
     print(None)
 
 

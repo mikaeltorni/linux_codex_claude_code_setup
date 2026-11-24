@@ -6,9 +6,6 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-from repository_paths import sibling_checkout
-
-STATUS_BAR = sibling_checkout(ROOT, "claude_code_status_bar")
 
 
 def test_compiled_defaults_are_usable_without_cargo_on_path(tmp_path):
@@ -30,7 +27,7 @@ def test_compiled_defaults_are_usable_without_cargo_on_path(tmp_path):
 
 
 def test_provider_status_line_uses_rust_and_retains_saved_fields(tmp_path):
-    """Use the status-bar owner through each provider's public config writer.
+    """Verify each provider queries the status-bar command with its own profile.
 
     Parameters: tmp_path - fresh target home with explicit field selections.
     Returns: None.
@@ -43,9 +40,21 @@ def test_provider_status_line_uses_rust_and_retains_saved_fields(tmp_path):
     fake.mkdir()
     (fake / "python3").write_text('#!/bin/bash\nprintf "unexpected Python launch\\n" >&2\nexit 95\n')
     (fake / "python3").chmod(0o755)
+    status_root = tmp_path / "status-bar"
+    renderer = status_root / "dist/status-bar-tools"
+    renderer.parent.mkdir(parents=True)
+    renderer.write_text(
+        '#!/bin/bash\n'
+        '[[ "$1 $2" == "field toml-array" && "$3" == "$EXPECTED_PROFILE" && "$4" == "$TARGET_HOME" ]] || exit 97\n'
+        'printf \'["model-with-reasoning","used-tokens"]\\n\'\n'
+    )
+    renderer.chmod(0o755)
     for kind in ["qwen", "openrouter"]:
         script = 'set -euo pipefail; source "$SCRIPT_DIR/lib/' + kind + '_cli.sh"; _' + kind + '_status_line_toml'
-        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=dict(os.environ, PATH=f"{fake}:/usr/bin:/bin", TARGET_HOME=str(tmp_path), SCRIPT_DIR=str(ROOT), CLAUDE_CODE_STATUS_BAR_DIR=str(STATUS_BAR)))
+        env = dict(os.environ, PATH=f"{fake}:/usr/bin:/bin", TARGET_HOME=str(tmp_path),
+                   SCRIPT_DIR=str(ROOT), CLAUDE_CODE_STATUS_BAR_DIR=str(status_root),
+                   EXPECTED_PROFILE=kind)
+        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout) == ["model-with-reasoning", "used-tokens"]
         assert "unexpected Python launch" not in result.stderr
