@@ -187,8 +187,8 @@ def test_native_prompt_checkout_uses_shared_authentication_bridge(tmp_path):
     source = tmp_path / "setup"
     (source / "scripts").mkdir(parents=True)
     shutil.copy2(ROOT / "scripts/ensure_prompt_checkout.sh", source / "scripts/ensure_prompt_checkout.sh")
-    shared = tmp_path / "linux_installation_scripts_functions"
-    shared.mkdir()
+    shared = source / ".installer-support"
+    shutil.copytree(ROOT / ".installer-support", shared)
     (shared / "component_loader.sh").write_text('''# Mock only the shared authentication owner.
 # Load the mock repository helper. Parameters: none. Returns: zero.
 isc_load_helpers() {
