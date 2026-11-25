@@ -2,13 +2,17 @@
 
 Linux Codex and Claude Code Setup is a Linux CLI installer for developers who need isolated accounts, selectable Codex sources, and programming-prompts plugins.
 
-It installs and configures vendor CLIs on Linux, with optional Cline, Grok, opencode, and Mistral Vibe components. This repository is part of [installation_scripts](https://github.com/mikaeltorni/installation_scripts), which provides the wider setup framework.
+It installs and configures vendor CLIs on Linux, with optional Cline, Grok, opencode, and Mistral Vibe components. This repository is part of `installation_scripts`, which provides the wider setup framework.
 
-[![Last commit: 2026-11-19](docs/badges/last-commit.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main) [![Commits in 30 days: 8 as of 2026-11-25](docs/badges/commit-activity.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity) [![Open issues: 0 as of 2026-11-25](docs/badges/issues.svg)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
+[![Last commit](https://img.shields.io/github/last-commit/mikaeltorni/linux_codex_claude_code_setup)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/commits/main)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/mikaeltorni/linux_codex_claude_code_setup)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/graphs/commit-activity)
+[![Issues](https://img.shields.io/github/issues/mikaeltorni/linux_codex_claude_code_setup)](https://github.com/mikaeltorni/linux_codex_claude_code_setup/issues)
 
 [Features](#linux-cli-installer-features) · [Installation](#linux-codex-and-claude-code-installation) · [Quick start](#quick-start-for-codex-and-claude-code) · [Configuration](#linux-codex-and-claude-code-configuration) · [FAQ](#linux-codex-and-claude-code-installation-faq) · [Usage](#linux-cli-usage-and-examples) · [Contributing](#contributing-to-the-linux-cli-installer) · [License](#mit-license-for-the-linux-cli-installer)
 
 ![Diagram showing Linux CLI setup flow from selecting Codex and Claude Code components through user-local installation, account and plugin configuration, and launching the selected CLIs.](docs/linux-cli-setup-flow.svg)
+
+[Programming Prompts](https://github.com/mikaeltorni/programming_prompts) owns the skills and plugin content. The [public Codex fork](https://github.com/mikaeltorni/codex) provides the optional native source build.
 
 ## Linux CLI installer features
 
@@ -672,7 +676,7 @@ The npm Codex source requires Node.js and npm, while the local Rust management t
 
 ## Contributing to the Linux CLI installer
 
-This private repository is maintained for the owner's Linux CLI setup. Keep `default.json` as the committed source of per-skill defaults, preserve unrelated settings under the target user's home, and maintain clean installation through `install.sh`. For code changes, use the documented release gate and a clean Ubuntu VM run appropriate to the changed behavior.
+Keep `default.json` as the source of per-skill defaults. Installer changes should preserve unrelated user settings and work from a clean checkout through `install.sh`. For code changes, use the documented release gate and verify the affected behavior in a clean Ubuntu VM.
 
 ## MIT license for the Linux CLI installer
 
